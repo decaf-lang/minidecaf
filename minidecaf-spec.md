@@ -1,3 +1,5 @@
+
+## 基本文法
 ```
 prog : decl+
 decl : vardel | funcdel
@@ -19,3 +21,6 @@ lvalue : expr ('[' expr ']')
 exprList : (expr (',' expr)*)?
 expr : unary / binary / relop / loadstore / arr / paren / cast / literal / newarray / call
 ```
+
+## feature文法
+小 feature 如 ternary expr ; var 以外加上 val ; 允许 var 做类型推断。
