@@ -12,11 +12,13 @@ pub enum LetterKind {
     LtNum,
     LtSpace,
     LtOperator,
+    LtParenthesis,
 }
 
 pub enum TokenKind {
     TkNum,
     TkOperator,
+    TkParenthesis,
 }
 
 pub struct Token {

@@ -80,9 +80,26 @@ fn term(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
 
 fn factor(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let idx_: usize = *idx;
-    if let TokenKind::TkNum = tokens[idx_].kind {
-        *idx += 1;
-        return create_node(&tokens[idx_].val, NodeKind::NdNum, None, None);
-    };
-    None
+    match tokens[idx_].kind {
+        TokenKind::TkNum => {
+            *idx += 1;
+            return create_node(&tokens[idx_].val, NodeKind::NdNum, None, None);
+        }
+        TokenKind::TkParenthesis => {
+            if &tokens[idx_].val[..] == "(" {
+                *idx += 1;
+                let node = expr(&tokens, idx);
+                if consume(&tokens, idx, &")") {
+                    return node;
+                } else {
+                    panic!("Expected )");
+                }
+            } else {
+                return None;
+            }
+        }
+        _ => {
+            return None;
+        }
+    }
 }
