@@ -3,6 +3,7 @@
 assert() {
     in=$1
     ans=$2
+    echo "input: $1, ans: $2"
     cargo run -- $1 > out/asm.S
 
     riscv64-unknown-elf-gcc out/asm.S -o out/run
@@ -26,5 +27,6 @@ assert 0 0
 assert 10 10
 assert 1+3 4
 assert 1+3+8 12
+assert ' 1 + 2 + 8  ' 11
 
 cd -
