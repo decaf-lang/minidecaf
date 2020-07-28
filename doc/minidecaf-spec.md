@@ -145,27 +145,34 @@ ident = [a-z]+[a-z0-9_]*
 
 ## 步骤X：完整的基本文法
 
-缺ARRAY, String等，与前面的不太一致
+mini-decaf几乎就是一个C子集
+下面的内容可能有bug
 ```
-prog : decl+
-decl : vardel | funcdel
-vardecl : 'var' ident ':' type ('=' initval)? ';'
-type : 'int' | 'bool' | '[' type ']'
-funcdecl : 'def' ident '(' argList ')' (':' retTy=type)? blockstmt
-argList : (argbinding (',' argbinding)*)?
-argbinding : ident ':' type
-blockstmt : '{' (stmt (';' stmt)*)? '}'
-stmt : blockstmt | vardecl | asgnstmt | skipstmt | ifstmt | whilestmt | exprstmt | returnstmt | intrinsicstmt
-asgnstmt : lvalue '=' expr ';'
-skipstmt : 'skip'  ';' // i.e. pass in python
-ifstmt : 'if' '(' expr ')' stmt ('else' stmt)?
-whilestmt : 'while' '(' expr ')' stmt
-exprstmt : expr ';'
-intrinsicstmt : ('print'|'read') exprList ';'
-returnstnt : 'return' expr? ';'
-lvalue : expr ('[' expr ']')
-exprList : (expr (',' expr)*)?
-expr : unary / binary / relop / loadstore / arr / paren / cast / literal / newarray / call
+program    = toplv*
+toplv      = typ ident ("(" (typ ident ("," typ ident)*)? ")" "{" stmt* "}" | ("[" num "]")* ";")
+stmt       = expr ";"
+           | "{" stmt* "}"
+           | "if" "(" expr ")" stmt ("else" stmt)?
+           | "while" "(" expr ")" stmt
+           | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+           | "return" expr ";"
+           | typ ident ("[" num "]")* ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = "+"? primary
+           | "-"? primary
+           | "&" unary
+           | "*" unary
+           | "sizeof" unary
+           | primary "[" expr "]"
+primary    = num
+           | ident ("(" (expr ("," expr)*)? ")")?
+           | "(" expr ")"
+typ        = ("int" | "char") "*"*
 ```
 
 ## feature文法
