@@ -1,19 +1,24 @@
 use std::env;
 
+enum LetterKind {
+    LtNum,
+    LtSpace,
+    LtOperator,
+}
+
 enum TokenKind {
     TkNum,
     TkOperator,
 }
 
+enum NodeKind {
+    NdNum,
+    NdOperator,
+}
+
 struct Token {
     kind: TokenKind,
     val: String,
-}
-
-enum LetterKind {
-    LtNum,
-    LtSpace,
-    LtOperator,
 }
 
 fn return_letter_kind(s: char) -> LetterKind {
@@ -85,15 +90,64 @@ fn lexing(input: &String) -> Vec<Token> {
 
 struct Node {
     val: String,
+    kind: NodeKind,
     left: Option<Box<Node>>,
     right: Option<Box<Node>>,
 }
 
-fn create_node(val: &str, left: Option<Node>, right: Option<Node>) -> Option<Node> {
+fn traverse(node: &Node, mid_commands: &mut Vec<String>){
+    match &node.left {
+        Some(node_left) => {
+            traverse(&node_left, mid_commands);
+        },
+        _ => {},
+    }
+
+    match &node.right {
+        Some(node_right) => {
+            traverse(&node_right, mid_commands);
+        },
+        _ => {},
+    }
+
+    match node.kind {
+        NodeKind::NdNum => {
+            mid_commands.push(format!("PUSH {}", node.val));
+        },
+        NodeKind::NdOperator => {
+            match &node.val[..] {
+                "+" => {
+                    mid_commands.push(String::from("ADD"));
+                },
+                "-" => {
+                    mid_commands.push(String::from("SUB"));
+                },
+                _ => {
+                    panic!("Unexpected operator: {}", node.val);
+
+                }
+            }
+        },
+    }
+}
+
+fn generate_intermidiate_code(node: &Option<Node>) -> Vec<String> {
+    let mut mid_commands : Vec<String>= Vec::new();
+    match node {
+        Some(node) => {
+            traverse(&node, &mut mid_commands);
+        }
+        _ => {},
+    }
+    mid_commands
+}
+
+fn create_node(val: &str, kind: NodeKind, left: Option<Node>, right: Option<Node>) -> Option<Node> {
     match (left, right) {
         (Some(node_left), Some(node_right)) => {
             Some(Node {
                 val: String::from(val),
+                kind: kind,
                 left: Some(Box::new(node_left)),
                 right: Some(Box::new(node_right)),
             }
@@ -102,6 +156,7 @@ fn create_node(val: &str, left: Option<Node>, right: Option<Node>) -> Option<Nod
         (Some(node_left), None) => {
             Some(Node {
                 val: String::from(val),
+                kind: kind,
                 left: Some(Box::new(node_left)),
                 right: None,
             })
@@ -109,6 +164,7 @@ fn create_node(val: &str, left: Option<Node>, right: Option<Node>) -> Option<Nod
         (None, Some(node_right)) => {
             Some( Node {
                 val: String::from(val),
+                kind: kind,
                 left: None,
                 right: Some(Box::new(node_right))
             })
@@ -116,6 +172,7 @@ fn create_node(val: &str, left: Option<Node>, right: Option<Node>) -> Option<Nod
         (None, None) => {
             Some( Node {
                 val: String::from(val),
+                kind: kind,
                 left: None,
                 right: None
             })
@@ -143,9 +200,9 @@ fn exp(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
 
     loop {
         if consume(&tokens, idx, &"+") {
-            node = create_node(&"+", node, exp(&tokens, idx));
+            node = create_node(&"+", NodeKind::NdOperator, node, primary(&tokens, idx));
         } else if consume(&tokens, idx, &"-") {
-            node = create_node(&"-", node, exp(&tokens, idx));
+            node = create_node(&"-", NodeKind::NdOperator, node, primary(&tokens, idx));
         } else{
             return node;
         }
@@ -156,73 +213,77 @@ fn primary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let idx_ : usize = *idx;
     if let TokenKind::TkNum = tokens[idx_].kind {
         *idx += 1;
-        return create_node(&tokens[idx_].val, None, None);
+        return create_node(&tokens[idx_].val, NodeKind::NdNum, None, None);
     };
     None
 }
 
-fn parsing(tokens: &Vec<Token>) -> Vec<String> {
-    let mut commands = Vec::new();
-    commands.push(String::from(".global main"));
-    commands.push(String::from("main:"));
-
+fn parsing(tokens: &Vec<Token>) -> Option<Node> {
     let mut idx : usize = 0;
-    let _root_node = exp(&tokens, &mut idx);
+    let node = exp(&tokens, &mut idx);
+    node
+}
 
-    //match root_node {
-    //Some(node) =>  {
-    //traverse(&node);
-    //},
-    //_ => {
-    //},
-    //}
+fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
+    let mut native_commands = Vec::new();
+    native_commands.push(String::from(".global main"));
+    native_commands.push(String::from("main:"));
 
-    let mut stack: Vec<&Token> = Vec::new();
-    for (i, token) in tokens.iter().enumerate() {
-        if i == 0 {
-            match token.kind {
-                TokenKind::TkNum => {
-                    commands.push(format!("\tli a0, {}", token.val));
-                }
-                TokenKind::TkOperator => panic!("Expect a number in the head"),
-            }
-            continue;
-        }
+    for mid_command in mid_commands.iter() {
+        println!("// {}", mid_command);
+    }
 
-        match token.kind {
-            TokenKind::TkNum => {
-                let top = match stack.pop() {
-                    Some(top) => top,
-                    None => panic!("Expect an operator after a number"),
-                };
-                match top.kind {
-                    TokenKind::TkNum => panic!("Expect an operator after a number"),
-                    TokenKind::TkOperator => match &top.val[..] {
-                        "+" => {
-                            commands.push(format!("\taddiw a0, a0, {}", token.val));
-                        }
-                        "-" => {
-                            commands.push(format!("\taddiw a0, a0, -{}", token.val));
-                        }
-                        _ => {
-                            panic!("Unexpected operator: {}", token.val);
-                        }
-                    },
-                }
+    for command in mid_commands.iter() {
+        let v: Vec<&str> = command[..].split(' ').collect();
+        match v[0] {
+            "PUSH" => {
+                // push v[1]
+                native_commands.push(format!("\tadd t0, x0, {}", v[1]));
+                native_commands.push(format!("\tsd t0, -8(sp)"));
+                native_commands.push(format!("\taddi sp, sp, -8"));
             }
-            TokenKind::TkOperator => {
-                if stack.is_empty() {
-                    stack.push(&token);
-                } else {
-                    panic!("Expect a number after an operator");
-                }
-                continue;
+            "ADD" => {
+                // pop t0
+                native_commands.push(format!("\tld t0, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+
+                // pop t1
+                native_commands.push(format!("\tld t1, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+
+                // t0 = t1 + t0
+                native_commands.push(format!("\tadd t0, t1, t0"));
+
+                // push t0
+                native_commands.push(format!("\tsd t0, -8(sp)"));
+                native_commands.push(format!("\taddi sp, sp, -8"));
             }
+            "SUB" => {
+                // pop t0
+                native_commands.push(format!("\tld t0, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+                // pop t1
+                native_commands.push(format!("\tld t1, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+
+                // t0 = t1 - t0
+                native_commands.push(format!("\tsub t0, t1, t0"));
+
+                // push t0
+                native_commands.push(format!("\tsd t0, -8(sp)"));
+                native_commands.push(format!("\taddi sp, sp, -8"));
+            }
+            _ => {
+            },
         }
     }
 
-    commands.push(format!("\tret"));
-    commands
+    // pop a0
+    native_commands.push(format!("\tld a0, 0(sp)"));
+    native_commands.push(format!("\taddi sp, sp, -8"));
+    native_commands.push(format!("\tret"));
+
+    native_commands
 }
 
 fn main() {
@@ -231,9 +292,11 @@ fn main() {
     let input: String = [&input, " "].join("");
 
     let tokens = lexing(&input);
-    let commands = parsing(&tokens);
+    let node = parsing(&tokens);
+    let mid_commands = generate_intermidiate_code(&node);
+    let native_commands = generate_native_code(&mid_commands);
 
-    for command in commands.iter() {
+    for command in native_commands.iter() {
         println!("{}", command);
     }
 }
