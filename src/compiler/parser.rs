@@ -65,16 +65,28 @@ fn expr(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
 }
 
 fn term(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
-    let mut node = factor(&tokens, idx);
+    let mut node = unary(&tokens, idx);
 
     loop {
         if consume(&tokens, idx, &"*") {
-            node = create_node(&"*", NodeKind::NdOperator, node, factor(&tokens, idx));
+            node = create_node(&"*", NodeKind::NdOperator, node, unary(&tokens, idx));
         } else if consume(&tokens, idx, &"/") {
-            node = create_node(&"/", NodeKind::NdOperator, node, factor(&tokens, idx));
+            node = create_node(&"/", NodeKind::NdOperator, node, unary(&tokens, idx));
         } else {
             return node;
         }
+    }
+}
+
+fn unary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    if consume(&tokens, idx, &"+") {
+        let node = create_node("0", NodeKind::NdNum, None, None);
+        return create_node(&"+", NodeKind::NdOperator, node, factor(&tokens, idx));
+    } else if consume(&tokens, idx, &"-") {
+        let node = create_node("0", NodeKind::NdNum, None, None);
+        return create_node(&"-", NodeKind::NdOperator, node, factor(&tokens, idx));
+    } else {
+        return factor(&tokens, idx);
     }
 }
 

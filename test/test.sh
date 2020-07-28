@@ -37,4 +37,8 @@ assert 1+2*3*4 25
 assert "3*(2+4)" 18
 assert "1+((2)+4/2)" 5
 assert "(3+4*2)+3*(1+2)-4" 16
+assert "-3" 253
+assert "-3+5" 2
+assert "100+-3*-3" 109
+assert "-2*+8" 240
 cd -

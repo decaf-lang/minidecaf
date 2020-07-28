@@ -7,10 +7,10 @@ fn main() {
     let input: String = args[1..].join(" ");
     let input: String = [&input, " "].join("");
 
-    let tokens = crate::compiler::lexing(&input);
-    let node = crate::compiler::parsing(&tokens);
-    let mid_commands = crate::compiler::generate_intermediate_code(&node);
-    let native_commands = crate::compiler::generate_native_code(&mid_commands);
+    let tokens = compiler::lexing(&input);
+    let ast = compiler::parsing(&tokens);
+    let mid_commands = compiler::generate_intermediate_code(&ast);
+    let native_commands = compiler::generate_native_code(&mid_commands);
 
     for command in native_commands.iter() {
         println!("{}", command);
