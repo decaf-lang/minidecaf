@@ -18,7 +18,7 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                 native_commands.push(format!("\tsd t0, -8(sp)"));
                 native_commands.push(format!("\taddi sp, sp, -8"));
             }
-            "ADD" | "SUB" | "MUL" | "DIV" => {
+            "ADD" | "SUB" | "MUL" | "DIV" | "EQUAL" | "NONEQUAL" | "LT" | "ELT" => {
                 // pop t0
                 native_commands.push(format!("\tld t0, 0(sp)"));
                 native_commands.push(format!("\taddi sp, sp, 8"));
@@ -40,6 +40,21 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                     }
                     "DIV" => {
                         native_commands.push(format!("\tdiv t0, t1, t0"));
+                    }
+                    "EQUAL" => {
+                        native_commands.push(format!("\tsub t0, t0, t1"));
+                        native_commands.push(format!("\tseqz t0, t0"));
+                    }
+                    "NONEQUAL" => {
+                        native_commands.push(format!("\tsub t0, t1, t0"));
+                        native_commands.push(format!("\tsnez t0, t0"));
+                    }
+                    "LT" => {
+                        native_commands.push(format!("\tslt t0, t1, t0"));
+                    }
+                    "ELT" => {
+                        native_commands.push(format!("\tsgt t0, t1, t0"));
+                        native_commands.push(format!("\txori t0, t0, 1"));
                     }
                     _ => {}
                 }

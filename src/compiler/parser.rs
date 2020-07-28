@@ -51,6 +51,58 @@ fn consume(tokens: &Vec<Token>, idx: &mut usize, target_val: &str) -> bool {
 }
 
 fn expr(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let mut node = addsub(&tokens, idx);
+
+    loop {
+        if consume(&tokens, idx, &"==") {
+            node = create_node(
+                &"==",
+                NodeKind::NdComparisonOperator,
+                node,
+                addsub(&tokens, idx),
+            );
+        } else if consume(&tokens, idx, &"!=") {
+            node = create_node(
+                &"!=",
+                NodeKind::NdComparisonOperator,
+                node,
+                addsub(&tokens, idx),
+            );
+        } else if consume(&tokens, idx, &"<") {
+            node = create_node(
+                &"<",
+                NodeKind::NdComparisonOperator,
+                node,
+                addsub(&tokens, idx),
+            );
+        } else if consume(&tokens, idx, &"<=") {
+            node = create_node(
+                &"<=",
+                NodeKind::NdComparisonOperator,
+                node,
+                addsub(&tokens, idx),
+            );
+        } else if consume(&tokens, idx, &">") {
+            node = create_node(
+                &"<",
+                NodeKind::NdComparisonOperator,
+                addsub(&tokens, idx),
+                node,
+            );
+        } else if consume(&tokens, idx, &">=") {
+            node = create_node(
+                &"<=",
+                NodeKind::NdComparisonOperator,
+                addsub(&tokens, idx),
+                node,
+            );
+        } else {
+            return node;
+        }
+    }
+}
+
+fn addsub(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let mut node = term(&tokens, idx);
 
     loop {

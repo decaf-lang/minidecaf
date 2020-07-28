@@ -47,5 +47,22 @@ fn traverse(node: &Node, mid_commands: &mut Vec<String>) {
                 panic!("Unexpected operator: {}", node.val);
             }
         },
+        NodeKind::NdComparisonOperator => match &node.val[..] {
+            "==" => {
+                mid_commands.push(String::from("EQUAL"));
+            }
+            "!=" => {
+                mid_commands.push(String::from("NONEQUAL"));
+            }
+            "<" => {
+                mid_commands.push(String::from("LT"));
+            }
+            "<=" => {
+                mid_commands.push(String::from("ELT"));
+            }
+            _ => {
+                panic!("Unexpected operator: {}", node.val);
+            }
+        },
     }
 }
