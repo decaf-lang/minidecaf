@@ -103,13 +103,18 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                 native_commands.push(format!("\tsd t0, -8(sp)"));
                 native_commands.push(format!("\taddi sp, sp, -8"));
             }
+            "RETURN" => {
+                native_commands.push(format!("\tld a0, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+                native_commands.push(format!("\tret"));
+            }
             _ => {}
         }
     }
 
     // pop a0
     native_commands.push(format!("\tld a0, 0(sp)"));
-    native_commands.push(format!("\taddi sp, sp, -8"));
+    native_commands.push(format!("\taddi sp, sp, 8"));
     native_commands.push(format!("\tret"));
 
     native_commands

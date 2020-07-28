@@ -32,6 +32,7 @@ pub enum TokenKind {
     TkParenthesis,
     TkSymbol,
     TkVariable,
+    TkReturn,
 }
 
 pub struct Token {
@@ -45,6 +46,7 @@ pub enum NodeKind {
     NdComparisonOperator,
     NdAssignOperator,
     NdVariable,
+    NdReturn,
 }
 
 pub struct Node {

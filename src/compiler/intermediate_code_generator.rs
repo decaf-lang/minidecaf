@@ -97,5 +97,8 @@ fn traverse(node: &Node, mid_commands: &mut Vec<String>) {
         NodeKind::NdVariable => {
             mid_commands.push(String::from(format!("LOAD {}", node.val)));
         }
+        NodeKind::NdReturn => {
+            mid_commands.push(String::from(format!("RETURN")));
+        }
     }
 }

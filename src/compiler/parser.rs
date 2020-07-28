@@ -69,11 +69,21 @@ fn program(tokens: &Vec<Token>, idx: &mut usize) -> Vec<Option<Node>> {
 }
 
 fn stmt(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
-    let node = expr(&tokens, idx);
-    if consume(&tokens, idx, &";") {
-        node
+    let node;
+    if consume(&tokens, idx, &"return") {
+        node = expr(&tokens, idx);
+        if consume(&tokens, idx, &";") {
+            return create_node(&"return", NodeKind::NdReturn, node, None);
+        } else {
+            None
+        }
     } else {
-        None
+        let node = expr(&tokens, idx);
+        if consume(&tokens, idx, &";") {
+            node
+        } else {
+            None
+        }
     }
 }
 

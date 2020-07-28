@@ -59,4 +59,5 @@ assert "a=3; b=1+a*a; b;" 10
 assert "a=3*2; b=2; c=2+b*a+10+2*b;" 28
 assert "abc=3*2; bcde=2; c=2+bcde*abc;" 14
 assert "abc=3*2; xy=6; abc==xy;" 1
+assert "abc=3*2; xy=10; abc==xy; return xy;" 10
 cd -

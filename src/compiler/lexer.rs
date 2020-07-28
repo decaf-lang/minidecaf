@@ -19,11 +19,7 @@ pub fn lexing(input: &String) -> Vec<Token> {
                     condition = LexerCondition::CondMiddleOfNumber;
                 }
                 LexerCondition::CondMiddleOfVariable => {
-                    let new_token = Token {
-                        kind: TokenKind::TkVariable,
-                        val: input[begin_idx..i].to_string(),
-                    };
-                    tokens.push(new_token);
+                    tokens.push(create_token_of_variable(&input[begin_idx..i]));
                     begin_idx = i;
                     condition = LexerCondition::CondMiddleOfNumber;
                 }
@@ -52,11 +48,7 @@ pub fn lexing(input: &String) -> Vec<Token> {
                     condition = LexerCondition::CondCompletion;
                 }
                 LexerCondition::CondMiddleOfVariable => {
-                    let new_token = Token {
-                        kind: TokenKind::TkVariable,
-                        val: input[begin_idx..i].to_string(),
-                    };
-                    tokens.push(new_token);
+                    tokens.push(create_token_of_variable(&input[begin_idx..i]));
                     begin_idx = i + 1;
                     condition = LexerCondition::CondCompletion;
                 }
@@ -107,11 +99,7 @@ pub fn lexing(input: &String) -> Vec<Token> {
                         condition = LexerCondition::CondCompletion;
                     }
                     LexerCondition::CondMiddleOfVariable => {
-                        let new_token = Token {
-                            kind: TokenKind::TkVariable,
-                            val: input[begin_idx..i].to_string(),
-                        };
-                        tokens.push(new_token);
+                        tokens.push(create_token_of_variable(&input[begin_idx..i]));
                         let new_token = Token {
                             kind: new_tokenkind,
                             val: String::from(s.to_string()),
@@ -150,11 +138,7 @@ pub fn lexing(input: &String) -> Vec<Token> {
                     condition = LexerCondition::CondCompletion;
                 }
                 LexerCondition::CondMiddleOfVariable => {
-                    let new_token = Token {
-                        kind: TokenKind::TkVariable,
-                        val: input[begin_idx..i].to_string(),
-                    };
-                    tokens.push(new_token);
+                    tokens.push(create_token_of_variable(&input[begin_idx..i]));
                     begin_idx = i;
                     condition = LexerCondition::CondMiddleOfComparisonOperator;
                 }
@@ -193,6 +177,23 @@ pub fn lexing(input: &String) -> Vec<Token> {
         }
     }
     tokens
+}
+
+fn create_token_of_variable(s: &str) -> Token {
+    match s {
+        "return" => {
+            return Token {
+                kind: TokenKind::TkReturn,
+                val: String::from("return"),
+            };
+        }
+        _ => {
+            return Token {
+                kind: TokenKind::TkVariable,
+                val: String::from(s),
+            };
+        }
+    }
 }
 
 fn return_letter_kind(s: char) -> LetterKind {
