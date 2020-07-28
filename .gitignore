@@ -6,3 +6,6 @@ test/out
 *~
 *.org
 .idea
+*.S
+*.s
+a.out

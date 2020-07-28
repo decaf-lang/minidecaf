@@ -12,10 +12,10 @@ assert() {
     res=$?
     
     if [ $res == $ans ]; then
-        echo "OK"
+        echo "OK!  Result: $res, Ans: $ans"
     else
         echo -e "\033[0;31mNG\033[0;39m"
-        echo "Result: $res, Ans: $ans"
+        echo "FAIL! Result: $res, Ans: $ans"
     fi
 }
 
@@ -28,5 +28,6 @@ assert 10 10
 assert 1+3 4
 assert 1+3+8 12
 assert ' 1 + 2 + 8  ' 11
-
+assert 2-3 255
+assert 1-5+1 253
 cd -
