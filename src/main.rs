@@ -83,10 +83,99 @@ fn lexing(input: &String) -> Vec<Token> {
     tokens
 }
 
+struct Node {
+    val: String,
+    left: Option<Box<Node>>,
+    right: Option<Box<Node>>,
+}
+
+fn create_node(val: &str, left: Option<Node>, right: Option<Node>) -> Option<Node> {
+    match (left, right) {
+        (Some(node_left), Some(node_right)) => {
+            Some(Node {
+                val: String::from(val),
+                left: Some(Box::new(node_left)),
+                right: Some(Box::new(node_right)),
+            }
+            )
+        },
+        (Some(node_left), None) => {
+            Some(Node {
+                val: String::from(val),
+                left: Some(Box::new(node_left)),
+                right: None,
+            })
+        },
+        (None, Some(node_right)) => {
+            Some( Node {
+                val: String::from(val),
+                left: None,
+                right: Some(Box::new(node_right))
+            })
+        },
+        (None, None) => {
+            Some( Node {
+                val: String::from(val),
+                left: None,
+                right: None
+            })
+        },
+    }
+}
+
+fn consume(tokens: &Vec<Token>, idx: &mut usize, target_val: &str) -> bool {
+    let idx_ : usize = *idx;
+
+    if tokens.len() <= idx_ {
+        return false;
+    }
+
+    if tokens[idx_].val == target_val {
+        *idx += 1;
+        true
+    } else {
+        false
+    }
+}
+
+fn exp(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let mut node = primary(&tokens, idx);
+
+    loop {
+        if consume(&tokens, idx, &"+") {
+            node = create_node(&"+", node, exp(&tokens, idx));
+        } else if consume(&tokens, idx, &"-") {
+            node = create_node(&"-", node, exp(&tokens, idx));
+        } else{
+            return node;
+        }
+    }
+}
+
+fn primary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let idx_ : usize = *idx;
+    if let TokenKind::TkNum = tokens[idx_].kind {
+        *idx += 1;
+        return create_node(&tokens[idx_].val, None, None);
+    };
+    None
+}
+
 fn parsing(tokens: &Vec<Token>) -> Vec<String> {
     let mut commands = Vec::new();
     commands.push(String::from(".global main"));
     commands.push(String::from("main:"));
+
+    let mut idx : usize = 0;
+    let _root_node = exp(&tokens, &mut idx);
+
+    //match root_node {
+    //Some(node) =>  {
+    //traverse(&node);
+    //},
+    //_ => {
+    //},
+    //}
 
     let mut stack: Vec<&Token> = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
