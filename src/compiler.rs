@@ -14,12 +14,15 @@ pub enum LetterKind {
     LtOperator,
     LtComparisonOperator,
     LtParenthesis,
+    LtSymbol,
+    LtAlphabet,
 }
 
 pub enum LexerCondition {
     CondCompletion,
     CondMiddleOfNumber,
     CondMiddleOfComparisonOperator,
+    CondMiddleOfVariable,
 }
 
 pub enum TokenKind {
@@ -27,6 +30,8 @@ pub enum TokenKind {
     TkOperator,
     TkComparisonOperator,
     TkParenthesis,
+    TkSymbol,
+    TkVariable,
 }
 
 pub struct Token {
@@ -38,6 +43,8 @@ pub enum NodeKind {
     NdNum,
     NdOperator,
     NdComparisonOperator,
+    NdAssignOperator,
+    NdVariable,
 }
 
 pub struct Node {

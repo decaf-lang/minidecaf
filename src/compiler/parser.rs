@@ -1,9 +1,9 @@
 use crate::compiler::*;
 
-pub fn parsing(tokens: &Vec<Token>) -> Option<Node> {
+pub fn parsing(tokens: &Vec<Token>) -> Vec<Option<Node>> {
     let mut idx: usize = 0;
-    let node = expr(&tokens, &mut idx);
-    node
+    let program = program(&tokens, &mut idx);
+    program
 }
 
 fn create_node(val: &str, kind: NodeKind, left: Option<Node>, right: Option<Node>) -> Option<Node> {
@@ -50,7 +50,53 @@ fn consume(tokens: &Vec<Token>, idx: &mut usize, target_val: &str) -> bool {
     }
 }
 
+fn program(tokens: &Vec<Token>, idx: &mut usize) -> Vec<Option<Node>> {
+    let mut vec: Vec<Option<Node>> = Vec::new();
+    loop {
+        let node = stmt(&tokens, idx);
+        match node {
+            Some(node_) => {
+                vec.push(Some(node_));
+                continue;
+            }
+            _ => {
+                vec.push(None);
+                break;
+            }
+        }
+    }
+    vec
+}
+
+fn stmt(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let node = expr(&tokens, idx);
+    if consume(&tokens, idx, &";") {
+        node
+    } else {
+        None
+    }
+}
+
 fn expr(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    assign(&tokens, idx)
+}
+
+fn assign(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let node = equality(&tokens, idx);
+
+    if consume(&tokens, idx, &"=") {
+        return create_node(
+            &"=",
+            NodeKind::NdAssignOperator,
+            node,
+            equality(&tokens, idx),
+        );
+    } else {
+        node
+    }
+}
+
+fn equality(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let mut node = addsub(&tokens, idx);
 
     loop {
@@ -144,6 +190,9 @@ fn unary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
 
 fn factor(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let idx_: usize = *idx;
+    if tokens.len() <= idx_ {
+        return None;
+    }
     match tokens[idx_].kind {
         TokenKind::TkNum => {
             *idx += 1;
@@ -161,6 +210,10 @@ fn factor(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
             } else {
                 return None;
             }
+        }
+        TokenKind::TkVariable => {
+            *idx += 1;
+            return create_node(&tokens[idx_].val, NodeKind::NdVariable, None, None);
         }
         _ => {
             return None;

@@ -18,6 +18,15 @@ pub fn lexing(input: &String) -> Vec<Token> {
                     begin_idx = i;
                     condition = LexerCondition::CondMiddleOfNumber;
                 }
+                LexerCondition::CondMiddleOfVariable => {
+                    let new_token = Token {
+                        kind: TokenKind::TkVariable,
+                        val: input[begin_idx..i].to_string(),
+                    };
+                    tokens.push(new_token);
+                    begin_idx = i;
+                    condition = LexerCondition::CondMiddleOfNumber;
+                }
                 _ => {
                     begin_idx = i;
                     condition = LexerCondition::CondMiddleOfNumber;
@@ -42,15 +51,27 @@ pub fn lexing(input: &String) -> Vec<Token> {
                     begin_idx = i + 1;
                     condition = LexerCondition::CondCompletion;
                 }
+                LexerCondition::CondMiddleOfVariable => {
+                    let new_token = Token {
+                        kind: TokenKind::TkVariable,
+                        val: input[begin_idx..i].to_string(),
+                    };
+                    tokens.push(new_token);
+                    begin_idx = i + 1;
+                    condition = LexerCondition::CondCompletion;
+                }
                 _ => {
                     begin_idx = i + 1;
                 }
             },
-            LetterKind::LtOperator | LetterKind::LtParenthesis => {
+            LetterKind::LtOperator | LetterKind::LtParenthesis | LetterKind::LtSymbol => {
                 let new_tokenkind;
                 match return_letter_kind(s) {
                     LetterKind::LtParenthesis => {
                         new_tokenkind = TokenKind::TkParenthesis;
+                    }
+                    LetterKind::LtSymbol => {
+                        new_tokenkind = TokenKind::TkSymbol;
                     }
                     _ => {
                         new_tokenkind = TokenKind::TkOperator;
@@ -75,6 +96,20 @@ pub fn lexing(input: &String) -> Vec<Token> {
                         let new_token = Token {
                             kind: TokenKind::TkComparisonOperator,
                             val: check_valid_token(&input[begin_idx..i]).to_string(),
+                        };
+                        tokens.push(new_token);
+                        let new_token = Token {
+                            kind: new_tokenkind,
+                            val: String::from(s.to_string()),
+                        };
+                        tokens.push(new_token);
+                        begin_idx = i + 1;
+                        condition = LexerCondition::CondCompletion;
+                    }
+                    LexerCondition::CondMiddleOfVariable => {
+                        let new_token = Token {
+                            kind: TokenKind::TkVariable,
+                            val: input[begin_idx..i].to_string(),
                         };
                         tokens.push(new_token);
                         let new_token = Token {
@@ -111,12 +146,48 @@ pub fn lexing(input: &String) -> Vec<Token> {
                         val: check_valid_token(&input[begin_idx..i + 1]).to_string(),
                     };
                     tokens.push(new_token);
-                    begin_idx = i + 1;
+                    begin_idx = i;
                     condition = LexerCondition::CondCompletion;
+                }
+                LexerCondition::CondMiddleOfVariable => {
+                    let new_token = Token {
+                        kind: TokenKind::TkVariable,
+                        val: input[begin_idx..i].to_string(),
+                    };
+                    tokens.push(new_token);
+                    begin_idx = i;
+                    condition = LexerCondition::CondMiddleOfComparisonOperator;
                 }
                 _ => {
                     begin_idx = i;
                     condition = LexerCondition::CondMiddleOfComparisonOperator;
+                }
+            },
+            LetterKind::LtAlphabet => match condition {
+                LexerCondition::CondMiddleOfNumber => {
+                    let new_token = Token {
+                        kind: TokenKind::TkNum,
+                        val: input[begin_idx..i].to_string(),
+                    };
+                    tokens.push(new_token);
+                    begin_idx = i;
+                    condition = LexerCondition::CondMiddleOfVariable;
+                }
+                LexerCondition::CondMiddleOfComparisonOperator => {
+                    let new_token = Token {
+                        kind: TokenKind::TkComparisonOperator,
+                        val: check_valid_token(&input[begin_idx..i]).to_string(),
+                    };
+                    tokens.push(new_token);
+                    begin_idx = i;
+                    condition = LexerCondition::CondMiddleOfVariable;
+                }
+                LexerCondition::CondMiddleOfVariable => {
+                    condition = LexerCondition::CondMiddleOfVariable;
+                }
+                _ => {
+                    begin_idx = i;
+                    condition = LexerCondition::CondMiddleOfVariable;
                 }
             },
         }
@@ -127,9 +198,11 @@ pub fn lexing(input: &String) -> Vec<Token> {
 fn return_letter_kind(s: char) -> LetterKind {
     match s {
         '0'..='9' => LetterKind::LtNum,
+        'a'..='z' => LetterKind::LtAlphabet,
         ' ' => LetterKind::LtSpace,
         '+' | '-' | '*' | '/' => LetterKind::LtOperator,
         '(' | ')' => LetterKind::LtParenthesis,
+        ';' => LetterKind::LtSymbol,
         '<' | '>' | '=' | '!' => LetterKind::LtComparisonOperator,
         _ => {
             panic!("Cannot recognize {}", s);
@@ -139,9 +212,9 @@ fn return_letter_kind(s: char) -> LetterKind {
 
 fn check_valid_token(s: &str) -> &str {
     match s {
-        "<" | ">" | "<=" | ">=" | "==" | "!=" => s,
+        "<" | ">" | "<=" | ">=" | "==" | "!=" | "=" => s,
         _ => {
-            panic!("Not a valid token :{}", s);
+            panic!("Not a valid token : {}", s);
         }
     }
 }

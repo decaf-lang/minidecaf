@@ -1,9 +1,13 @@
 // use crate::compiler::*;
+use std::collections::HashMap;
 
 pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
     let mut native_commands = Vec::new();
     native_commands.push(String::from(".global main"));
     native_commands.push(String::from("main:"));
+    native_commands.push(format!("\tmv s0, sp"));
+
+    let mut variable_map = HashMap::new();
 
     for mid_command in mid_commands.iter() {
         println!("// {}", mid_command);
@@ -17,6 +21,42 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                 native_commands.push(format!("\tadd t0, x0, {}", v[1]));
                 native_commands.push(format!("\tsd t0, -8(sp)"));
                 native_commands.push(format!("\taddi sp, sp, -8"));
+            }
+            "STORE" => {
+                // pop t0
+                native_commands.push(format!("\tld t0, 0(sp)"));
+                native_commands.push(format!("\taddi sp, sp, 8"));
+
+                match variable_map.get(v[1]) {
+                    Some(offset) => {
+                        // store t0 to s0-offset
+                        native_commands.push(format!("\tsd t0, -{}(s0)", offset));
+                    }
+                    _ => {
+                        // if the v[1] is new variable, create a new entry in variable_map and move sp
+                        // (assume that no operand is in the stack when storing)
+                        let new_offset = 8 * (variable_map.len() + 1);
+                        variable_map.insert(v[1], new_offset);
+                        native_commands.push(format!("\tsd t0, -{}(s0)", new_offset));
+                        native_commands.push(format!("\taddi sp, sp, -8"));
+                    }
+                }
+            }
+            "LOAD" => {
+                let offset = variable_map.get(v[1]);
+                match offset {
+                    Some(offset_) => {
+                        // load s0-offset to t0
+                        native_commands.push(format!("\tld t0, -{}(s0)", offset_));
+
+                        // push t0
+                        native_commands.push(format!("\tsd t0, -8(sp)"));
+                        native_commands.push(format!("\taddi sp, sp, -8"));
+                    }
+                    _ => {
+                        panic!("Cannot load from {}", v[1]);
+                    }
+                }
             }
             "ADD" | "SUB" | "MUL" | "DIV" | "EQUAL" | "NONEQUAL" | "LT" | "ELT" => {
                 // pop t0
