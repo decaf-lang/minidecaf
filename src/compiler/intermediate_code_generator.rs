@@ -37,6 +37,12 @@ fn traverse(node: &Node, mid_commands: &mut Vec<String>) {
             "-" => {
                 mid_commands.push(String::from("SUB"));
             }
+            "*" => {
+                mid_commands.push(String::from("MUL"));
+            }
+            "/" => {
+                mid_commands.push(String::from("DIV"));
+            }
             _ => {
                 panic!("Unexpected operator: {}", node.val);
             }

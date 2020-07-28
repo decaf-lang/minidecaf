@@ -18,7 +18,7 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                 native_commands.push(format!("\tsd t0, -8(sp)"));
                 native_commands.push(format!("\taddi sp, sp, -8"));
             }
-            "ADD" => {
+            "ADD" | "SUB" | "MUL" | "DIV" => {
                 // pop t0
                 native_commands.push(format!("\tld t0, 0(sp)"));
                 native_commands.push(format!("\taddi sp, sp, 8"));
@@ -28,22 +28,21 @@ pub fn generate_native_code(mid_commands: &Vec<String>) -> Vec<String> {
                 native_commands.push(format!("\taddi sp, sp, 8"));
 
                 // t0 = t1 + t0
-                native_commands.push(format!("\tadd t0, t1, t0"));
-
-                // push t0
-                native_commands.push(format!("\tsd t0, -8(sp)"));
-                native_commands.push(format!("\taddi sp, sp, -8"));
-            }
-            "SUB" => {
-                // pop t0
-                native_commands.push(format!("\tld t0, 0(sp)"));
-                native_commands.push(format!("\taddi sp, sp, 8"));
-                // pop t1
-                native_commands.push(format!("\tld t1, 0(sp)"));
-                native_commands.push(format!("\taddi sp, sp, 8"));
-
-                // t0 = t1 - t0
-                native_commands.push(format!("\tsub t0, t1, t0"));
+                match v[0] {
+                    "ADD" => {
+                        native_commands.push(format!("\tadd t0, t1, t0"));
+                    }
+                    "SUB" => {
+                        native_commands.push(format!("\tsub t0, t1, t0"));
+                    }
+                    "MUL" => {
+                        native_commands.push(format!("\tmul t0, t1, t0"));
+                    }
+                    "DIV" => {
+                        native_commands.push(format!("\tdiv t0, t1, t0"));
+                    }
+                    _ => {}
+                }
 
                 // push t0
                 native_commands.push(format!("\tsd t0, -8(sp)"));

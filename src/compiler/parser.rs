@@ -2,7 +2,7 @@ use crate::compiler::*;
 
 pub fn parsing(tokens: &Vec<Token>) -> Option<Node> {
     let mut idx: usize = 0;
-    let node = exp(&tokens, &mut idx);
+    let node = expr(&tokens, &mut idx);
     node
 }
 
@@ -50,21 +50,35 @@ fn consume(tokens: &Vec<Token>, idx: &mut usize, target_val: &str) -> bool {
     }
 }
 
-fn exp(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
-    let mut node = primary(&tokens, idx);
+fn expr(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let mut node = term(&tokens, idx);
 
     loop {
         if consume(&tokens, idx, &"+") {
-            node = create_node(&"+", NodeKind::NdOperator, node, primary(&tokens, idx));
+            node = create_node(&"+", NodeKind::NdOperator, node, term(&tokens, idx));
         } else if consume(&tokens, idx, &"-") {
-            node = create_node(&"-", NodeKind::NdOperator, node, primary(&tokens, idx));
+            node = create_node(&"-", NodeKind::NdOperator, node, term(&tokens, idx));
         } else {
             return node;
         }
     }
 }
 
-fn primary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+fn term(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
+    let mut node = factor(&tokens, idx);
+
+    loop {
+        if consume(&tokens, idx, &"*") {
+            node = create_node(&"*", NodeKind::NdOperator, node, factor(&tokens, idx));
+        } else if consume(&tokens, idx, &"/") {
+            node = create_node(&"/", NodeKind::NdOperator, node, factor(&tokens, idx));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn factor(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let idx_: usize = *idx;
     if let TokenKind::TkNum = tokens[idx_].kind {
         *idx += 1;

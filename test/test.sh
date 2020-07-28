@@ -30,4 +30,9 @@ assert 1+3+8 12
 assert ' 1 + 2 + 8  ' 11
 assert 2-3 255
 assert 1-5+1 253
+assert 1*3+4 7
+assert 3+2*4-1 10
+assert 4/2+2*4/1 10
+assert 1+2*3*4 25
+
 cd -
