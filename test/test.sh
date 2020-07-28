@@ -22,5 +22,9 @@ assert() {
 cd $(cd $(dirname ${BASH_SOURCE:-$0}); pwd)
 mkdir -p out
 
-assert "0;" 0
-assert "10;" 10
+assert 0 0
+assert 10 10
+assert 1+3 4
+assert 1+3+8 12
+
+cd -
