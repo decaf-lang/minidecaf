@@ -10,129 +10,172 @@ digit  =  [0-9]
 ```
 ## 步骤2：可执行加减
 ```
-expr= term ("+" term | "-" term)*
-term = num
+expr= num ("+" num | "-" num)*
 num = digit+
 digit  =  [0-9]
 ```
 ## 步骤3：递归下降语法解析
 ```
-factor	 = digit {addop digit}
+expr= num ("+" num | "-" num)*
+num = digit+
 digit  =  [0-9]
-addop    = "+" | "-"
 ```
 ## 步骤4：有一定的错误提示
 ```
-expr= term ("+" term | "-" term)*
-term = num
+expr= num ("+" num | "-" num)*
 num = digit+
 digit  =  [0-9]
 ```
 ## 步骤5：stack computer on RV64
 ```
-expr= term ("+" term | "-" term)*
-term = num
+expr= num ("+" num | "-" num)*
 num = digit+
 digit  =  [0-9]
 ```
 ## 步骤6：可执行乘除
 ```
-expr= term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = num
+expr = mul ("+" mul | "-" mul)*
+mul  = num ("*" num | "/" num)*
 num = digit+
 digit  =  [0-9]
 ```
 ## 步骤7：支持括号操作
 ```
-expr= term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = num | "(" expr ")"
+expr    = mul ("+" mul | "-" mul)*
+mul     = primary ("*" primary | "/" primary)*
+primary = num | "(" expr ")"
 num = digit+
 digit  =  [0-9]
 ```
 ## 步骤8：支持一元操作符
 
 ```
-expr= term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+expr    = mul ("+" mul | "-" mul)*
+mul     = unary ("*" unary | "/" unary)*
+unary   = ("+" | "-")? primary
+primary = num | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
 ```
 
 ## 步骤9：支持比较操作
 
 ```
-expr = expr "==" expr | expr "!=" expr | expr "<" expr | expr "<=" expr | expr ">" expr | expr ">=" expr | term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+expr       = equality
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
 ```
 ## 步骤10：支持变量与赋值语句
 ```
-stmt  =  (var "=" expr  ";")+ 
-expr = expr "==" expr | expr "!=" expr | expr "<" expr | expr "<=" expr | expr ">" expr | expr ">=" expr | term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+program    = stmt*
+stmt       = expr ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | ident | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
-var= ident "=" expr
 ident = [a-z]+[a-z0-9_]*
 ```
 
 ## 步骤11：支持返回语句
 ```
-stmt  = ("return" expr ";" | var "=" expr  ";")+ 
-expr = expr "==" expr | expr "!=" expr | expr "<" expr | expr "<=" expr | expr ">" expr | expr ">=" expr | term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+program    = stmt*
+stmt    = expr ";"
+        | "return" expr ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | ident | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
-var= ident "=" expr
 ident = [a-z]+[a-z0-9_]*
 ```
 
 ## 步骤12：支持条件语句
 ```
-stmt  = ("return" expr ";" | var "=" expr  ";" | "if" "(" expr ")" stmt ("else" stmt)? ";" | "{" stmt* "}" ";")+
-expr = expr "==" expr | expr "!=" expr | expr "<" expr | expr "<=" expr | expr ">" expr | expr ">=" expr | term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+program    = stmt*
+stmt    = expr ";"
+        | "return" expr ";"
+        | "if" "(" expr ")" stmt ("else" stmt)?
+        | "while" "(" expr ")" stmt
+        | "for" "(" expr? ";" expr? ";" expr? ")" stmt        
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | ident | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
-var= ident "=" expr
 ident = [a-z]+[a-z0-9_]*
 ```
 
-## 步骤13：支持函数
+## 步骤13：支持语句块和函数
+支持语句块
 ```
-function   = ident "(" ")" "{" stmt "}"
-stmt  = ("return" expr ";" | var "=" expr  ";" | "if" "(" expr ")" stmt ("else" stmt)? ";" | "{" stmt* "}" ";")+
-expr = expr "==" expr | expr "!=" expr | expr "<" expr | expr "<=" expr | expr ">" expr | expr ">=" expr | term ("+" term | "-" term)*
-term = factor ("*" factor | "/" factor)*
-factor	 = unary? (num | "(" expr ")")
+program    = stmt*
+stmt    = expr ";"
+        | "return" expr ";"
+        | "if" "(" expr ")" stmt ("else" stmt)?
+        | "while" "(" expr ")" stmt
+        | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+        | "{" stmt* "}"                
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary    = num | ident | "(" expr ")"
 num = digit+
 digit  =  [0-9]
-unary = "+" | "-"
-var= ident "=" expr
+ident = [a-z]+[a-z0-9_]*
+```
+支持函数
+```
+program    = stmt*
+stmt    = expr ";"
+        | "return" expr ";"
+        | "if" "(" expr ")" stmt ("else" stmt)?
+        | "while" "(" expr ")" stmt
+        | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+        | "{" stmt* "}"                
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = ("+" | "-")? primary
+primary = num 
+        | ident ("(" ")")?
+        | "(" expr ")"
+num = digit+
+digit  =  [0-9]
 ident = [a-z]+[a-z0-9_]*
 ```
 
-## 步骤14：支持字符串操作
-缺 int, char* 定义和相关操作
 
-## 步骤15：支持数组操作
-缺 array的定义和相关操作
-
-> 备注 对于第14、15步，需要实现：
-
+## 步骤14/15/.../X：支持字符串操作/支持数组操作等
+需要如下步骤
 1. 一元`&`：返回变量地址和一元`*`：返回地址指向的值
 1. 删除隐式变量定义并引入关键字int
 1. 实现指针加法和减法
@@ -142,6 +185,39 @@ ident = [a-z]+[a-z0-9_]*
 1. 全局变量
 1. 字符类型
 1. 字符串字面量
+1. ...
+
+```
+program    = toplv*
+toplv      = typ ident ("(" (typ ident ("," typ ident)*)? ")" "{" stmt* "}" | ("[" num "]")* ";")
+stmt       = expr ";"
+           | "{" stmt* "}"
+           | "if" "(" expr ")" stmt ("else" stmt)?
+           | "while" "(" expr ")" stmt
+           | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+           | "return" expr ";"
+           | typ ident ("[" num "]")* ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = "+"? primary
+           | "-"? primary
+           | "&" unary
+           | "*" unary
+           | "sizeof" unary
+           | primary "[" expr "]"
+primary    = num
+           | ident ("(" (expr ("," expr)*)? ")")?
+           | "(" expr ")"
+typ        = ("int" | "char") "*"*
+num = digit+
+digit  =  [0-9]
+ident = [a-z]+[a-z0-9_]*
+```
+
 
 ## 步骤X：完整的基本文法
 
