@@ -4,8 +4,10 @@ test/out
 *.bak
 *.old
 *~
+*.swp
 *.org
 .idea
 *.S
 *.s
 a.out
+.ycm_extra_conf.*
