@@ -2,42 +2,41 @@ parser grammar MDParser;
 
 options {
     tokenVocab = MDLexer;
+    superClass = BaseParser;
 }
 
 @parser::postinclude {
 
-#include <iostream>
+#include "BaseParser.h"
 
 }
 
-program : expr
+program : stmt
           {
+            std::cout << "addi sp, sp, 8" << std::endl;
             std::cout << "ret" << std::endl;
           }
         ;
 
-expr    : (integer | add | sub) ';'
-        ;
-
-integer : Integer
+stmt    : expr ';'
           {
-            std::cout << "ori a0, x0, " << $Integer.text << std::endl;
+            std::cout << $expr.code;
           }
         ;
 
-add     : lhs=Integer '+' rhs=Integer
+expr    returns [std::string code]
+        : Integer
           {
-            std::cout << "ori t0, x0, " << $lhs.text << std::endl;
-            std::cout << "ori t1, x0, " << $rhs.text << std::endl;
-            std::cout << "add a0, t0, t1" << std::endl;
+            $code = "ori a0, x0, " + $Integer.text + "\n" + push();
           }
-        ;
-
-sub     : lhs=Integer '-' rhs=Integer
+        | lhs=expr op=('+' | '-') rhs=expr
           {
-            std::cout << "ori t0, x0, " << $lhs.text << std::endl;
-            std::cout << "ori t1, x0, " << $rhs.text << std::endl;
-            std::cout << "sub a0, t0, t1" << std::endl;
+            $code = $lhs.code + $rhs.code;
+            if ($op.text == "+") {
+                $code += pop2() + "add a0, t0, t1\n" + push();
+            } else {
+                $code += pop2() + "sub a0, t0, t1\n" + push();
+            }
           }
         ;
 
