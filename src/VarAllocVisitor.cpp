@@ -14,10 +14,8 @@ void VarAllocVisitor::visit(const VarNode *op) {
 }
 
 void VarAllocVisitor::visit(const AssignNode *op) {
-    CHECK_NODE_TYPE(op->lhs_, Var);
-    const VarNode *var = static_cast<const VarNode*>(op->lhs_.get());
-    if (!varMap_.count(var->name_)) {
-        varMap_[var->name_] = offset++;
+    if (!varMap_.count(op->var_->name_)) {
+        varMap_[op->var_->name_] = offset++;
     }
     Visitor::visit(op);
 }

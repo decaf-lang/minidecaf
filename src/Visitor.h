@@ -48,8 +48,8 @@ protected:
     virtual void visit(const VarNode *op) {}
 
     virtual void visit(const AssignNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
+        (*this)(op->var_);
+        (*this)(op->expr_);
     }
 
     virtual void visit(const InvokeNode *op) {

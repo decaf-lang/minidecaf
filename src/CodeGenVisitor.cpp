@@ -21,11 +21,9 @@ void CodeGenVisitor::visit(const VarNode *op) {
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
-    CHECK_NODE_TYPE(op->lhs_, Var);
-    const VarNode *var = static_cast<const VarNode*>(op->lhs_.get());
     os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
-    (*this)(op->rhs_);
-    os << "sd a0, " << (-16 - 8 * varMap_->at(var->name_)) << "(fp)  # Store to " << var->name_ << "\n";
+    (*this)(op->expr_);
+    os << "sd a0, " << (-16 - 8 * varMap_->at(op->var_->name_)) << "(fp)  # Store to " << op->var_->name_ << "\n";
 }
 
 void CodeGenVisitor::visit(const InvokeNode *op) {

@@ -19,7 +19,7 @@ program returns [std::shared_ptr<ASTNode> node]
           }
         ;
 
-stmtSeq returns [std::shared_ptr<ASTNode> node]
+stmtSeq returns [std::shared_ptr<StmtSeqNode> node]
         : stmt
           {
             $node = StmtSeqNode::make({$stmt.node});
@@ -27,12 +27,11 @@ stmtSeq returns [std::shared_ptr<ASTNode> node]
         | part=stmtSeq stmt
           {
             $node = $part.node;
-            CHECK_NODE_TYPE($node, StmtSeq);
             static_cast<StmtSeqNode*>($node.get())->stmts_.push_back($stmt.node);
           }
         ;
 
-stmt    returns [std::shared_ptr<ASTNode> node]
+stmt    returns [std::shared_ptr<StmtNode> node]
         : expr ';'
           {
             $node = InvokeNode::make($expr.node);
@@ -43,7 +42,7 @@ stmt    returns [std::shared_ptr<ASTNode> node]
           }
         ;
 
-expr    returns [std::shared_ptr<ASTNode> node]
+expr    returns [std::shared_ptr<ExprNode> node]
         : Integer
           {
             $node = IntegerNode::make(std::stoi($Integer.text));
