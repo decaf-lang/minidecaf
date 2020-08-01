@@ -29,6 +29,15 @@ expr    returns [std::string code]
           {
             $code = "ori a0, x0, " + $Integer.text + "\n" + push();
           }
+        | lhs=expr op=('*' | '/') rhs=expr
+          {
+            $code = $lhs.code + $rhs.code;
+            if ($op.text == "*") {
+                $code += pop2() + "mul a0, t0, t1\n" + push();
+            } else {
+                $code += pop2() + "div a0, t0, t1\n" + push();
+            }
+          }
         | lhs=expr op=('+' | '-') rhs=expr
           {
             $code = $lhs.code + $rhs.code;
