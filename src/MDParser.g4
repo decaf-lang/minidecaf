@@ -60,5 +60,26 @@ expr    returns [std::string code]
                 $code += pop2() + "sub a0, t0, t1\n" + push();
             }
           }
+        | lhs=expr op=('<' | '>' | '<=' | '>=' | '==' | '!=') rhs=expr
+          {
+            $code = $lhs.code + $rhs.code;
+            if ($op.text == "<") {
+                $code += pop2() + "slt a0, t0, t1\n" + push();
+            } else if ($op.text == ">") {
+                $code += pop2() + "sgt a0, t0, t1\n" + push();
+            } else if ($op.text == "<=") {
+                $code += pop2() + "sgt a0, t0, t1\n"
+                                  "xori a0, a0, 1\n" + push();
+            } else if ($op.text == ">=") {
+                $code += pop2() + "slt a0, t0, t1\n"
+                                  "xori a0, a0, 1\n" + push();
+            } else if ($op.text == "==") {
+                $code += pop2() + "sub t0, t0, t1\n"
+                                  "seqz a0, t0\n" + push();
+            } else if ($op.text == "!=") {
+                $code += pop2() + "sub t0, t0, t1\n"
+                                  "snez a0, t0\n" + push();
+            }
+          }
         ;
 
