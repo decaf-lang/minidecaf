@@ -8,4 +8,6 @@ MINUS:      '-';
 STAR:       '*';
 SLASH:      '/';
 SEMICOLON:  ';';
+LPAREN:     '(';
+RPAREN:     ')';
 

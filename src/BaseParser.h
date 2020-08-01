@@ -16,6 +16,11 @@ protected:
                "sd a0, (sp)\n";
     }
 
+    std::string pop() {
+        return "ld t0, (sp)\n"
+               "addi sp, sp, 8\n";
+    }
+
     std::string pop2() {
         return "ld t0, 8(sp)\n"
                "ld t1, (sp)\n"

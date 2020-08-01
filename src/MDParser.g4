@@ -29,6 +29,19 @@ expr    returns [std::string code]
           {
             $code = "ori a0, x0, " + $Integer.text + "\n" + push();
           }
+        | '(' expr ')'
+          {
+            $code = $expr.code;
+          }
+        | '-' expr
+          {
+            $code = $expr.code;
+            $code += pop() + "sub a0, x0, t0\n" + push();
+          }
+        | '+' expr
+          {
+            $code = $expr.code;
+          }
         | lhs=expr op=('*' | '/') rhs=expr
           {
             $code = $lhs.code + $rhs.code;
