@@ -19,6 +19,7 @@ public:
             DISPATCH_CASE(Integer)
             DISPATCH_CASE(Var)
             DISPATCH_CASE(Assign)
+            DISPATCH_CASE(Invoke)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
@@ -49,6 +50,10 @@ protected:
     virtual void visit(const AssignNode *op) {
         (*this)(op->lhs_);
         (*this)(op->rhs_);
+    }
+
+    virtual void visit(const InvokeNode *op) {
+        (*this)(op->expr_);
     }
 
     virtual void visit(const AddNode *op) {

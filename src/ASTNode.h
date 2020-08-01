@@ -8,7 +8,7 @@
 enum class ASTNodeType : int {
     StmtSeq,
     Integer, Var,
-    Assign,
+    Assign, Invoke,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
 };
@@ -62,6 +62,21 @@ struct VarNode : public ASTNode {
 
     static std::shared_ptr<VarNode> make(const std::string &name) {
         return std::make_shared<VarNode>(name);
+    }
+};
+
+/// Invoke a pure expression
+struct InvokeNode : public ASTNode {
+    std::shared_ptr<ASTNode> expr_;
+
+    InvokeNode(const std::shared_ptr<ASTNode> &expr) : expr_(expr) {}
+
+    virtual ASTNodeType nodeType() const {
+        return ASTNodeType::Invoke;
+    }
+
+    static std::shared_ptr<InvokeNode> make(const std::shared_ptr<ASTNode> &expr) {
+        return std::make_shared<InvokeNode>(expr);
     }
 };
 

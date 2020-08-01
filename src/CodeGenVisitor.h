@@ -16,6 +16,7 @@ public:
 protected:
     virtual void visit(const VarNode *op) override;
     virtual void visit(const AssignNode *op) override;
+    virtual void visit(const InvokeNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const AddNode *op) override;
     virtual void visit(const SubNode *op) override;
@@ -31,8 +32,6 @@ protected:
 private:
     const char *push =  "addi sp, sp, -8\n"
                         "sd a0, (sp)\n";
-    const char *pop =   "ld t0, (sp)\n"
-                        "addi sp, sp, 8\n";
     const char *pop2 =  "ld t0, 8(sp)\n"
                         "ld t1, (sp)\n"
                         "addi sp, sp, 16\n";

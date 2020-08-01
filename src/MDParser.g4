@@ -35,7 +35,7 @@ stmtSeq returns [std::shared_ptr<ASTNode> node]
 stmt    returns [std::shared_ptr<ASTNode> node]
         : expr ';'
           {
-            $node = $expr.node;
+            $node = InvokeNode::make($expr.node);
           }
         | Identifier '=' expr ';'
           {

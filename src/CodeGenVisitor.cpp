@@ -7,8 +7,7 @@ std::string CodeGenVisitor::genCode(
     os << ".global main\n"
           "main:\n"
           "sd fp, -8(sp)\n"
-          "mv fp, sp\n"
-          "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
+          "mv fp, sp\n";
     (*this)(op);
     os << "mv sp, fp\n"
           "ld fp, -8(sp)\n"
@@ -24,8 +23,14 @@ void CodeGenVisitor::visit(const VarNode *op) {
 void CodeGenVisitor::visit(const AssignNode *op) {
     CHECK_NODE_TYPE(op->lhs_, Var);
     const VarNode *var = static_cast<const VarNode*>(op->lhs_.get());
+    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
     (*this)(op->rhs_);
     os << "sd a0, " << (-16 - 8 * varMap_->at(var->name_)) << "(fp)  # Store to " << var->name_ << "\n";
+}
+
+void CodeGenVisitor::visit(const InvokeNode *op) {
+    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
+    Visitor::visit(op);
 }
 
 void CodeGenVisitor::visit(const IntegerNode *op) {
