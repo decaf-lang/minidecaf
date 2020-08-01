@@ -1,31 +1,26 @@
 #ifndef BASE_PARSER_H_
 #define BASE_PARSER_H_
 
-#include <string>
-#include <iostream>
 #include "antlr4-runtime.h"
+#include "ASTNode.h"
 
 class BaseParser : public antlr4::Parser
 {
+public:
+    const std::shared_ptr<ASTNode> &getExpr() const {
+        return expr_;
+    }
+
 protected:
     BaseParser(antlr4::TokenStream *input)
         : antlr4::Parser(input) {}
 
-    std::string push() {
-        return "addi sp, sp, -8\n"
-               "sd a0, (sp)\n";
+    void setExpr(const std::shared_ptr<ASTNode> expr) {
+        expr_ = expr;
     }
 
-    std::string pop() {
-        return "ld t0, (sp)\n"
-               "addi sp, sp, 8\n";
-    }
-
-    std::string pop2() {
-        return "ld t0, 8(sp)\n"
-               "ld t1, (sp)\n"
-               "addi sp, sp, 16\n";
-    }
+private:
+    std::shared_ptr<ASTNode> expr_;
 };
 
-#endif // BASE_PARSER_H_
+#endif  // BASE_PARSER_H_

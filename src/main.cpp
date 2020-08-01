@@ -3,11 +3,7 @@
 
 #include "MDLexer.h"
 #include "MDParser.h"
-
-void printHeader() {
-    std::cout << ".global main" << std::endl;
-    std::cout << "main:" << std::endl;
-}
+#include "CodeGenVisitor.h"
 
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
@@ -21,9 +17,11 @@ int main(int argc, const char* argv[]) {
     MDLexer lexer(&input);
     antlr4::CommonTokenStream tokens(&lexer);
     MDParser parser(&tokens);
-
-    printHeader();
     parser.program();
+
+    CodeGenVisitor codeGen;
+    auto code = codeGen.genCode(parser.getExpr());
+    std::cout << code;
 
     return 0;
 }

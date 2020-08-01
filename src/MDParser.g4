@@ -7,78 +7,68 @@ options {
 
 @parser::postinclude {
 
+#include <string>
+
 #include "BaseParser.h"
 
 }
 
 program : stmt
-          {
-            std::cout << "addi sp, sp, 8" << std::endl;
-            std::cout << "ret" << std::endl;
-          }
         ;
 
 stmt    : expr ';'
           {
-            std::cout << $expr.code;
+            setExpr($expr.node);
           }
         ;
 
-expr    returns [std::string code]
+expr    returns [std::shared_ptr<ASTNode> node]
         : Integer
           {
-            $code = "ori a0, x0, " + $Integer.text + "\n" + push();
+            $node = IntegerNode::make(std::stoi($Integer.text));
           }
         | '(' expr ')'
           {
-            $code = $expr.code;
+            $node = $expr.node;
           }
         | '-' expr
           {
-            $code = $expr.code;
-            $code += pop() + "sub a0, x0, t0\n" + push();
+            $node = SubNode::make(IntegerNode::make(0), $expr.node);
           }
         | '+' expr
           {
-            $code = $expr.code;
+            $node = $expr.node;
           }
         | lhs=expr op=('*' | '/') rhs=expr
           {
-            $code = $lhs.code + $rhs.code;
             if ($op.text == "*") {
-                $code += pop2() + "mul a0, t0, t1\n" + push();
+                $node = MulNode::make($lhs.node, $rhs.node);
             } else {
-                $code += pop2() + "div a0, t0, t1\n" + push();
+                $node = DivNode::make($lhs.node, $rhs.node);
             }
           }
         | lhs=expr op=('+' | '-') rhs=expr
           {
-            $code = $lhs.code + $rhs.code;
             if ($op.text == "+") {
-                $code += pop2() + "add a0, t0, t1\n" + push();
+                $node = AddNode::make($lhs.node, $rhs.node);
             } else {
-                $code += pop2() + "sub a0, t0, t1\n" + push();
+                $node = SubNode::make($lhs.node, $rhs.node);
             }
           }
         | lhs=expr op=('<' | '>' | '<=' | '>=' | '==' | '!=') rhs=expr
           {
-            $code = $lhs.code + $rhs.code;
             if ($op.text == "<") {
-                $code += pop2() + "slt a0, t0, t1\n" + push();
+                $node = LTNode::make($lhs.node, $rhs.node);
             } else if ($op.text == ">") {
-                $code += pop2() + "sgt a0, t0, t1\n" + push();
+                $node = GTNode::make($lhs.node, $rhs.node);
             } else if ($op.text == "<=") {
-                $code += pop2() + "sgt a0, t0, t1\n"
-                                  "xori a0, a0, 1\n" + push();
+                $node = LENode::make($lhs.node, $rhs.node);
             } else if ($op.text == ">=") {
-                $code += pop2() + "slt a0, t0, t1\n"
-                                  "xori a0, a0, 1\n" + push();
+                $node = GENode::make($lhs.node, $rhs.node);
             } else if ($op.text == "==") {
-                $code += pop2() + "sub t0, t0, t1\n"
-                                  "seqz a0, t0\n" + push();
+                $node = EQNode::make($lhs.node, $rhs.node);
             } else if ($op.text == "!=") {
-                $code += pop2() + "sub t0, t0, t1\n"
-                                  "snez a0, t0\n" + push();
+                $node = NENode::make($lhs.node, $rhs.node);
             }
           }
         ;
