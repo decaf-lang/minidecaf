@@ -2,23 +2,44 @@ parser grammar MDParser;
 
 options {
     tokenVocab = MDLexer;
-    superClass = BaseParser;
 }
 
 @parser::postinclude {
 
 #include <string>
 
-#include "BaseParser.h"
+#include "ASTNode.h"
 
 }
 
-program : stmt
+program returns [std::shared_ptr<ASTNode> node]
+        : stmtSeq EOF
+          {
+            $node = $stmtSeq.node;
+          }
         ;
 
-stmt    : expr ';'
+stmtSeq returns [std::shared_ptr<ASTNode> node]
+        : stmt
           {
-            setExpr($expr.node);
+            $node = StmtSeqNode::make({$stmt.node});
+          }
+        | part=stmtSeq stmt
+          {
+            $node = $part.node;
+            CHECK_NODE_TYPE($node, StmtSeq);
+            static_cast<StmtSeqNode*>($node.get())->stmts_.push_back($stmt.node);
+          }
+        ;
+
+stmt    returns [std::shared_ptr<ASTNode> node]
+        : expr ';'
+          {
+            $node = $expr.node;
+          }
+        | Identifier '=' expr ';'
+          {
+            $node = AssignNode::make(VarNode::make($Identifier.text), $expr.node);
           }
         ;
 
@@ -26,6 +47,10 @@ expr    returns [std::shared_ptr<ASTNode> node]
         : Integer
           {
             $node = IntegerNode::make(std::stoi($Integer.text));
+          }
+        | Identifier
+          {
+            $node = VarNode::make($Identifier.text);
           }
         | '(' expr ')'
           {

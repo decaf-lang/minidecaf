@@ -1,12 +1,31 @@
 #include "CodeGenVisitor.h"
 
-std::string CodeGenVisitor::genCode(const std::shared_ptr<ASTNode> &op) {
+std::string CodeGenVisitor::genCode(
+        const std::shared_ptr<ASTNode> &op,
+        const std::unordered_map<std::string, int> &varMap) {
+    varMap_ = &varMap;
     os << ".global main\n"
-          "main:\n";
+          "main:\n"
+          "sd fp, -8(sp)\n"
+          "mv fp, sp\n"
+          "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
     (*this)(op);
-    os << "addi sp, sp, 8\n"
+    os << "mv sp, fp\n"
+          "ld fp, -8(sp)\n"
           "ret\n";
     return os.str();
+}
+
+void CodeGenVisitor::visit(const VarNode *op) {
+    Visitor::visit(op);
+    os << "ld a0, " << (-16 - 8 * varMap_->at(op->name_)) << "(fp)  # Load from " << op->name_ << "\n" << push;
+}
+
+void CodeGenVisitor::visit(const AssignNode *op) {
+    CHECK_NODE_TYPE(op->lhs_, Var);
+    const VarNode *var = static_cast<const VarNode*>(op->lhs_.get());
+    (*this)(op->rhs_);
+    os << "sd a0, " << (-16 - 8 * varMap_->at(var->name_)) << "(fp)  # Store to " << var->name_ << "\n";
 }
 
 void CodeGenVisitor::visit(const IntegerNode *op) {

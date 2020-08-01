@@ -15,7 +15,10 @@ public:
                 visit(static_cast<name##Node*>(op.get())); \
                 break;
 
+            DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(Integer)
+            DISPATCH_CASE(Var)
+            DISPATCH_CASE(Assign)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
@@ -33,7 +36,20 @@ public:
     }
 
 protected:
+    virtual void visit(const StmtSeqNode *op) {
+        for (auto &&stmt : op->stmts_) {
+            (*this)(stmt);
+        }
+    }
+
     virtual void visit(const IntegerNode *op) {}
+
+    virtual void visit(const VarNode *op) {}
+
+    virtual void visit(const AssignNode *op) {
+        (*this)(op->lhs_);
+        (*this)(op->rhs_);
+    }
 
     virtual void visit(const AddNode *op) {
         (*this)(op->lhs_);

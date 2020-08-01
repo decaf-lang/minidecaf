@@ -1,16 +1,40 @@
 #ifndef AST_NODE_
 #define AST_NODE_
 
+#include <vector>
 #include <memory>
+#include <stdexcept>
 
 enum class ASTNodeType : int {
-    Integer,
+    StmtSeq,
+    Integer, Var,
+    Assign,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
 };
 
 struct ASTNode {
     virtual ASTNodeType nodeType() const = 0;
+    virtual ~ASTNode() {}
+};
+
+#define CHECK_NODE_TYPE(node, type) \
+    if (node->nodeType() != ASTNodeType::type) { \
+        throw std::runtime_error("Wrong AST node type"); \
+    }
+
+struct StmtSeqNode : public ASTNode {
+    std::vector<std::shared_ptr<ASTNode>> stmts_;
+
+    StmtSeqNode(const std::vector<std::shared_ptr<ASTNode>> &stmts) : stmts_(stmts) {}
+
+    virtual ASTNodeType nodeType() const {
+        return ASTNodeType::StmtSeq;
+    }
+
+    static std::shared_ptr<StmtSeqNode> make(const std::vector<std::shared_ptr<ASTNode>> &stmts) {
+        return std::make_shared<StmtSeqNode>(stmts);
+    }
 };
 
 struct IntegerNode : public ASTNode {
@@ -24,6 +48,20 @@ struct IntegerNode : public ASTNode {
 
     static std::shared_ptr<IntegerNode> make(int literal) {
         return std::make_shared<IntegerNode>(literal);
+    }
+};
+
+struct VarNode : public ASTNode {
+    std::string name_;
+
+    VarNode(const std::string &name) : name_(name) {}
+
+    virtual ASTNodeType nodeType() const {
+        return ASTNodeType::Var;
+    }
+
+    static std::shared_ptr<VarNode> make(const std::string &name) {
+        return std::make_shared<VarNode>(name);
     }
 };
 
@@ -42,6 +80,7 @@ struct IntegerNode : public ASTNode {
         } \
     };
 
+DEFINE_BINARY_NODE(Assign)
 DEFINE_BINARY_NODE(Add)
 DEFINE_BINARY_NODE(Sub)
 DEFINE_BINARY_NODE(Mul)
