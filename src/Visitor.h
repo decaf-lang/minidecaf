@@ -20,6 +20,7 @@ public:
             DISPATCH_CASE(Var)
             DISPATCH_CASE(Assign)
             DISPATCH_CASE(Invoke)
+            DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
@@ -50,6 +51,14 @@ protected:
     virtual void visit(const AssignNode *op) {
         (*this)(op->var_);
         (*this)(op->expr_);
+    }
+
+    virtual void visit(const IfThenElseNode *op) {
+        (*this)(op->cond_);
+        (*this)(op->thenCase_);
+        if (op->elseCase_ != nullptr) {
+            (*this)(op->elseCase_);
+        }
     }
 
     virtual void visit(const InvokeNode *op) {

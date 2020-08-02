@@ -17,6 +17,7 @@ protected:
     virtual void visit(const VarNode *op) override;
     virtual void visit(const AssignNode *op) override;
     virtual void visit(const InvokeNode *op) override;
+    virtual void visit(const IfThenElseNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const AddNode *op) override;
     virtual void visit(const SubNode *op) override;
@@ -38,6 +39,7 @@ private:
 
     std::ostringstream os;
     const std::unordered_map<std::string, int> *varMap_;
+    int jumpCnt_ = 0;
 };
 
 #endif  // CODE_GEN_VISITOR_H_

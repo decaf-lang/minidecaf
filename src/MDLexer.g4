@@ -2,6 +2,9 @@ lexer grammar MDLexer;
 
 WhiteSpaces: [ \t\r\n]+ -> skip;
 
+IF:         'if';
+ELSE:       'else';
+
 Integer:    [0-9]+;
 Identifier: [a-zA-Z_][a-zA-Z0-9_]*;
 
@@ -19,4 +22,6 @@ GE:         '>=';
 SEMICOLON:  ';';
 LPAREN:     '(';
 RPAREN:     ')';
+LBRACK:     '{';
+RBRACK:     '}';
 

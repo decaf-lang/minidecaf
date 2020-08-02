@@ -40,6 +40,14 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = AssignNode::make(VarNode::make($Identifier.text), $expr.node);
           }
+        | IF '(' expr ')' stmt
+          {
+            $node = IfThenElseNode::make($expr.node, $stmt.node);
+          }
+        | IF '(' expr ')' thenCase=stmt ELSE elseCase=stmt
+          {
+            $node = IfThenElseNode::make($expr.node, $thenCase.node, $elseCase.node);
+          }
         ;
 
 expr    returns [std::shared_ptr<ExprNode> node]

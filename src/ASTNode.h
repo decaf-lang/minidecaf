@@ -9,6 +9,7 @@ enum class ASTNodeType : int {
     StmtSeq,
     Integer, Var,
     Assign, Invoke,
+    IfThenElse,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
 };
@@ -83,7 +84,8 @@ struct AssignNode : public StmtNode {
     std::shared_ptr<VarNode> var_;
     std::shared_ptr<ExprNode> expr_;
 
-    AssignNode(std::shared_ptr<VarNode> var, std::shared_ptr<ExprNode> expr) : var_(var), expr_(expr) {}
+    AssignNode(const std::shared_ptr<VarNode> &var, const std::shared_ptr<ExprNode> &expr)
+        : var_(var), expr_(expr) {}
 
     virtual ASTNodeType nodeType() const override {
         return ASTNodeType::Assign;
@@ -91,6 +93,24 @@ struct AssignNode : public StmtNode {
 
     static std::shared_ptr<AssignNode> make(std::shared_ptr<VarNode> var, std::shared_ptr<ExprNode> expr) {
         return std::make_shared<AssignNode>(var, expr);
+    }
+};
+
+struct IfThenElseNode : public StmtNode {
+    std::shared_ptr<ExprNode> cond_;
+    std::shared_ptr<StmtNode> thenCase_, elseCase_;
+
+    IfThenElseNode(const std::shared_ptr<ExprNode> &cond,
+            const std::shared_ptr<StmtNode> &thenCase, const std::shared_ptr<StmtNode> &elseCase)
+        : cond_(cond), thenCase_(thenCase), elseCase_(elseCase) {}
+
+    virtual ASTNodeType nodeType() const override {
+        return ASTNodeType::IfThenElse;
+    }
+
+    static std::shared_ptr<IfThenElseNode> make(const std::shared_ptr<ExprNode> &cond,
+            const std::shared_ptr<StmtNode> &thenCase, const std::shared_ptr<StmtNode> &elseCase=nullptr) {
+        return std::make_shared<IfThenElseNode>(cond, thenCase, elseCase);
     }
 };
 

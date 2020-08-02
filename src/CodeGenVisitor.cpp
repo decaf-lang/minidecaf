@@ -31,6 +31,25 @@ void CodeGenVisitor::visit(const InvokeNode *op) {
     Visitor::visit(op);
 }
 
+void CodeGenVisitor::visit(const IfThenElseNode *op) {
+    (*this)(op->cond_);
+    if (op->elseCase_ == nullptr) {
+        auto elseTarget = jumpCnt_++;
+        os << "beqz a0, " << elseTarget << "f\n";
+        (*this)(op->thenCase_);
+        os << elseTarget << ":\n";
+    } else {
+        auto elseTarget = jumpCnt_++;
+        auto endTarget = jumpCnt_++;
+        os << "beqz a0, " << elseTarget << "f\n";
+        (*this)(op->thenCase_);
+        os << "j " << endTarget << "f\n";
+        os << elseTarget << ":\n";
+        (*this)(op->elseCase_);
+        os << endTarget << ":\n";
+    }
+}
+
 void CodeGenVisitor::visit(const IntegerNode *op) {
     Visitor::visit(op);
     os << "ori a0, x0, " << op->literal_ << "\n" << push;
