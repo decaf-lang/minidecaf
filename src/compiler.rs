@@ -33,6 +33,7 @@ pub enum TokenKind {
     TkSymbol,
     TkVariable,
     TkReturn,
+    TkIf, // "if"
 }
 
 pub struct Token {
@@ -47,6 +48,7 @@ pub enum NodeKind {
     NdAssignOperator,
     NdVariable,
     NdReturn,
+    NdIf, // "if"
 }
 
 pub struct Node {
@@ -54,4 +56,8 @@ pub struct Node {
     pub kind: NodeKind,
     pub left: Option<Box<Node>>,
     pub right: Option<Box<Node>>,
+    // "if" statement
+    pub cond: Option<Box<Node>>,
+    pub then: Option<Box<Node>>,
+    pub els: Option<Box<Node>>,
 }

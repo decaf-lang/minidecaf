@@ -50,6 +50,7 @@ fn consume(tokens: &Vec<Token>, idx: &mut usize, target_val: &str) -> bool {
     }
 }
 
+// program = stmt*
 fn program(tokens: &Vec<Token>, idx: &mut usize) -> Vec<Option<Node>> {
     let mut vec: Vec<Option<Node>> = Vec::new();
     loop {
@@ -68,6 +69,9 @@ fn program(tokens: &Vec<Token>, idx: &mut usize) -> Vec<Option<Node>> {
     vec
 }
 
+// stmt = "return" expr ";"
+//      | "if" "(" expr ")" stmt ("else" stmt)?
+//      | expr ";"
 fn stmt(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let node;
     if consume(&tokens, idx, &"return") {
@@ -77,7 +81,9 @@ fn stmt(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
         } else {
             None
         }
-    } else {
+    } else if consume(&tokens, idx, &"if") {
+    
+    }else {
         let node = expr(&tokens, idx);
         if consume(&tokens, idx, &";") {
             node
@@ -87,10 +93,12 @@ fn stmt(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// expr = assign
 fn expr(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     assign(&tokens, idx)
 }
 
+// assign = equality ("=" assign)?
 fn assign(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let node = equality(&tokens, idx);
 
@@ -106,6 +114,8 @@ fn assign(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// equality = relational ("==" relational | "!=" relational)*
+// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 fn equality(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let mut node = addsub(&tokens, idx);
 
@@ -158,6 +168,7 @@ fn equality(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// add = mul ("+" mul | "-" mul)*
 fn addsub(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let mut node = term(&tokens, idx);
 
@@ -172,6 +183,7 @@ fn addsub(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// mul = unary ("*" unary | "/" unary)*
 fn term(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let mut node = unary(&tokens, idx);
 
@@ -186,6 +198,8 @@ fn term(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// unary = ("+" | "-")? unary
+//       | primary
 fn unary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     if consume(&tokens, idx, &"+") {
         let node = create_node("0", NodeKind::NdNum, None, None);
@@ -198,6 +212,7 @@ fn unary(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     }
 }
 
+// primary = "(" expr ")" | ident | num
 fn factor(tokens: &Vec<Token>, idx: &mut usize) -> Option<Node> {
     let idx_: usize = *idx;
     if tokens.len() <= idx_ {

@@ -187,6 +187,18 @@ fn create_token_of_variable(s: &str) -> Token {
                 val: String::from("return"),
             };
         }
+        "if" => {
+            return Token {
+                kind: TokenKind::TkIf,
+                val:String::from("if"),
+            };
+        }
+        "else" => {
+            return Token {
+                kind: TokenKind::TkEls,
+                val:String::from("else"),
+            };
+        }        
         _ => {
             return Token {
                 kind: TokenKind::TkVariable,
