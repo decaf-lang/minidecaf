@@ -9,7 +9,7 @@ enum class ASTNodeType : int {
     StmtSeq,
     Integer, Var,
     Assign, Invoke,
-    IfThenElse,
+    IfThenElse, While,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
 };
@@ -18,6 +18,11 @@ struct ASTNode {
     virtual ASTNodeType nodeType() const = 0;
     virtual ~ASTNode() {}
 };
+
+#define DEFINE_NODE_TRAIT(name) \
+    virtual ASTNodeType nodeType() const override { \
+        return ASTNodeType::name; \
+    }
 
 struct StmtNode : public ASTNode {};
 
@@ -28,13 +33,11 @@ struct StmtSeqNode : public StmtNode {
 
     StmtSeqNode(const std::vector<std::shared_ptr<StmtNode>> &stmts) : stmts_(stmts) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::StmtSeq;
-    }
-
     static std::shared_ptr<StmtSeqNode> make(const std::vector<std::shared_ptr<StmtNode>> &stmts) {
         return std::make_shared<StmtSeqNode>(stmts);
     }
+
+    DEFINE_NODE_TRAIT(StmtSeq);
 };
 
 struct IntegerNode : public ExprNode {
@@ -42,13 +45,11 @@ struct IntegerNode : public ExprNode {
 
     IntegerNode(int literal) : literal_(literal) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::Integer;
-    }
-
     static std::shared_ptr<IntegerNode> make(int literal) {
         return std::make_shared<IntegerNode>(literal);
     }
+
+    DEFINE_NODE_TRAIT(Integer)
 };
 
 struct VarNode : public ExprNode {
@@ -56,13 +57,11 @@ struct VarNode : public ExprNode {
 
     VarNode(const std::string &name) : name_(name) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::Var;
-    }
-
     static std::shared_ptr<VarNode> make(const std::string &name) {
         return std::make_shared<VarNode>(name);
     }
+
+    DEFINE_NODE_TRAIT(Var)
 };
 
 /// Invoke a pure expression
@@ -71,13 +70,11 @@ struct InvokeNode : public StmtNode {
 
     InvokeNode(const std::shared_ptr<ExprNode> &expr) : expr_(expr) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::Invoke;
-    }
-
     static std::shared_ptr<InvokeNode> make(const std::shared_ptr<ExprNode> &expr) {
         return std::make_shared<InvokeNode>(expr);
     }
+
+    DEFINE_NODE_TRAIT(Invoke)
 };
 
 struct AssignNode : public StmtNode {
@@ -87,13 +84,11 @@ struct AssignNode : public StmtNode {
     AssignNode(const std::shared_ptr<VarNode> &var, const std::shared_ptr<ExprNode> &expr)
         : var_(var), expr_(expr) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::Assign;
-    }
-
     static std::shared_ptr<AssignNode> make(std::shared_ptr<VarNode> var, std::shared_ptr<ExprNode> expr) {
         return std::make_shared<AssignNode>(var, expr);
     }
+
+    DEFINE_NODE_TRAIT(Assign)
 };
 
 struct IfThenElseNode : public StmtNode {
@@ -104,14 +99,27 @@ struct IfThenElseNode : public StmtNode {
             const std::shared_ptr<StmtNode> &thenCase, const std::shared_ptr<StmtNode> &elseCase)
         : cond_(cond), thenCase_(thenCase), elseCase_(elseCase) {}
 
-    virtual ASTNodeType nodeType() const override {
-        return ASTNodeType::IfThenElse;
-    }
-
     static std::shared_ptr<IfThenElseNode> make(const std::shared_ptr<ExprNode> &cond,
             const std::shared_ptr<StmtNode> &thenCase, const std::shared_ptr<StmtNode> &elseCase=nullptr) {
         return std::make_shared<IfThenElseNode>(cond, thenCase, elseCase);
     }
+
+    DEFINE_NODE_TRAIT(IfThenElse)
+};
+
+struct WhileNode : public StmtNode {
+    std::shared_ptr<ExprNode> cond_;
+    std::shared_ptr<StmtNode> body_;
+
+    WhileNode(const std::shared_ptr<ExprNode> &cond, const std::shared_ptr<StmtNode> &body)
+        : cond_(cond), body_(body) {}
+
+    static std::shared_ptr<WhileNode> make(
+            const std::shared_ptr<ExprNode> &cond, const std::shared_ptr<StmtNode> &body) {
+        return std::make_shared<WhileNode>(cond, body);
+    }
+
+    DEFINE_NODE_TRAIT(While)
 };
 
 #define DEFINE_BINARY_NODE(name) \
@@ -120,13 +128,11 @@ struct IfThenElseNode : public StmtNode {
         \
         name##Node(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) : lhs_(lhs), rhs_(rhs) {} \
         \
-        virtual ASTNodeType nodeType() const override { \
-            return ASTNodeType::name; \
-        } \
-        \
         static std::shared_ptr<name##Node> make(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) { \
             return std::make_shared<name##Node>(lhs, rhs); \
         } \
+        \
+        DEFINE_NODE_TRAIT(name) \
     };
 
 DEFINE_BINARY_NODE(Add)

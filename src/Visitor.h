@@ -21,6 +21,7 @@ public:
             DISPATCH_CASE(Assign)
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
+            DISPATCH_CASE(While)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
@@ -59,6 +60,11 @@ protected:
         if (op->elseCase_ != nullptr) {
             (*this)(op->elseCase_);
         }
+    }
+
+    virtual void visit(const WhileNode *op) {
+        (*this)(op->cond_);
+        (*this)(op->body_);
     }
 
     virtual void visit(const InvokeNode *op) {

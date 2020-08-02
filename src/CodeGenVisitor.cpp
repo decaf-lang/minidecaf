@@ -50,6 +50,17 @@ void CodeGenVisitor::visit(const IfThenElseNode *op) {
     }
 }
 
+void CodeGenVisitor::visit(const WhileNode *op) {
+    auto beginTarget = jumpCnt_++;
+    auto endTarget = jumpCnt_++;
+    os << beginTarget << ":\n";
+    (*this)(op->cond_);
+    os << "beqz a0, " << endTarget << "f\n";
+    (*this)(op->body_);
+    os << "j " << beginTarget << "b\n";
+    os << endTarget << ":\n";
+}
+
 void CodeGenVisitor::visit(const IntegerNode *op) {
     Visitor::visit(op);
     os << "ori a0, x0, " << op->literal_ << "\n" << push;

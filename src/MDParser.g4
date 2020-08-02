@@ -48,6 +48,10 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = IfThenElseNode::make($expr.node, $thenCase.node, $elseCase.node);
           }
+        | WHILE '(' expr ')' stmt
+          {
+            $node = WhileNode::make($expr.node, $stmt.node);
+          }
         | '{' stmtSeq '}'
           {
             $node = $stmtSeq.node;

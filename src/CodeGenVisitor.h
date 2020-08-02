@@ -18,6 +18,7 @@ protected:
     virtual void visit(const AssignNode *op) override;
     virtual void visit(const InvokeNode *op) override;
     virtual void visit(const IfThenElseNode *op) override;
+    virtual void visit(const WhileNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const AddNode *op) override;
     virtual void visit(const SubNode *op) override;
