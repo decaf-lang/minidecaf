@@ -2,7 +2,7 @@
 
 std::string CodeGenVisitor::genCode(
         const std::shared_ptr<ASTNode> &op,
-        const std::unordered_map<std::string, int> &varMap) {
+        const VarAllocVisitor::Map<VarAllocVisitor::Map<int>> &varMap) {
     varMap_ = &varMap;
     (*this)(op);
     return os.str();
@@ -14,6 +14,7 @@ void CodeGenVisitor::visit(const ProgramNode *op) {
 }
 
 void CodeGenVisitor::visit(const FunctionNode *op) {
+    curFunc_ = op->name_;
     os << op->name_ << ":\n";
     os << "sd fp, -8(sp)\n"
           "mv fp, sp\n";
@@ -25,17 +26,19 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
 
 void CodeGenVisitor::visit(const VarNode *op) {
     Visitor::visit(op);
-    os << "ld a0, " << (-16 - 8 * varMap_->at(op->name_)) << "(fp)  # Load from " << op->name_ << "\n" << push;
+    auto offset = varMap_->at(curFunc_).at(op->name_);
+    os << "ld a0, " << (-16 - 8 * offset) << "(fp)  # Load from " << op->name_ << "\n" << push;
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
-    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
+    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
     (*this)(op->expr_);
-    os << "sd a0, " << (-16 - 8 * varMap_->at(op->var_->name_)) << "(fp)  # Store to " << op->var_->name_ << "\n";
+    auto offset = varMap_->at(curFunc_).at(op->var_->name_);
+    os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_->name_ << "\n";
 }
 
 void CodeGenVisitor::visit(const InvokeNode *op) {
-    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->size()) << "\n";
+    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
     Visitor::visit(op);
 }
 

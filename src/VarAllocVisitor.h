@@ -7,15 +7,20 @@
 
 class VarAllocVisitor : public Visitor {
 public:
-    std::unordered_map<std::string, int> allocVar(const std::shared_ptr<ASTNode> &op);
+    template <class T>
+    using Map = std::unordered_map<std::string, T>;
+
+    Map<Map<int>> allocVar(const std::shared_ptr<ASTNode> &op);
 
 protected:
+    virtual void visit(const FunctionNode *op) override;
     virtual void visit(const VarNode *op) override;
     virtual void visit(const AssignNode *op) override;
 
 private:
-    int offset = 0;
-    std::unordered_map<std::string, int> varMap_;
+    int offset_;
+    std::string curFunc_;
+    Map<Map<int>> varMap_;  // function -> var name -> stack offset
 };
 
 #endif  // VAR_ALLOC_VISITOR_H_

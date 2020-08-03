@@ -6,12 +6,13 @@
 #include <unordered_map>
 
 #include "Visitor.h"
+#include "VarAllocVisitor.h"
 
 class CodeGenVisitor : public Visitor {
 public:
     std::string genCode(
             const std::shared_ptr<ASTNode> &op,
-            const std::unordered_map<std::string, int> &varMap);
+            const VarAllocVisitor::Map<VarAllocVisitor::Map<int>> &varMap);
 
 protected:
     virtual void visit(const ProgramNode *op) override;
@@ -42,7 +43,8 @@ private:
                         "addi sp, sp, 16\n";
 
     std::ostringstream os;
-    const std::unordered_map<std::string, int> *varMap_;
+    std::string curFunc_;
+    const VarAllocVisitor::Map<VarAllocVisitor::Map<int>> *varMap_;
     int jumpCnt_ = 0;
 };
 
