@@ -4,9 +4,13 @@ std::string CodeGenVisitor::genCode(
         const std::shared_ptr<ASTNode> &op,
         const std::unordered_map<std::string, int> &varMap) {
     varMap_ = &varMap;
-    os << ".global main\n";
     (*this)(op);
     return os.str();
+}
+
+void CodeGenVisitor::visit(const ProgramNode *op) {
+    os << ".global main\n";
+    Visitor::visit(op);
 }
 
 void CodeGenVisitor::visit(const FunctionNode *op) {
@@ -68,6 +72,22 @@ void CodeGenVisitor::visit(const WhileNode *op) {
 void CodeGenVisitor::visit(const IntegerNode *op) {
     Visitor::visit(op);
     os << "ori a0, x0, " << op->literal_ << "\n" << push;
+}
+
+void CodeGenVisitor::visit(const CallNode *op) {
+    os << "sd ra, -8(sp)\n"
+          "sd a0, -16(sp)\n"
+          "sd t0, -24(sp)\n"
+          "sd t1, -32(sp)\n"
+          "addi sp, sp, -32\n";
+    Visitor::visit(op);
+    os << "call "  << op->callee_ << "\n";
+    os << "addi sp, sp, 32\n"
+          "ld ra, -8(sp)\n"
+          "ld a0, -16(sp)\n"
+          "ld t0, -24(sp)\n"
+          "ld t1, -32(sp)\n";
+    os << push;
 }
 
 void CodeGenVisitor::visit(const AddNode *op) {

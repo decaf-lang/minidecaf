@@ -15,6 +15,7 @@ public:
                 visit(static_cast<name##Node*>(op.get())); \
                 break;
 
+            DISPATCH_CASE(Program)
             DISPATCH_CASE(Function)
             DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(Integer)
@@ -23,6 +24,7 @@ public:
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(While)
+            DISPATCH_CASE(Call)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
@@ -40,6 +42,12 @@ public:
     }
 
 protected:
+    virtual void visit(const ProgramNode *op) {
+        for (auto &&func : op->funcs_) {
+            (*this)(func);
+        }
+    }
+
     virtual void visit(const FunctionNode *op) {
         (*this)(op->body_);
     }
@@ -76,56 +84,25 @@ protected:
         (*this)(op->expr_);
     }
 
-    virtual void visit(const AddNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
+    virtual void visit(const CallNode *op) {
+        // nothing
     }
 
-    virtual void visit(const SubNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
+#define VISIT_BINARY_NODE(name) \
+    virtual void visit(const name##Node *op) { \
+        (*this)(op->lhs_); \
+        (*this)(op->rhs_); \
     }
-
-    virtual void visit(const MulNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const DivNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const LTNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const LENode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const GTNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const GENode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const EQNode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
-    virtual void visit(const NENode *op) {
-        (*this)(op->lhs_);
-        (*this)(op->rhs_);
-    }
-
+    VISIT_BINARY_NODE(Add)
+    VISIT_BINARY_NODE(Sub)
+    VISIT_BINARY_NODE(Mul)
+    VISIT_BINARY_NODE(Div)
+    VISIT_BINARY_NODE(LT)
+    VISIT_BINARY_NODE(LE)
+    VISIT_BINARY_NODE(GT)
+    VISIT_BINARY_NODE(GE)
+    VISIT_BINARY_NODE(EQ)
+    VISIT_BINARY_NODE(NE)
 };
 
 #endif  // VISITOR_H_

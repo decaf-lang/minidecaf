@@ -12,10 +12,34 @@ options {
 
 }
 
-program returns [std::shared_ptr<ASTNode> node]
+program returns [std::shared_ptr<ProgramNode> node]
         : stmtSeq EOF
           {
-            $node = FunctionNode::make("main", $stmtSeq.node);
+            $node = ProgramNode::make({FunctionNode::make("main", $stmtSeq.node)});
+          }
+        | funcs stmtSeq EOF
+          {
+            $node = $funcs.node;
+            $node->funcs_.push_back(FunctionNode::make("main", $stmtSeq.node));
+          }
+        ;
+
+funcs   returns [std::shared_ptr<ProgramNode> node]
+        : func
+          {
+            $node = ProgramNode::make({$func.node});
+          }
+        | part=funcs func
+          {
+            $node = $part.node;
+            $node->funcs_.push_back($func.node);
+          }
+        ;
+
+func    returns [std::shared_ptr<FunctionNode> node]
+        : Identifier '(' ')' '{' stmtSeq '}'
+          {
+            $node = FunctionNode::make($Identifier.text, $stmtSeq.node);
           }
         ;
 
@@ -27,7 +51,7 @@ stmtSeq returns [std::shared_ptr<StmtSeqNode> node]
         | part=stmtSeq stmt
           {
             $node = $part.node;
-            static_cast<StmtSeqNode*>($node.get())->stmts_.push_back($stmt.node);
+            $node->stmts_.push_back($stmt.node);
           }
         ;
 
@@ -66,6 +90,10 @@ expr    returns [std::shared_ptr<ExprNode> node]
         | Identifier
           {
             $node = VarNode::make($Identifier.text);
+          }
+        | Identifier '(' ')'
+          {
+            $node = CallNode::make($Identifier.text);
           }
         | '(' expr ')'
           {

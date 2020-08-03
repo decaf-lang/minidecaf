@@ -6,11 +6,13 @@
 #include <stdexcept>
 
 enum class ASTNodeType : int {
+    Program,
     Function,
     StmtSeq,
     Integer, Var,
     Assign, Invoke,
     IfThenElse, While,
+    Call,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
 };
@@ -41,6 +43,18 @@ struct FunctionNode : public ASTNode {
     }
 
     DEFINE_NODE_TRAIT(Function);
+};
+
+struct ProgramNode : public ASTNode {
+    std::vector<std::shared_ptr<FunctionNode>> funcs_;
+
+    ProgramNode(const std::vector<std::shared_ptr<FunctionNode>> &funcs) : funcs_(funcs) {}
+
+    static std::shared_ptr<ProgramNode> make(const std::vector<std::shared_ptr<FunctionNode>> &funcs) {
+        return std::make_shared<ProgramNode>(funcs);
+    }
+
+    DEFINE_NODE_TRAIT(Program)
 };
 
 struct StmtSeqNode : public StmtNode {
@@ -135,6 +149,18 @@ struct WhileNode : public StmtNode {
     }
 
     DEFINE_NODE_TRAIT(While)
+};
+
+struct CallNode : public ExprNode {
+    std::string callee_;
+
+    CallNode(const std::string &callee) : callee_(callee) {}
+
+    static std::shared_ptr<CallNode> make(const std::string &callee) {
+        return std::make_shared<CallNode>(callee);
+    }
+
+    DEFINE_NODE_TRAIT(Call)
 };
 
 #define DEFINE_BINARY_NODE(name) \
