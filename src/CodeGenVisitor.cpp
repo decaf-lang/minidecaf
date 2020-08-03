@@ -18,7 +18,13 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
     os << op->name_ << ":\n";
     os << "sd fp, -8(sp)\n"
           "mv fp, sp\n";
-    Visitor::visit(op);
+    for (size_t i = 0, n = op->args_.size(); i < n; i++) {
+        // copy args as new vars
+        auto offset = varMap_->at(curFunc_).at(op->args_[i]->name_);
+        os << "ld t0, " << (8 * i) << "(fp)\n"
+              "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i]->name_ << "\n";
+    }
+    (*this)(op->body_);
     os << "mv sp, fp\n"
           "ld fp, -8(sp)\n"
           "ret\n";
@@ -79,17 +85,17 @@ void CodeGenVisitor::visit(const IntegerNode *op) {
 
 void CodeGenVisitor::visit(const CallNode *op) {
     os << "sd ra, -8(sp)\n"
-          "sd a0, -16(sp)\n"
-          "sd t0, -24(sp)\n"
-          "sd t1, -32(sp)\n"
-          "addi sp, sp, -32\n";
-    Visitor::visit(op);
+          "sd t0, -16(sp)\n"
+          "sd t1, -24(sp)\n"
+          "addi sp, sp, -24\n";
+    for (size_t i = op->args_.size() - 1; ~i; i--) {
+        (*this)(op->args_[i]);  // results are saved to stack
+    }
     os << "call "  << op->callee_ << "\n";
-    os << "addi sp, sp, 32\n"
+    os << "addi sp, sp, " << (24 + 8 * op->args_.size()) << "\n"
           "ld ra, -8(sp)\n"
-          "ld a0, -16(sp)\n"
-          "ld t0, -24(sp)\n"
-          "ld t1, -32(sp)\n";
+          "ld t0, -16(sp)\n"
+          "ld t1, -24(sp)\n";
     os << push;
 }
 

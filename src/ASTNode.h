@@ -31,15 +31,19 @@ struct StmtNode : public ASTNode {};
 
 struct ExprNode : public ASTNode {};
 
+struct VarNode;
 struct FunctionNode : public ASTNode {
     std::string name_;
+    std::vector<std::shared_ptr<VarNode>> args_;
     std::shared_ptr<StmtNode> body_;
 
-    FunctionNode(const std::string &name, const std::shared_ptr<StmtNode> &body)
-        : name_(name), body_(body) {}
+    FunctionNode(const std::string &name,
+            const std::vector<std::shared_ptr<VarNode>> &args, const std::shared_ptr<StmtNode> &body)
+        : name_(name), args_(args), body_(body) {}
 
-    static std::shared_ptr<FunctionNode> make(const std::string &name, const std::shared_ptr<StmtNode> &body) {
-        return std::make_shared<FunctionNode>(name, body);
+    static std::shared_ptr<FunctionNode> make(const std::string &name,
+            const std::vector<std::shared_ptr<VarNode>> &args, const std::shared_ptr<StmtNode> &body) {
+        return std::make_shared<FunctionNode>(name, args, body);
     }
 
     DEFINE_NODE_TRAIT(Function);
@@ -153,11 +157,13 @@ struct WhileNode : public StmtNode {
 
 struct CallNode : public ExprNode {
     std::string callee_;
+    std::vector<std::shared_ptr<ExprNode>> args_;
 
-    CallNode(const std::string &callee) : callee_(callee) {}
+    CallNode(const std::string &callee, const std::vector<std::shared_ptr<ExprNode>> &args)
+        : callee_(callee), args_(args) {}
 
-    static std::shared_ptr<CallNode> make(const std::string &callee) {
-        return std::make_shared<CallNode>(callee);
+    static std::shared_ptr<CallNode> make(const std::string &callee, const std::vector<std::shared_ptr<ExprNode>> &args) {
+        return std::make_shared<CallNode>(callee, args);
     }
 
     DEFINE_NODE_TRAIT(Call)

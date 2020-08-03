@@ -25,4 +25,5 @@ LPAREN:     '(';
 RPAREN:     ')';
 LBRACK:     '{';
 RBRACK:     '}';
+COMMA:      ',';
 

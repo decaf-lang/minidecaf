@@ -49,6 +49,9 @@ protected:
     }
 
     virtual void visit(const FunctionNode *op) {
+        for (auto &&arg : op->args_) {
+            (*this)(arg);
+        }
         (*this)(op->body_);
     }
 
@@ -85,7 +88,9 @@ protected:
     }
 
     virtual void visit(const CallNode *op) {
-        // nothing
+        for (auto &&arg : op->args_) {
+            (*this)(arg);
+        }
     }
 
 #define VISIT_BINARY_NODE(name) \

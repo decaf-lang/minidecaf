@@ -11,7 +11,10 @@ void VarAllocVisitor::visit(const FunctionNode *op) {
     curFunc_ = op->name_;
     offset_ = 0;
     varMap_[curFunc_] = Map<int>();
-    Visitor::visit(op);
+    for (auto &&arg : op->args_) {
+        varMap_[curFunc_][arg->name_] = offset_++;  // copy the args to another var
+    }
+    (*this)(op->body_);
 }
 
 void VarAllocVisitor::visit(const VarNode *op) {

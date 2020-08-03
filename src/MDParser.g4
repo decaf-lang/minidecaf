@@ -7,6 +7,7 @@ options {
 @parser::postinclude {
 
 #include <string>
+#include <vector>
 
 #include "ASTNode.h"
 
@@ -15,12 +16,12 @@ options {
 program returns [std::shared_ptr<ProgramNode> node]
         : stmtSeq EOF
           {
-            $node = ProgramNode::make({FunctionNode::make("main", $stmtSeq.node)});
+            $node = ProgramNode::make({FunctionNode::make("main", {}, $stmtSeq.node)});
           }
         | funcs stmtSeq EOF
           {
             $node = $funcs.node;
-            $node->funcs_.push_back(FunctionNode::make("main", $stmtSeq.node));
+            $node->funcs_.push_back(FunctionNode::make("main", {}, $stmtSeq.node));
           }
         ;
 
@@ -37,9 +38,9 @@ funcs   returns [std::shared_ptr<ProgramNode> node]
         ;
 
 func    returns [std::shared_ptr<FunctionNode> node]
-        : Identifier '(' ')' '{' stmtSeq '}'
+        : Identifier '(' vars ')' '{' stmtSeq '}'
           {
-            $node = FunctionNode::make($Identifier.text, $stmtSeq.node);
+            $node = FunctionNode::make($Identifier.text, $vars.nodes, $stmtSeq.node);
           }
         ;
 
@@ -60,9 +61,9 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = InvokeNode::make($expr.node);
           }
-        | Identifier '=' expr ';'
+        | var '=' expr ';'
           {
-            $node = AssignNode::make(VarNode::make($Identifier.text), $expr.node);
+            $node = AssignNode::make($var.node, $expr.node);
           }
         | IF '(' expr ')' stmt
           {
@@ -87,13 +88,13 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = IntegerNode::make(std::stoi($Integer.text));
           }
-        | Identifier
+        | var
           {
-            $node = VarNode::make($Identifier.text);
+            $node = $var.node;
           }
-        | Identifier '(' ')'
+        | Identifier '(' exprs ')'
           {
-            $node = CallNode::make($Identifier.text);
+            $node = CallNode::make($Identifier.text, $exprs.nodes);
           }
         | '(' expr ')'
           {
@@ -138,6 +139,39 @@ expr    returns [std::shared_ptr<ExprNode> node]
             } else if ($op.text == "!=") {
                 $node = NENode::make($lhs.node, $rhs.node);
             }
+          }
+        ;
+
+exprs   returns [std::vector<std::shared_ptr<ExprNode>> nodes]
+        : /* empty */
+        | expr
+          {
+            $nodes = {$expr.node};
+          }
+        | part=exprs ',' expr
+          {
+            $nodes = $part.nodes;
+            $nodes.push_back($expr.node);
+          }
+        ;
+
+var     returns [std::shared_ptr<VarNode> node]
+        : Identifier
+          {
+            $node = VarNode::make($Identifier.text);
+          }
+        ;
+
+vars    returns [std::vector<std::shared_ptr<VarNode>> nodes]
+        : /* empty */
+        | var
+          {
+            $nodes = {$var.node};
+          }
+        | part=vars ',' var
+          {
+            $nodes = $part.nodes;
+            $nodes.push_back($var.node);
           }
         ;
 
