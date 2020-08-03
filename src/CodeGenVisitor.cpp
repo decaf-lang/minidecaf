@@ -4,15 +4,19 @@ std::string CodeGenVisitor::genCode(
         const std::shared_ptr<ASTNode> &op,
         const std::unordered_map<std::string, int> &varMap) {
     varMap_ = &varMap;
-    os << ".global main\n"
-          "main:\n"
-          "sd fp, -8(sp)\n"
-          "mv fp, sp\n";
+    os << ".global main\n";
     (*this)(op);
+    return os.str();
+}
+
+void CodeGenVisitor::visit(const FunctionNode *op) {
+    os << op->name_ << ":\n";
+    os << "sd fp, -8(sp)\n"
+          "mv fp, sp\n";
+    Visitor::visit(op);
     os << "mv sp, fp\n"
           "ld fp, -8(sp)\n"
           "ret\n";
-    return os.str();
 }
 
 void CodeGenVisitor::visit(const VarNode *op) {

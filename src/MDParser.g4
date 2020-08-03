@@ -15,7 +15,7 @@ options {
 program returns [std::shared_ptr<ASTNode> node]
         : stmtSeq EOF
           {
-            $node = $stmtSeq.node;
+            $node = FunctionNode::make("main", $stmtSeq.node);
           }
         ;
 

@@ -6,6 +6,7 @@
 #include <stdexcept>
 
 enum class ASTNodeType : int {
+    Function,
     StmtSeq,
     Integer, Var,
     Assign, Invoke,
@@ -27,6 +28,20 @@ struct ASTNode {
 struct StmtNode : public ASTNode {};
 
 struct ExprNode : public ASTNode {};
+
+struct FunctionNode : public ASTNode {
+    std::string name_;
+    std::shared_ptr<StmtNode> body_;
+
+    FunctionNode(const std::string &name, const std::shared_ptr<StmtNode> &body)
+        : name_(name), body_(body) {}
+
+    static std::shared_ptr<FunctionNode> make(const std::string &name, const std::shared_ptr<StmtNode> &body) {
+        return std::make_shared<FunctionNode>(name, body);
+    }
+
+    DEFINE_NODE_TRAIT(Function);
+};
 
 struct StmtSeqNode : public StmtNode {
     std::vector<std::shared_ptr<StmtNode>> stmts_;

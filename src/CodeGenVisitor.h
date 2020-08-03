@@ -14,6 +14,7 @@ public:
             const std::unordered_map<std::string, int> &varMap);
 
 protected:
+    virtual void visit(const FunctionNode *op) override;
     virtual void visit(const VarNode *op) override;
     virtual void visit(const AssignNode *op) override;
     virtual void visit(const InvokeNode *op) override;

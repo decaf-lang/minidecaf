@@ -15,6 +15,7 @@ public:
                 visit(static_cast<name##Node*>(op.get())); \
                 break;
 
+            DISPATCH_CASE(Function)
             DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(Integer)
             DISPATCH_CASE(Var)
@@ -39,6 +40,10 @@ public:
     }
 
 protected:
+    virtual void visit(const FunctionNode *op) {
+        (*this)(op->body_);
+    }
+
     virtual void visit(const StmtSeqNode *op) {
         for (auto &&stmt : op->stmts_) {
             (*this)(stmt);
