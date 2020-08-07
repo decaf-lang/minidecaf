@@ -56,6 +56,10 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = InvokeNode::make($expr.node);
           }
+        | varDefs ';'
+          {
+            $node = StmtSeqNode::make($varDefs.nodes);
+          }
         | var '=' expr ';'
           {
             $node = AssignNode::make($var.node, $expr.node);
@@ -175,6 +179,31 @@ vars    returns [std::vector<std::shared_ptr<VarNode>> nodes]
           {
             $nodes = $part.nodes;
             $nodes.push_back($var.node);
+          }
+        ;
+
+varDef  returns [std::shared_ptr<StmtNode> node]
+        : INT var
+          {
+            $node = VarDefNode::make($var.node);
+          }
+        | INT var '=' expr
+          {
+            $node = StmtSeqNode::make({
+                        VarDefNode::make($var.node),
+                        AssignNode::make($var.node, $expr.node)});
+          }
+        ;
+
+varDefs returns [std::vector<std::shared_ptr<StmtNode>> nodes]
+        : varDef
+          {
+            $nodes = {$varDef.node};
+          }
+        | part=varDefs ',' varDef
+          {
+            $nodes = $part.nodes;
+            $nodes.push_back($varDef.node);
           }
         ;
 

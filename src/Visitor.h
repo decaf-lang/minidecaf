@@ -20,6 +20,7 @@ public:
             DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(Integer)
             DISPATCH_CASE(Var)
+            DISPATCH_CASE(VarDef)
             DISPATCH_CASE(Assign)
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
@@ -65,6 +66,10 @@ protected:
     virtual void visit(const IntegerNode *op) {}
 
     virtual void visit(const VarNode *op) {}
+
+    virtual void visit(const VarDefNode *op) {
+        (*this)(op->var_);
+    }
 
     virtual void visit(const AssignNode *op) {
         (*this)(op->var_);

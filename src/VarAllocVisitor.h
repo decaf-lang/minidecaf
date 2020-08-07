@@ -15,7 +15,7 @@ public:
 protected:
     virtual void visit(const FunctionNode *op) override;
     virtual void visit(const VarNode *op) override;
-    virtual void visit(const AssignNode *op) override;
+    virtual void visit(const VarDefNode *op) override;
 
 private:
     int offset_;

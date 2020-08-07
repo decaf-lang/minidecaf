@@ -23,9 +23,11 @@ void VarAllocVisitor::visit(const VarNode *op) {
     }
 }
 
-void VarAllocVisitor::visit(const AssignNode *op) {
+void VarAllocVisitor::visit(const VarDefNode *op) {
     if (!varMap_.at(curFunc_).count(op->var_->name_)) {
         varMap_[curFunc_][op->var_->name_] = offset_++;
+    } else {
+        throw std::runtime_error("Var " + op->var_->name_ + " is already defined");
     }
     Visitor::visit(op);
 }

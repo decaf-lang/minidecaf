@@ -10,6 +10,7 @@ enum class ASTNodeType : int {
     Function,
     StmtSeq,
     Integer, Var,
+    VarDef,
     Assign, Invoke,
     IfThenElse, While,
     Return,
@@ -96,6 +97,18 @@ struct VarNode : public ExprNode {
     }
 
     DEFINE_NODE_TRAIT(Var)
+};
+
+struct VarDefNode : public StmtNode {
+    std::shared_ptr<VarNode> var_;
+
+    VarDefNode(const std::shared_ptr<VarNode> &var) : var_(var) {}
+
+    static std::shared_ptr<VarDefNode> make(const std::shared_ptr<VarNode> &var) {
+        return std::make_shared<VarDefNode>(var);
+    }
+
+    DEFINE_NODE_TRAIT(VarDef);
 };
 
 /// Invoke a pure expression
