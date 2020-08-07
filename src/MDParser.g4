@@ -33,16 +33,16 @@ funcs   returns [std::shared_ptr<ProgramNode> node]
         ;
 
 func    returns [std::shared_ptr<FunctionNode> node]
-        : INT Identifier '(' vars ')' '{' stmtSeq '}'
+        : INT Identifier '(' args ')' '{' stmtSeq '}'
           {
-            $node = FunctionNode::make($Identifier.text, $vars.nodes, $stmtSeq.node);
+            $node = FunctionNode::make($Identifier.text, $args.nodes, $stmtSeq.node);
           }
         ;
 
 stmtSeq returns [std::shared_ptr<StmtSeqNode> node]
-        : stmt
+        : /* empty */
           {
-            $node = StmtSeqNode::make({$stmt.node});
+            $node = StmtSeqNode::make({});
           }
         | part=stmtSeq stmt
           {
@@ -75,6 +75,10 @@ stmt    returns [std::shared_ptr<StmtNode> node]
         | RETURN expr ';'
           {
             $node = ReturnNode::make($expr.node);
+          }
+        | ';'
+          {
+            $node = StmtSeqNode::make({});
           }
         | '{' stmtSeq '}'
           {
@@ -171,6 +175,26 @@ vars    returns [std::vector<std::shared_ptr<VarNode>> nodes]
           {
             $nodes = $part.nodes;
             $nodes.push_back($var.node);
+          }
+        ;
+
+arg     returns [std::shared_ptr<VarNode> node]
+        : INT var
+          {
+            $node = $var.node;
+          }
+        ;
+
+args    returns [std::vector<std::shared_ptr<VarNode>> nodes]
+        : /* empty */
+        | arg
+          {
+            $nodes = {$arg.node};
+          }
+        | part=args ',' arg
+          {
+            $nodes = $part.nodes;
+            $nodes.push_back($arg.node);
           }
         ;
 
