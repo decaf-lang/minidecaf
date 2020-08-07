@@ -37,6 +37,8 @@ protected:
     virtual void visit(const NENode *op) override;
 
 private:
+    void stmtPrelude();
+
     const char *push =  "addi sp, sp, -8\n"
                         "sd a0, (sp)\n";
     const char *pop2 =  "ld t0, 8(sp)\n"

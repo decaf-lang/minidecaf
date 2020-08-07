@@ -39,14 +39,14 @@ void CodeGenVisitor::visit(const VarNode *op) {
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
-    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
+    stmtPrelude();
     (*this)(op->expr_);
     auto offset = varMap_->at(curFunc_).at(op->var_->name_);
     os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_->name_ << "\n";
 }
 
 void CodeGenVisitor::visit(const InvokeNode *op) {
-    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
+    stmtPrelude();
     Visitor::visit(op);
 }
 
@@ -81,6 +81,7 @@ void CodeGenVisitor::visit(const WhileNode *op) {
 }
 
 void CodeGenVisitor::visit(const ReturnNode *op) {
+    stmtPrelude();
     Visitor::visit(op);
     os << "j " << retTarget_ << "f\n";
 }
@@ -158,5 +159,9 @@ void CodeGenVisitor::visit(const NENode *op) {
     Visitor::visit(op);
     os << pop2 << "sub t0, t0, t1\n"
                   "snez a0, t0\n" << push;
+}
+
+void CodeGenVisitor::stmtPrelude() {
+    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
 }
 
