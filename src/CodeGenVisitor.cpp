@@ -15,6 +15,7 @@ void CodeGenVisitor::visit(const ProgramNode *op) {
 
 void CodeGenVisitor::visit(const FunctionNode *op) {
     curFunc_ = op->name_;
+    retTarget_ = jumpCnt_++;
     os << op->name_ << ":\n";
     os << "sd fp, -8(sp)\n"
           "mv fp, sp\n";
@@ -25,6 +26,7 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
               "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i]->name_ << "\n";
     }
     (*this)(op->body_);
+    os << retTarget_ << ":\n";
     os << "mv sp, fp\n"
           "ld fp, -8(sp)\n"
           "ret\n";
@@ -76,6 +78,11 @@ void CodeGenVisitor::visit(const WhileNode *op) {
     (*this)(op->body_);
     os << "j " << beginTarget << "b\n";
     os << endTarget << ":\n";
+}
+
+void CodeGenVisitor::visit(const ReturnNode *op) {
+    Visitor::visit(op);
+    os << "j " << retTarget_ << "f\n";
 }
 
 void CodeGenVisitor::visit(const IntegerNode *op) {

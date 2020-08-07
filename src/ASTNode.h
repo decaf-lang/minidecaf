@@ -12,6 +12,7 @@ enum class ASTNodeType : int {
     Integer, Var,
     Assign, Invoke,
     IfThenElse, While,
+    Return,
     Call,
     Add, Sub, Mul, Div,
     LT, LE, GT, GE, EQ, NE,
@@ -153,6 +154,18 @@ struct WhileNode : public StmtNode {
     }
 
     DEFINE_NODE_TRAIT(While)
+};
+
+struct ReturnNode : public StmtNode {
+    std::shared_ptr<ExprNode> expr_;
+
+    ReturnNode(const std::shared_ptr<ExprNode> &expr) : expr_(expr) {}
+
+    static std::shared_ptr<ReturnNode> make(const std::shared_ptr<ExprNode> &expr) {
+        return std::make_shared<ReturnNode>(expr);
+    }
+
+    DEFINE_NODE_TRAIT(Return);
 };
 
 struct CallNode : public ExprNode {

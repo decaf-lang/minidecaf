@@ -22,6 +22,7 @@ protected:
     virtual void visit(const InvokeNode *op) override;
     virtual void visit(const IfThenElseNode *op) override;
     virtual void visit(const WhileNode *op) override;
+    virtual void visit(const ReturnNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const CallNode *op) override;
     virtual void visit(const AddNode *op) override;
@@ -46,6 +47,7 @@ private:
     std::string curFunc_;
     const VarAllocVisitor::Map<VarAllocVisitor::Map<int>> *varMap_;
     int jumpCnt_ = 0;
+    int retTarget_;
 };
 
 #endif  // CODE_GEN_VISITOR_H_

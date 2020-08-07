@@ -14,14 +14,9 @@ options {
 }
 
 program returns [std::shared_ptr<ProgramNode> node]
-        : stmtSeq EOF
-          {
-            $node = ProgramNode::make({FunctionNode::make("main", {}, $stmtSeq.node)});
-          }
-        | funcs stmtSeq EOF
+        : funcs EOF
           {
             $node = $funcs.node;
-            $node->funcs_.push_back(FunctionNode::make("main", {}, $stmtSeq.node));
           }
         ;
 
@@ -38,7 +33,7 @@ funcs   returns [std::shared_ptr<ProgramNode> node]
         ;
 
 func    returns [std::shared_ptr<FunctionNode> node]
-        : Identifier '(' vars ')' '{' stmtSeq '}'
+        : INT Identifier '(' vars ')' '{' stmtSeq '}'
           {
             $node = FunctionNode::make($Identifier.text, $vars.nodes, $stmtSeq.node);
           }
@@ -76,6 +71,10 @@ stmt    returns [std::shared_ptr<StmtNode> node]
         | WHILE '(' expr ')' stmt
           {
             $node = WhileNode::make($expr.node, $stmt.node);
+          }
+        | RETURN expr ';'
+          {
+            $node = ReturnNode::make($expr.node);
           }
         | '{' stmtSeq '}'
           {

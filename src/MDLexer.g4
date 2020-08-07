@@ -5,6 +5,9 @@ WhiteSpaces: [ \t\r\n]+ -> skip;
 IF:         'if';
 ELSE:       'else';
 WHILE:      'while';
+RETURN:     'return';
+
+INT:        'int';
 
 Integer:    [0-9]+;
 Identifier: [a-zA-Z_][a-zA-Z0-9_]*;

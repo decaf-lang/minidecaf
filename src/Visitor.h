@@ -24,6 +24,7 @@ public:
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(While)
+            DISPATCH_CASE(Return)
             DISPATCH_CASE(Call)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
@@ -81,6 +82,10 @@ protected:
     virtual void visit(const WhileNode *op) {
         (*this)(op->cond_);
         (*this)(op->body_);
+    }
+
+    virtual void visit(const ReturnNode *op) {
+        (*this)(op->expr_);
     }
 
     virtual void visit(const InvokeNode *op) {
