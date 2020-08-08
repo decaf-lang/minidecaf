@@ -27,16 +27,20 @@ public:
             DISPATCH_CASE(While)
             DISPATCH_CASE(Return)
             DISPATCH_CASE(Call)
+            DISPATCH_CASE(Cast)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
             DISPATCH_CASE(Div)
+            DISPATCH_CASE(LNot)
             DISPATCH_CASE(LT)
             DISPATCH_CASE(LE)
             DISPATCH_CASE(GT)
             DISPATCH_CASE(GE)
             DISPATCH_CASE(EQ)
             DISPATCH_CASE(NE)
+            DISPATCH_CASE(LAnd)
+            DISPATCH_CASE(LOr)
 
 #undef DISPATCH_CASE
 
@@ -99,6 +103,14 @@ protected:
         }
     }
 
+    virtual void visit(const CastNode *op) {
+        (*this)(op->expr_);
+    }
+
+    virtual void visit(const LNotNode *op) {
+        (*this)(op->expr_);
+    }
+
 #define VISIT_BINARY_NODE(name) \
     virtual void visit(const name##Node *op) { \
         (*this)(op->lhs_); \
@@ -114,6 +126,8 @@ protected:
     VISIT_BINARY_NODE(GE)
     VISIT_BINARY_NODE(EQ)
     VISIT_BINARY_NODE(NE)
+    VISIT_BINARY_NODE(LAnd)
+    VISIT_BINARY_NODE(LOr)
 #undef VISIT_BINARY_NODE
 };
 

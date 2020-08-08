@@ -25,25 +25,30 @@ protected:
     virtual void visit(const ReturnNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const CallNode *op) override;
+    virtual void visit(const CastNode *op) override;
     virtual void visit(const AddNode *op) override;
     virtual void visit(const SubNode *op) override;
     virtual void visit(const MulNode *op) override;
     virtual void visit(const DivNode *op) override;
+    virtual void visit(const LNotNode *op) override;
     virtual void visit(const LTNode *op) override;
     virtual void visit(const LENode *op) override;
     virtual void visit(const GTNode *op) override;
     virtual void visit(const GENode *op) override;
     virtual void visit(const EQNode *op) override;
     virtual void visit(const NENode *op) override;
+    virtual void visit(const LAndNode *op) override;
+    virtual void visit(const LOrNode *op) override;
 
 private:
     void stmtPrelude();
 
-    const char *push =  "addi sp, sp, -8\n"
-                        "sd a0, (sp)\n";
-    const char *pop2 =  "ld t0, 8(sp)\n"
-                        "ld t1, (sp)\n"
-                        "addi sp, sp, 16\n";
+    const char *push =      "addi sp, sp, -8\n"
+                            "sd a0, (sp)\n";
+    const char *pop2 =      "ld t0, 8(sp)\n"
+                            "ld t1, (sp)\n"
+                            "addi sp, sp, 16\n";
+    const char *puttop =    "sd a0, (sp)\n";
 
     std::ostringstream os;
     std::string curFunc_;

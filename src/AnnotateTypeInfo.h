@@ -14,6 +14,8 @@ protected:
     std::shared_ptr<FunctionNode> mutate(const FunctionNode *op) override;
     std::shared_ptr<ExprNode> mutate(const CallNode *op) override;
     std::shared_ptr<ExprNode> mutate(const VarNode *op) override;
+    std::shared_ptr<StmtNode> mutate(const AssignNode *op) override;
+    std::shared_ptr<StmtNode> mutate(const ReturnNode *op) override;
 
 private:
     const std::unordered_map<std::string, ExprType> *types_;

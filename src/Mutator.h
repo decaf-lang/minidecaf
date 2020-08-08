@@ -17,16 +17,20 @@ public:
             DISPATCH_CASE(Integer)
             DISPATCH_CASE(Var)
             DISPATCH_CASE(Call)
+            DISPATCH_CASE(Cast)
             DISPATCH_CASE(Add)
             DISPATCH_CASE(Sub)
             DISPATCH_CASE(Mul)
             DISPATCH_CASE(Div)
+            DISPATCH_CASE(LNot)
             DISPATCH_CASE(LT)
             DISPATCH_CASE(LE)
             DISPATCH_CASE(GT)
             DISPATCH_CASE(GE)
             DISPATCH_CASE(EQ)
             DISPATCH_CASE(NE)
+            DISPATCH_CASE(LAnd)
+            DISPATCH_CASE(LOr)
             default:
                 throw std::runtime_error("Unrecognized ASTNodeType");
         }
@@ -123,6 +127,14 @@ protected:
         return CallNode::make(op->type_, op->callee_, args);
     }
 
+    virtual std::shared_ptr<ExprNode> mutate(const CastNode *op) {
+        return CastNode::make(op->type_, (*this)(op->expr_));
+    }
+
+    virtual std::shared_ptr<ExprNode> mutate(const LNotNode *op) {
+        return LNotNode::make((*this)(op->expr_));
+    }
+
 #define VISIT_BINARY_NODE(name) \
     virtual std::shared_ptr<ExprNode> mutate(const name##Node *op) { \
         return name##Node::make((*this)(op->lhs_), (*this)(op->rhs_)); \
@@ -137,6 +149,8 @@ protected:
     VISIT_BINARY_NODE(GE)
     VISIT_BINARY_NODE(EQ)
     VISIT_BINARY_NODE(NE)
+    VISIT_BINARY_NODE(LAnd)
+    VISIT_BINARY_NODE(LOr)
 #undef VISIT_BINARY_NODE
 };
 

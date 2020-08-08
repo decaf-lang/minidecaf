@@ -118,6 +118,20 @@ void CodeGenVisitor::visit(const CallNode *op) {
     os << push;
 }
 
+void CodeGenVisitor::visit(const CastNode *op) {
+    Visitor::visit(op);
+    if (op->expr_->type_ == op->type_) {
+        return;
+    }
+    if (op->expr_->type_ == ExprType::Int && op->type_ == ExprType::Bool) {
+        os << "snez a0, a0\n" << puttop;
+    } else if (op->expr_->type_ == ExprType::Bool && op->type_ == ExprType::Int) {
+        // nothing
+    } else {
+        throw std::runtime_error("Invalid type conversion");
+    }
+}
+
 void CodeGenVisitor::visit(const AddNode *op) {
     ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
@@ -140,6 +154,12 @@ void CodeGenVisitor::visit(const DivNode *op) {
     ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "div a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const LNotNode *op) {
+    ASSERT(op->expr_->type_ == ExprType::Bool);
+    Visitor::visit(op);
+    os << "xori a0, a0, 1\n" << puttop;
 }
 
 void CodeGenVisitor::visit(const LTNode *op) {
@@ -180,6 +200,18 @@ void CodeGenVisitor::visit(const NENode *op) {
     Visitor::visit(op);
     os << pop2 << "sub t0, t0, t1\n"
                   "snez a0, t0\n" << push;
+}
+
+void CodeGenVisitor::visit(const LAndNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Bool && op->rhs_->type_ == ExprType::Bool);
+    Visitor::visit(op);
+    os << pop2 << "and a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const LOrNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Bool && op->rhs_->type_ == ExprType::Bool);
+    Visitor::visit(op);
+    os << pop2 << "or a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::stmtPrelude() {

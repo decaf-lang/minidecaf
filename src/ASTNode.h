@@ -16,8 +16,11 @@ enum class ASTNodeType : int {
     IfThenElse, While,
     Return,
     Call,
+    Cast,
     Add, Sub, Mul, Div,
+    LNot,
     LT, LE, GT, GE, EQ, NE,
+    LAnd, LOr,
 };
 
 struct ASTNode {
@@ -43,6 +46,7 @@ struct StmtNode : public ASTNode {};
 enum class ExprType : int {
     Unknown,
     Int,
+    Bool,
 };
 
 struct ExprNode : public ASTNode {
@@ -214,37 +218,55 @@ struct CallNode : public ExprNode {
     DEFINE_NODE_TRAIT(Call)
 };
 
-inline ExprType binOpType(ExprType lhs, ExprType rhs) {
-    if (lhs == ExprType::Unknown || rhs == ExprType::Unknown) {
-        return ExprType::Unknown;
-    }
-    ASSERT(lhs == rhs);
-    return lhs;
-}
+struct CastNode : public ExprNode {
+    std::shared_ptr<ExprNode> expr_;
 
-#define DEFINE_BINARY_NODE(name) \
+    CastNode(ExprType type, const std::shared_ptr<ExprNode> &expr) : ExprNode(type), expr_(expr) {}
+
+    static std::shared_ptr<CastNode> make(ExprType type, const std::shared_ptr<ExprNode> &expr) {
+        return std::make_shared<CastNode>(type, expr);
+    }
+
+    DEFINE_NODE_TRAIT(Cast)
+};
+
+struct LNotNode : public ExprNode {
+    std::shared_ptr<ExprNode> expr_;
+
+    LNotNode(const std::shared_ptr<ExprNode> &expr) : ExprNode(ExprType::Bool), expr_(expr) {}
+
+    static std::shared_ptr<LNotNode> make(const std::shared_ptr<ExprNode> &expr) {
+        return std::make_shared<LNotNode>(CastNode::make(ExprType::Bool, expr));
+    }
+
+    DEFINE_NODE_TRAIT(LNot)
+};
+
+#define DEFINE_BINARY_NODE(name, opType, retType) \
     struct name##Node : public ExprNode { \
         std::shared_ptr<ExprNode> lhs_, rhs_; \
         \
         name##Node(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) \
-            : ExprNode(binOpType(lhs->type_, rhs->type_)), lhs_(lhs), rhs_(rhs) {} \
+            : ExprNode(ExprType::retType), lhs_(lhs), rhs_(rhs) {} \
         \
         static std::shared_ptr<name##Node> make(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) { \
-            return std::make_shared<name##Node>(lhs, rhs); \
+            return std::make_shared<name##Node>(CastNode::make(ExprType::opType, lhs), CastNode::make(ExprType::opType, rhs)); \
         } \
         \
         DEFINE_NODE_TRAIT(name) \
     };
 
-DEFINE_BINARY_NODE(Add)
-DEFINE_BINARY_NODE(Sub)
-DEFINE_BINARY_NODE(Mul)
-DEFINE_BINARY_NODE(Div)
-DEFINE_BINARY_NODE(LT)
-DEFINE_BINARY_NODE(LE)
-DEFINE_BINARY_NODE(GT)
-DEFINE_BINARY_NODE(GE)
-DEFINE_BINARY_NODE(EQ)
-DEFINE_BINARY_NODE(NE)
+DEFINE_BINARY_NODE(Add, Int, Int)
+DEFINE_BINARY_NODE(Sub, Int, Int)
+DEFINE_BINARY_NODE(Mul, Int, Int)
+DEFINE_BINARY_NODE(Div, Int, Int)
+DEFINE_BINARY_NODE(LT, Int, Bool)
+DEFINE_BINARY_NODE(LE, Int, Bool)
+DEFINE_BINARY_NODE(GT, Int, Bool)
+DEFINE_BINARY_NODE(GE, Int, Bool)
+DEFINE_BINARY_NODE(EQ, Int, Bool)
+DEFINE_BINARY_NODE(NE, Int, Bool)
+DEFINE_BINARY_NODE(LAnd, Bool, Bool)
+DEFINE_BINARY_NODE(LOr, Bool, Bool)
 
 #endif  // AST_NODE_

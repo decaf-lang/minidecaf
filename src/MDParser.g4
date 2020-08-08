@@ -111,9 +111,9 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = SubNode::make(IntegerNode::make(0), $expr.node);
           }
-        | '+' expr
+        | '!' expr
           {
-            $node = $expr.node;
+            $node = LNotNode::make($expr.node);
           }
         | lhs=expr op=('*' | '/') rhs=expr
           {
@@ -131,7 +131,7 @@ expr    returns [std::shared_ptr<ExprNode> node]
                 $node = SubNode::make($lhs.node, $rhs.node);
             }
           }
-        | lhs=expr op=('<' | '>' | '<=' | '>=' | '==' | '!=') rhs=expr
+        | lhs=expr op=('<' | '>' | '<=' | '>=') rhs=expr
           {
             if ($op.text == "<") {
                 $node = LTNode::make($lhs.node, $rhs.node);
@@ -141,11 +141,23 @@ expr    returns [std::shared_ptr<ExprNode> node]
                 $node = LENode::make($lhs.node, $rhs.node);
             } else if ($op.text == ">=") {
                 $node = GENode::make($lhs.node, $rhs.node);
-            } else if ($op.text == "==") {
+            }
+          }
+        | lhs=expr op=('==' | '!=') rhs=expr
+          {
+            if ($op.text == "==") {
                 $node = EQNode::make($lhs.node, $rhs.node);
             } else if ($op.text == "!=") {
                 $node = NENode::make($lhs.node, $rhs.node);
             }
+          }
+        | lhs=expr '&&' rhs=expr
+          {
+            $node = LAndNode::make($lhs.node, $rhs.node);
+          }
+        | lhs=expr '||' rhs=expr
+          {
+            $node = LOrNode::make($lhs.node, $rhs.node);
           }
         ;
 
