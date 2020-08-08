@@ -3,6 +3,8 @@
 
 #include "MDLexer.h"
 #include "MDParser.h"
+#include "GetTypeInfo.h"
+#include "AnnotateTypeInfo.h"
 #include "VarAllocVisitor.h"
 #include "CodeGenVisitor.h"
 
@@ -19,10 +21,12 @@ int main(int argc, const char* argv[]) {
     antlr4::CommonTokenStream tokens(&lexer);
     MDParser parser(&tokens);
 
-    std::shared_ptr<ASTNode> program = parser.program()->node;
+    std::shared_ptr<ProgramNode> program = parser.program()->node;
 
+    auto typeInfo = GetTypeInfo().get(program);
+    program = AnnotateTypeInfo().annotate(program, typeInfo);
     auto varMap = VarAllocVisitor().allocVar(program);
-    auto code = CodeGenVisitor().genCode(program, varMap);
+    auto code = CodeGenVisitor().genCode(program, varMap, typeInfo);
     std::cout << code;
 
     return 0;

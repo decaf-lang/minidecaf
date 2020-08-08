@@ -7,7 +7,7 @@
 
 class Visitor {
 public:
-    virtual void operator()(const std::shared_ptr<ASTNode> op) {
+    virtual void operator()(const std::shared_ptr<ASTNode> &op) {
         switch (op->nodeType()) {
 
 #define DISPATCH_CASE(name) \
@@ -38,6 +38,8 @@ public:
             DISPATCH_CASE(EQ)
             DISPATCH_CASE(NE)
 
+#undef DISPATCH_CASE
+
             default:
                 throw std::runtime_error("Unrecognized ASTNodeType");
         }
@@ -51,9 +53,6 @@ protected:
     }
 
     virtual void visit(const FunctionNode *op) {
-        for (auto &&arg : op->args_) {
-            (*this)(arg);
-        }
         (*this)(op->body_);
     }
 
@@ -67,12 +66,9 @@ protected:
 
     virtual void visit(const VarNode *op) {}
 
-    virtual void visit(const VarDefNode *op) {
-        (*this)(op->var_);
-    }
+    virtual void visit(const VarDefNode *op) {}
 
     virtual void visit(const AssignNode *op) {
-        (*this)(op->var_);
         (*this)(op->expr_);
     }
 
@@ -118,6 +114,7 @@ protected:
     VISIT_BINARY_NODE(GE)
     VISIT_BINARY_NODE(EQ)
     VISIT_BINARY_NODE(NE)
+#undef VISIT_BINARY_NODE
 };
 
 #endif  // VISITOR_H_

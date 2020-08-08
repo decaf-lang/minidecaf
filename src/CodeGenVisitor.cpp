@@ -2,8 +2,9 @@
 
 std::string CodeGenVisitor::genCode(
         const std::shared_ptr<ASTNode> &op,
-        const VarAllocVisitor::Map<VarAllocVisitor::Map<int>> &varMap) {
-    varMap_ = &varMap;
+        const std::unordered_map<std::string, int> &varMap,
+        const std::unordered_map<std::string, ExprType> &typeInfo) {
+    varMap_ = &varMap, typeInfo_ = &typeInfo;
     (*this)(op);
     return os.str();
 }
@@ -16,14 +17,21 @@ void CodeGenVisitor::visit(const ProgramNode *op) {
 void CodeGenVisitor::visit(const FunctionNode *op) {
     curFunc_ = op->name_;
     retTarget_ = jumpCnt_++;
+    curFuncNVar_ = 0;
+    for (auto &&item : *varMap_) {
+        if (item.first.substr(0, curFunc_.length() + 1) == curFunc_ + "/") {
+            curFuncNVar_++;
+        }
+    }
+
     os << op->name_ << ":\n";
     os << "sd fp, -8(sp)\n"
           "mv fp, sp\n";
     for (size_t i = 0, n = op->args_.size(); i < n; i++) {
         // copy args as new vars
-        auto offset = varMap_->at(curFunc_).at(op->args_[i]->name_);
+        auto offset = varMap_->at(curFunc_ + "/" + op->args_[i].second);
         os << "ld t0, " << (8 * i) << "(fp)\n"
-              "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i]->name_ << "\n";
+              "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i].second << "\n";
     }
     (*this)(op->body_);
     os << retTarget_ << ":\n";
@@ -34,15 +42,16 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
 
 void CodeGenVisitor::visit(const VarNode *op) {
     Visitor::visit(op);
-    auto offset = varMap_->at(curFunc_).at(op->name_);
+    auto offset = varMap_->at(curFunc_ + "/" + op->name_);
     os << "ld a0, " << (-16 - 8 * offset) << "(fp)  # Load from " << op->name_ << "\n" << push;
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
+    ASSERT(op->expr_->type_ == typeInfo_->at(curFunc_ + "/" + op->var_));
     stmtPrelude();
     (*this)(op->expr_);
-    auto offset = varMap_->at(curFunc_).at(op->var_->name_);
-    os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_->name_ << "\n";
+    auto offset = varMap_->at(curFunc_ + "/" + op->var_);
+    os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_ << "\n";
 }
 
 void CodeGenVisitor::visit(const InvokeNode *op) {
@@ -81,6 +90,7 @@ void CodeGenVisitor::visit(const WhileNode *op) {
 }
 
 void CodeGenVisitor::visit(const ReturnNode *op) {
+    ASSERT(op->expr_->type_ == typeInfo_->at(curFunc_));
     stmtPrelude();
     Visitor::visit(op);
     os << "j " << retTarget_ << "f\n";
@@ -98,6 +108,7 @@ void CodeGenVisitor::visit(const CallNode *op) {
           "addi sp, sp, -24\n";
     for (size_t i = op->args_.size() - 1; ~i; i--) {
         (*this)(op->args_[i]);  // results are saved to stack
+        // TODO: check the types here
     }
     os << "call "  << op->callee_ << "\n";
     os << "addi sp, sp, " << (24 + 8 * op->args_.size()) << "\n"
@@ -108,60 +119,70 @@ void CodeGenVisitor::visit(const CallNode *op) {
 }
 
 void CodeGenVisitor::visit(const AddNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "add a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const SubNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "sub a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const MulNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "mul a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const DivNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "div a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const LTNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "slt a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const LENode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "sgt a0, t0, t1\n"
                   "xori a0, a0, 1\n" << push;
 }
 
 void CodeGenVisitor::visit(const GTNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "sgt a0, t0, t1\n" << push;
 }
 
 void CodeGenVisitor::visit(const GENode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "slt a0, t0, t1\n"
                   "xori a0, a0, 1\n" << push;
 }
 
 void CodeGenVisitor::visit(const EQNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "sub t0, t0, t1\n"
                   "seqz a0, t0\n" << push;
 }
 
 void CodeGenVisitor::visit(const NENode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
     os << pop2 << "sub t0, t0, t1\n"
                   "snez a0, t0\n" << push;
 }
 
 void CodeGenVisitor::stmtPrelude() {
-    os << "addi sp, fp, " << (-8 - 8 * (int)varMap_->at(curFunc_).size()) << "\n";
+    os << "addi sp, fp, " << (-8 - 8 * curFuncNVar_) << "\n";
 }
 

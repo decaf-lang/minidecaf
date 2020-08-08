@@ -35,7 +35,7 @@ funcs   returns [std::shared_ptr<ProgramNode> node]
 func    returns [std::shared_ptr<FunctionNode> node]
         : INT Identifier '(' args ')' '{' stmtSeq '}'
           {
-            $node = FunctionNode::make($Identifier.text, $args.nodes, $stmtSeq.node);
+            $node = FunctionNode::make(ExprType::Int, $Identifier.text, $args.nodes, $stmtSeq.node);
           }
         ;
 
@@ -60,9 +60,9 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = StmtSeqNode::make($varDefs.nodes);
           }
-        | var '=' expr ';'
+        | Identifier '=' expr ';'
           {
-            $node = AssignNode::make($var.node, $expr.node);
+            $node = AssignNode::make($Identifier.text, $expr.node);
           }
         | IF '(' expr ')' stmt
           {
@@ -101,7 +101,7 @@ expr    returns [std::shared_ptr<ExprNode> node]
           }
         | Identifier '(' exprs ')'
           {
-            $node = CallNode::make($Identifier.text, $exprs.nodes);
+            $node = CallNode::make(ExprType::Unknown, $Identifier.text, $exprs.nodes);
           }
         | '(' expr ')'
           {
@@ -165,7 +165,7 @@ exprs   returns [std::vector<std::shared_ptr<ExprNode>> nodes]
 var     returns [std::shared_ptr<VarNode> node]
         : Identifier
           {
-            $node = VarNode::make($Identifier.text);
+            $node = VarNode::make(ExprType::Unknown, $Identifier.text);
           }
         ;
 
@@ -183,15 +183,15 @@ vars    returns [std::vector<std::shared_ptr<VarNode>> nodes]
         ;
 
 varDef  returns [std::shared_ptr<StmtNode> node]
-        : INT var
+        : INT Identifier
           {
-            $node = VarDefNode::make($var.node);
+            $node = VarDefNode::make(ExprType::Int, $Identifier.text);
           }
-        | INT var '=' expr
+        | INT Identifier '=' expr
           {
             $node = StmtSeqNode::make({
-                        VarDefNode::make($var.node),
-                        AssignNode::make($var.node, $expr.node)});
+                        VarDefNode::make(ExprType::Int, $Identifier.text),
+                        AssignNode::make($Identifier.text, $expr.node)});
           }
         ;
 
@@ -207,14 +207,14 @@ varDefs returns [std::vector<std::shared_ptr<StmtNode>> nodes]
           }
         ;
 
-arg     returns [std::shared_ptr<VarNode> node]
-        : INT var
+arg     returns [std::pair<ExprType, std::string> node]
+        : INT Identifier
           {
-            $node = $var.node;
+            $node = std::make_pair(ExprType::Int, $Identifier.text);
           }
         ;
 
-args    returns [std::vector<std::shared_ptr<VarNode>> nodes]
+args    returns [std::vector<std::pair<ExprType, std::string>> nodes]
         : /* empty */
         | arg
           {
