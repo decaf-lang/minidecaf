@@ -72,15 +72,22 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = WhileNode::make($expr.node, $stmt.node);
           }
-        | FOR '(' init=expr ';' cond=expr ';' incr=expr ')' stmt
+        | FOR '(' init=mayExpr ';' cond=mayExpr ';' incr=mayExpr ')' stmt
           {
-            $node = ForNode::make(InvokeNode::make($init.node),
-                    $cond.node, InvokeNode::make($incr.node), $stmt.node);
+            std::shared_ptr<StmtNode> init, incr;
+            std::shared_ptr<ExprNode> cond;
+            if ($init.node) init = InvokeNode::make($init.node); else init = StmtSeqNode::make({});
+            if ($cond.node) cond = $cond.node; else cond = IntegerNode::make(1);
+            if ($incr.node) incr = InvokeNode::make($incr.node); else incr = StmtSeqNode::make({});
+            $node = ForNode::make(init, cond, incr, $stmt.node);
           }
-        | FOR '(' varDefs ';' cond=expr ';' incr=expr ')' stmt
+        | FOR '(' varDefs ';' cond=mayExpr ';' incr=mayExpr ')' stmt
           {
-            $node = ForNode::make(StmtSeqNode::make($varDefs.nodes),
-                    $cond.node, InvokeNode::make($incr.node), $stmt.node);
+            std::shared_ptr<StmtNode> incr;
+            std::shared_ptr<ExprNode> cond;
+            if ($cond.node) cond = $cond.node; else cond = IntegerNode::make(1);
+            if ($incr.node) incr = InvokeNode::make($incr.node); else incr = StmtSeqNode::make({});
+            $node = ForNode::make(StmtSeqNode::make($varDefs.nodes), cond, incr, $stmt.node);
             $node = StmtSeqNode::make({$node}, true);
           }
         | RETURN expr ';'
@@ -218,6 +225,14 @@ exprs   returns [std::vector<std::shared_ptr<ExprNode>> nodes]
           {
             $nodes = $part.nodes;
             $nodes.push_back($expr.node);
+          }
+        ;
+
+mayExpr returns [std::shared_ptr<ExprNode> node]
+        : /* empty */
+        | expr
+          {
+            $node = $expr.node;
           }
         ;
 
