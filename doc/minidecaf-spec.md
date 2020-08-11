@@ -338,10 +338,9 @@ program = Program(function_declaration)
 function_declaration = Function(string, statement) //string is the function name
 statement = Return(exp)
 exp = UnOp(operator, exp) | Constant(int)
-
 ```
 
-## 步骤3：Binary Operators
+## 步骤3：Binary Operators and  Parenthesis for ( expr )
 支持 
 ```
 Addition +
@@ -359,6 +358,7 @@ Division /
 <exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
+<unary_op> ::= "!" | "~" | "-"
 ```
 
 对应的Token为：
