@@ -183,6 +183,10 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = LOrNode::make($lhs.node, $rhs.node);
           }
+        | a=expr '?' b=expr ':' c=expr
+          {
+            $node = SelectNode::make($a.node, $b.node, $c.node);
+          }
         ;
 
 exprs   returns [std::vector<std::shared_ptr<ExprNode>> nodes]

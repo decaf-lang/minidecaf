@@ -44,6 +44,7 @@ protected:
     virtual void visit(const NENode *op) override;
     virtual void visit(const LAndNode *op) override;
     virtual void visit(const LOrNode *op) override;
+    virtual void visit(const SelectNode *op) override;
 
 private:
     void stmtPrelude();

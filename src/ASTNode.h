@@ -21,6 +21,7 @@ enum class ASTNodeType : int {
     LNot,
     LT, LE, GT, GE, EQ, NE,
     LAnd, LOr, BAnd, BOr, BXor, SLL, SRA,
+    Select,
 };
 
 struct ASTNode {
@@ -240,6 +241,21 @@ struct LNotNode : public ExprNode {
     }
 
     DEFINE_NODE_TRAIT(LNot)
+};
+
+struct SelectNode : public ExprNode {
+    std::shared_ptr<ExprNode> cond_, thenCase_, elseCase_;
+
+    SelectNode(const std::shared_ptr<ExprNode> &cond,
+            const std::shared_ptr<ExprNode> &thenCase, const std::shared_ptr<ExprNode> &elseCase)
+        : ExprNode(thenCase->type_), cond_(cond), thenCase_(thenCase), elseCase_(elseCase) {}
+
+    static std::shared_ptr<SelectNode> make(const std::shared_ptr<ExprNode> &cond,
+            const std::shared_ptr<ExprNode> &thenCase, const std::shared_ptr<ExprNode> &elseCase) {
+        return std::make_shared<SelectNode>(cond, thenCase, elseCase);
+    }
+
+    DEFINE_NODE_TRAIT(Select)
 };
 
 #define DEFINE_BINARY_NODE(name, opType, retType) \

@@ -244,6 +244,18 @@ void CodeGenVisitor::visit(const LOrNode *op) {
     os << pop2 << "or a0, t0, t1\n" << push;
 }
 
+void CodeGenVisitor::visit(const SelectNode *op) {
+    (*this)(op->cond_);
+    auto elseTarget = jumpCnt_++;
+    auto endTarget = jumpCnt_++;
+    os << "beqz a0, " << elseTarget << "f\n";
+    (*this)(op->thenCase_);
+    os << "j " << endTarget << "f\n";
+    os << elseTarget << ":\n";
+    (*this)(op->elseCase_);
+    os << endTarget << ":\n";
+}
+
 void CodeGenVisitor::stmtPrelude() {
     os << "addi sp, fp, " << (-8 - 8 * curFuncNVar_) << "\n";
 }

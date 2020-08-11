@@ -46,6 +46,7 @@ public:
             DISPATCH_CASE(NE)
             DISPATCH_CASE(LAnd)
             DISPATCH_CASE(LOr)
+            DISPATCH_CASE(Select)
 
 #undef DISPATCH_CASE
 
@@ -114,6 +115,12 @@ protected:
 
     virtual void visit(const LNotNode *op) {
         (*this)(op->expr_);
+    }
+
+    virtual void visit(const SelectNode *op) {
+        (*this)(op->cond_);
+        (*this)(op->thenCase_);
+        (*this)(op->elseCase_);
     }
 
 #define VISIT_BINARY_NODE(name) \

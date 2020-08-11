@@ -32,6 +32,8 @@ LE:         '<=';
 GE:         '>=';
 LAND:       '&&';
 LOR:        '||';
+COLON:      ':';
+QUESTION:   '?';
 SEMICOLON:  ';';
 LPAREN:     '(';
 RPAREN:     ')';

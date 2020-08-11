@@ -36,6 +36,7 @@ public:
             DISPATCH_CASE(NE)
             DISPATCH_CASE(LAnd)
             DISPATCH_CASE(LOr)
+            DISPATCH_CASE(Select)
             default:
                 throw std::runtime_error("Unrecognized ASTNodeType");
         }
@@ -138,6 +139,13 @@ protected:
 
     virtual std::shared_ptr<ExprNode> mutate(const LNotNode *op) {
         return LNotNode::make((*this)(op->expr_));
+    }
+
+    virtual std::shared_ptr<ExprNode> mutate(const SelectNode *op) {
+        auto cond = (*this)(op->cond_);
+        auto thenCase = (*this)(op->thenCase_);
+        auto elseCase = (*this)(op->elseCase_);
+        return SelectNode::make(cond, thenCase, elseCase);
     }
 
 #define VISIT_BINARY_NODE(name) \
