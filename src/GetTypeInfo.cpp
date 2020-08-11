@@ -8,7 +8,7 @@ std::unordered_map<std::string, ExprType> GetTypeInfo::get(const std::shared_ptr
 void GetTypeInfo::visit(const FunctionNode *op) {
     types_[op->name_] = op->type_;
     for (auto &&arg : op->args_) {
-        types_[curPath_ + arg.second] = arg.first;
+        types_[op->name_ + "/" + arg.second] = arg.first;
     }
     Visitor::visit(op);
 }
