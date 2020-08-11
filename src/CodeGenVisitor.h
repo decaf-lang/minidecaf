@@ -30,6 +30,11 @@ protected:
     virtual void visit(const SubNode *op) override;
     virtual void visit(const MulNode *op) override;
     virtual void visit(const DivNode *op) override;
+    virtual void visit(const BAndNode *op) override;
+    virtual void visit(const BOrNode *op) override;
+    virtual void visit(const BXorNode *op) override;
+    virtual void visit(const SLLNode *op) override;
+    virtual void visit(const SRANode *op) override;
     virtual void visit(const LNotNode *op) override;
     virtual void visit(const LTNode *op) override;
     virtual void visit(const LENode *op) override;

@@ -115,6 +115,10 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = LNotNode::make($expr.node);
           }
+        | '~' expr
+          {
+            $node = BXorNode::make(IntegerNode::make(-1), $expr.node);
+          }
         | lhs=expr op=('*' | '/') rhs=expr
           {
             if ($op.text == "*") {
@@ -129,6 +133,14 @@ expr    returns [std::shared_ptr<ExprNode> node]
                 $node = AddNode::make($lhs.node, $rhs.node);
             } else {
                 $node = SubNode::make($lhs.node, $rhs.node);
+            }
+          }
+        | lhs=expr op=('<<' | '>>') rhs=expr
+          {
+            if ($op.text == "<<") {
+                $node = SLLNode::make($lhs.node, $rhs.node);
+            } else if ($op.text == ">>") {
+                $node = SRANode::make($lhs.node, $rhs.node);
             }
           }
         | lhs=expr op=('<' | '>' | '<=' | '>=') rhs=expr
@@ -150,6 +162,18 @@ expr    returns [std::shared_ptr<ExprNode> node]
             } else if ($op.text == "!=") {
                 $node = NENode::make($lhs.node, $rhs.node);
             }
+          }
+        | lhs=expr '&' rhs=expr
+          {
+            $node = BAndNode::make($lhs.node, $rhs.node);
+          }
+        | lhs=expr '^' rhs=expr
+          {
+            $node = BOrNode::make($lhs.node, $rhs.node);
+          }
+        | lhs=expr '|' rhs=expr
+          {
+            $node = BXorNode::make($lhs.node, $rhs.node);
           }
         | lhs=expr '&&' rhs=expr
           {

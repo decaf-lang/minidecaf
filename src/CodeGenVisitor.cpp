@@ -156,6 +156,36 @@ void CodeGenVisitor::visit(const DivNode *op) {
     os << pop2 << "div a0, t0, t1\n" << push;
 }
 
+void CodeGenVisitor::visit(const BAndNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "and a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const BOrNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "or a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const BXorNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "xor a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const SLLNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "sll a0, t0, t1\n" << push;
+}
+
+void CodeGenVisitor::visit(const SRANode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "sra a0, t0, t1\n" << push;
+}
+
 void CodeGenVisitor::visit(const LNotNode *op) {
     ASSERT(op->expr_->type_ == ExprType::Bool);
     Visitor::visit(op);

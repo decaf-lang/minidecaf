@@ -20,7 +20,7 @@ enum class ASTNodeType : int {
     Add, Sub, Mul, Div,
     LNot,
     LT, LE, GT, GE, EQ, NE,
-    LAnd, LOr,
+    LAnd, LOr, BAnd, BOr, BXor, SLL, SRA,
 };
 
 struct ASTNode {
@@ -260,6 +260,11 @@ DEFINE_BINARY_NODE(Add, Int, Int)
 DEFINE_BINARY_NODE(Sub, Int, Int)
 DEFINE_BINARY_NODE(Mul, Int, Int)
 DEFINE_BINARY_NODE(Div, Int, Int)
+DEFINE_BINARY_NODE(BAnd, Int, Int)
+DEFINE_BINARY_NODE(BOr, Int, Int)
+DEFINE_BINARY_NODE(BXor, Int, Int)
+DEFINE_BINARY_NODE(SLL, Int, Int)
+DEFINE_BINARY_NODE(SRA, Int, Int)
 DEFINE_BINARY_NODE(LT, Int, Bool)
 DEFINE_BINARY_NODE(LE, Int, Bool)
 DEFINE_BINARY_NODE(GT, Int, Bool)
