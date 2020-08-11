@@ -81,7 +81,7 @@ protected:
 
     virtual std::shared_ptr<FunctionNode> mutate(const FunctionNode *op) {
         curPath_ = op->name_ + "/";
-        return FunctionNode::make(op->type_, op->name_, op->args_, (*this)(op->body_));
+        return FunctionNode::make(op->type_, op->name_, op->args_, op->body_ ? (*this)(op->body_) : nullptr);
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const StmtSeqNode *op) {

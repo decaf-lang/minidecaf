@@ -21,14 +21,19 @@ program returns [std::shared_ptr<ProgramNode> node]
         ;
 
 funcs   returns [std::shared_ptr<ProgramNode> node]
-        : func
+        : /* empty */
           {
-            $node = ProgramNode::make({$func.node});
+            $node = ProgramNode::make({});
           }
         | part=funcs func
           {
             $node = $part.node;
             $node->funcs_.push_back($func.node);
+          }
+        | part=funcs funcDec
+          {
+            $node = $part.node;
+            $node->funcs_.push_back($funcDec.node);
           }
         ;
 
@@ -36,6 +41,13 @@ func    returns [std::shared_ptr<FunctionNode> node]
         : INT Identifier '(' args ')' '{' stmtSeq '}'
           {
             $node = FunctionNode::make(ExprType::Int, $Identifier.text, $args.nodes, $stmtSeq.node);
+          }
+        ;
+
+funcDec returns [std::shared_ptr<FunctionNode> node]
+        : INT Identifier '(' args ')' ';'
+          {
+            $node = FunctionNode::make(ExprType::Int, $Identifier.text, $args.nodes, nullptr);
           }
         ;
 

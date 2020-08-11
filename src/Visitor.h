@@ -67,7 +67,9 @@ protected:
 
     virtual void visit(const FunctionNode *op) {
         curPath_ = op->name_ + "/";
-        (*this)(op->body_);
+        if (op->body_) {
+            (*this)(op->body_);
+        }
     }
 
     virtual void visit(const StmtSeqNode *op) {

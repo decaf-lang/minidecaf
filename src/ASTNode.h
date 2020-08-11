@@ -8,7 +8,7 @@
 
 enum class ASTNodeType : int {
     Program,
-    Function,
+    Function, FunctionDecl,
     StmtSeq,
     Integer, Var,
     VarDef,
@@ -59,7 +59,7 @@ struct FunctionNode : public ASTNode {
     ExprType type_;
     std::string name_;
     std::vector<std::pair<ExprType, std::string>> args_;
-    std::shared_ptr<StmtNode> body_;
+    std::shared_ptr<StmtNode> body_;  // can be null for declaration
 
     FunctionNode(ExprType type, const std::string &name,
             const std::vector<std::pair<ExprType, std::string>> &args, const std::shared_ptr<StmtNode> &body)
