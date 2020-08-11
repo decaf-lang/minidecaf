@@ -34,7 +34,7 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
               "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i].second << "\n";
     }
     os << "mv a0, x0\n";  // step5 requires the default return value to be 0
-    (*this)(op->body_);
+    Visitor::visit(op);
     os << retTarget_ << ":\n";
     os << "mv sp, fp\n"
           "ld fp, -8(sp)\n"
@@ -43,15 +43,16 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
 
 void CodeGenVisitor::visit(const VarNode *op) {
     Visitor::visit(op);
-    auto offset = varMap_->at(curFunc_ + "/" + op->name_);
+    auto offset = varMap_->at(getFullname(op->name_));
     os << "ld a0, " << (-16 - 8 * offset) << "(fp)  # Load from " << op->name_ << "\n" << push;
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
-    ASSERT(op->expr_->type_ == typeInfo_->at(curFunc_ + "/" + op->var_));
+    auto fullname = getFullname(op->var_);
+    ASSERT(op->expr_->type_ == typeInfo_->at(fullname));
     stmtPrelude();
     (*this)(op->expr_);
-    auto offset = varMap_->at(curFunc_ + "/" + op->var_);
+    auto offset = varMap_->at(fullname);
     os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_ << "\n";
 }
 
@@ -272,5 +273,17 @@ void CodeGenVisitor::visit(const SelectNode *op) {
 
 void CodeGenVisitor::stmtPrelude() {
     os << "addi sp, fp, " << (-8 - 8 * curFuncNVar_) << "\n";
+}
+
+std::string CodeGenVisitor::getFullname(const std::string &name) const {
+    for (auto i = curPath_.length(); ~i; i--) {
+        if (curPath_[i] == '/') {
+            auto fullname = curPath_.substr(0, i + 1) + name;
+            if (varMap_->count(fullname)) {
+                return fullname;
+            }
+        }
+    }
+    throw std::runtime_error("name " + name + " not found");
 }
 

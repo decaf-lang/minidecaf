@@ -78,16 +78,27 @@ protected:
     }
 
     virtual std::shared_ptr<FunctionNode> mutate(const FunctionNode *op) {
+        curPath_ = op->name_ + "/";
         return FunctionNode::make(op->type_, op->name_, op->args_, (*this)(op->body_));
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const StmtSeqNode *op) {
         std::vector<std::shared_ptr<StmtNode>> stmts;
         stmts.reserve(op->stmts_.size());
+        if (!op->isBlock_) {
+            for (auto &&stmt : op->stmts_) {
+                stmts.push_back((*this)(stmt));
+            }
+            return StmtSeqNode::make(stmts, op->isBlock_);
+        }
+        int oldLen = curPath_.length();
+        curPath_ += std::to_string(blockCnt_++) + "/";
         for (auto &&stmt : op->stmts_) {
             stmts.push_back((*this)(stmt));
         }
-        return StmtSeqNode::make(stmts);
+        auto ret = StmtSeqNode::make(stmts, op->isBlock_);
+        curPath_.resize(oldLen);
+        return ret;
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const VarDefNode *op) {
@@ -175,6 +186,9 @@ protected:
     VISIT_BINARY_NODE(LAnd)
     VISIT_BINARY_NODE(LOr)
 #undef VISIT_BINARY_NODE
+
+    std::string curPath_;
+    int blockCnt_;
 };
 
 #endif  // MUTATOR_H_

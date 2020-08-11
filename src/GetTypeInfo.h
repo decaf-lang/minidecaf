@@ -15,7 +15,6 @@ protected:
 
 private:
     std::unordered_map<std::string, ExprType> types_;
-    std::string curFunc_;
 };
 
 #endif  // GET_TYPE_INFO_H_

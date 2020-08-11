@@ -8,23 +8,25 @@ VarAllocVisitor::Map<int> VarAllocVisitor::allocVar(const std::shared_ptr<ASTNod
 }
 
 void VarAllocVisitor::visit(const FunctionNode *op) {
-    curFunc_ = op->name_;
     offset_ = 0;
     for (auto &&arg : op->args_) {
-        varMap_[curFunc_ + "/" + arg.second] = offset_++;  // copy the args to another var
+        varMap_[op->name_ + "/" + arg.second] = offset_++;  // copy the args to another var
     }
-    (*this)(op->body_);
+    Visitor::visit(op);
 }
 
 void VarAllocVisitor::visit(const VarNode *op) {
-    if (!varMap_.count(curFunc_ + "/" + op->name_)) {
-        throw std::runtime_error("Var " + op->name_ + " is used before definition");
+    for (size_t i = 0, n = curPath_.length(); i < n; i++) {
+        if (curPath_[i] == '/' && varMap_.count(curPath_.substr(0, i + 1) + op->name_)) {
+            return;
+        }
     }
+    throw std::runtime_error("Var " + op->name_ + " is used before definition");
 }
 
 void VarAllocVisitor::visit(const VarDefNode *op) {
-    if (!varMap_.count(curFunc_ + "/" + op->name_)) {
-        varMap_[curFunc_ + "/" + op->name_] = offset_++;
+    if (!varMap_.count(curPath_ + op->name_)) {
+        varMap_[curPath_ + op->name_] = offset_++;
     } else {
         throw std::runtime_error("Var " + op->name_ + " is already defined");
     }

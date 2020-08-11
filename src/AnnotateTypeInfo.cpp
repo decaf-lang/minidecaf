@@ -19,16 +19,28 @@ std::shared_ptr<ExprNode> AnnotateTypeInfo::mutate(const CallNode *op) {
 
 std::shared_ptr<ExprNode> AnnotateTypeInfo::mutate(const VarNode *op) {
     auto ret = AS(Mutator::mutate(op), Var);
-    return VarNode::make(types_->at(curFunc_ + "/" + ret->name_), ret->name_);
+    return VarNode::make(types_->at(getFullname(ret->name_)), ret->name_);
 }
 
 std::shared_ptr<ExprNode> AnnotateTypeInfo::mutate(const AssignNode *op) {
     auto ret = AS(Mutator::mutate(op), Assign);
-    return AssignNode::make(ret->var_, CastNode::make(types_->at(curFunc_ + "/" + ret->var_), ret->expr_));
+    return AssignNode::make(ret->var_, CastNode::make(types_->at(getFullname(ret->var_)), ret->expr_));
 }
 
 std::shared_ptr<StmtNode> AnnotateTypeInfo::mutate(const ReturnNode *op) {
     auto ret = AS(Mutator::mutate(op), Return);
     return ReturnNode::make(CastNode::make(types_->at(curFunc_), ret->expr_));
+}
+
+std::string AnnotateTypeInfo::getFullname(const std::string &name) const {
+    for (auto i = curPath_.length(); ~i; i--) {
+        if (curPath_[i] == '/') {
+            auto fullname = curPath_.substr(0, i + 1) + name;
+            if (types_->count(fullname)) {
+                return fullname;
+            }
+        }
+    }
+    throw std::runtime_error("name " + name + " not found");
 }
 

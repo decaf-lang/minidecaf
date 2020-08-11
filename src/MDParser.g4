@@ -42,7 +42,7 @@ func    returns [std::shared_ptr<FunctionNode> node]
 stmtSeq returns [std::shared_ptr<StmtSeqNode> node]
         : /* empty */
           {
-            $node = StmtSeqNode::make({});
+            $node = StmtSeqNode::make({}, true);
           }
         | part=stmtSeq stmt
           {
@@ -81,6 +81,7 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = ForNode::make(StmtSeqNode::make($varDefs.nodes),
                     $cond.node, InvokeNode::make($incr.node), $stmt.node);
+            $node = StmtSeqNode::make({$node}, true);
           }
         | RETURN expr ';'
           {

@@ -18,6 +18,8 @@ protected:
     std::shared_ptr<StmtNode> mutate(const ReturnNode *op) override;
 
 private:
+    std::string getFullname(const std::string &name) const;
+
     const std::unordered_map<std::string, ExprType> *types_;
     std::string curFunc_;
 };

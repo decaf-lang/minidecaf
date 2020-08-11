@@ -19,7 +19,6 @@ protected:
 
 private:
     int offset_;
-    std::string curFunc_;
     Map<int> varMap_;  // function -> var name -> stack offset
 };
 

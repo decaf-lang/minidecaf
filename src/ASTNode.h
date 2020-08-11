@@ -87,11 +87,14 @@ struct ProgramNode : public ASTNode {
 
 struct StmtSeqNode : public StmtNode {
     std::vector<std::shared_ptr<StmtNode>> stmts_;
+    bool isBlock_;
 
-    StmtSeqNode(const std::vector<std::shared_ptr<StmtNode>> &stmts) : stmts_(stmts) {}
+    StmtSeqNode(const std::vector<std::shared_ptr<StmtNode>> &stmts, bool isBlock)
+        : stmts_(stmts), isBlock_(isBlock) {}
 
-    static std::shared_ptr<StmtSeqNode> make(const std::vector<std::shared_ptr<StmtNode>> &stmts) {
-        return std::make_shared<StmtSeqNode>(stmts);
+    static std::shared_ptr<StmtSeqNode> make(
+            const std::vector<std::shared_ptr<StmtNode>> &stmts, bool isBlock=false) {
+        return std::make_shared<StmtSeqNode>(stmts, isBlock);
     }
 
     DEFINE_NODE_TRAIT(StmtSeq);

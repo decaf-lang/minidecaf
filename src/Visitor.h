@@ -64,13 +64,23 @@ protected:
     }
 
     virtual void visit(const FunctionNode *op) {
+        curPath_ = op->name_ + "/";
         (*this)(op->body_);
     }
 
     virtual void visit(const StmtSeqNode *op) {
+        if (!op->isBlock_) {
+            for (auto &&stmt : op->stmts_) {
+                (*this)(stmt);
+            }
+            return;
+        }
+        int oldLen = curPath_.length();
+        curPath_ += std::to_string(blockCnt_++) + "/";
         for (auto &&stmt : op->stmts_) {
             (*this)(stmt);
         }
+        curPath_.resize(oldLen);
     }
 
     virtual void visit(const IntegerNode *op) {}
@@ -154,6 +164,9 @@ protected:
     VISIT_BINARY_NODE(LAnd)
     VISIT_BINARY_NODE(LOr)
 #undef VISIT_BINARY_NODE
+
+    std::string curPath_;
+    int blockCnt_;
 };
 
 #endif  // VISITOR_H_

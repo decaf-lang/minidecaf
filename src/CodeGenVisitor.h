@@ -49,6 +49,7 @@ protected:
 
 private:
     void stmtPrelude();
+    std::string getFullname(const std::string &name) const;
 
     const char *push =      "addi sp, sp, -8\n"
                             "sd a0, (sp)\n";
