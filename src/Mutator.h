@@ -50,6 +50,7 @@ public:
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(While)
+            DISPATCH_CASE(For)
             DISPATCH_CASE(Return)
             default:
                 throw std::runtime_error("Unrecognized ASTNodeType");
@@ -106,6 +107,10 @@ protected:
 
     virtual std::shared_ptr<StmtNode> mutate(const WhileNode *op) {
         return WhileNode::make((*this)(op->cond_), (*this)(op->body_));
+    }
+
+    virtual std::shared_ptr<StmtNode> mutate(const ForNode *op) {
+        return ForNode::make((*this)(op->init_), (*this)(op->cond_), (*this)(op->incr_), (*this)(op->body_));
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const ReturnNode *op) {

@@ -5,6 +5,7 @@ WhiteSpaces: [ \t\r\n]+ -> skip;
 IF:         'if';
 ELSE:       'else';
 WHILE:      'while';
+FOR:        'for';
 RETURN:     'return';
 
 INT:        'int';

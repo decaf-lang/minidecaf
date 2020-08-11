@@ -72,6 +72,16 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = WhileNode::make($expr.node, $stmt.node);
           }
+        | FOR '(' init=expr ';' cond=expr ';' incr=expr ')' stmt
+          {
+            $node = ForNode::make(InvokeNode::make($init.node),
+                    $cond.node, InvokeNode::make($incr.node), $stmt.node);
+          }
+        | FOR '(' varDefs ';' cond=expr ';' incr=expr ')' stmt
+          {
+            $node = ForNode::make(StmtSeqNode::make($varDefs.nodes),
+                    $cond.node, InvokeNode::make($incr.node), $stmt.node);
+          }
         | RETURN expr ';'
           {
             $node = ReturnNode::make($expr.node);
@@ -223,11 +233,11 @@ vars    returns [std::vector<std::shared_ptr<VarNode>> nodes]
         ;
 
 varDef  returns [std::shared_ptr<StmtNode> node]
-        : INT Identifier
+        : Identifier
           {
             $node = VarDefNode::make(ExprType::Int, $Identifier.text);
           }
-        | INT Identifier '=' expr
+        | Identifier '=' expr
           {
             $node = StmtSeqNode::make({
                         VarDefNode::make(ExprType::Int, $Identifier.text),
@@ -236,7 +246,7 @@ varDef  returns [std::shared_ptr<StmtNode> node]
         ;
 
 varDefs returns [std::vector<std::shared_ptr<StmtNode>> nodes]
-        : varDef
+        : INT varDef
           {
             $nodes = {$varDef.node};
           }

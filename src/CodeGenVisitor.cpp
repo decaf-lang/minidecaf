@@ -89,6 +89,19 @@ void CodeGenVisitor::visit(const WhileNode *op) {
     os << endTarget << ":\n";
 }
 
+void CodeGenVisitor::visit(const ForNode *op) {
+    auto beginTarget = jumpCnt_++;
+    auto endTarget = jumpCnt_++;
+    (*this)(op->init_);
+    os << beginTarget << ":\n";
+    (*this)(op->cond_);
+    os << "beqz a0, " << endTarget << "f\n";
+    (*this)(op->body_);
+    (*this)(op->incr_);
+    os << "j " << beginTarget << "b\n";
+    os << endTarget << ":\n";
+}
+
 void CodeGenVisitor::visit(const ReturnNode *op) {
     ASSERT(op->expr_->type_ == typeInfo_->at(curFunc_));
     stmtPrelude();
