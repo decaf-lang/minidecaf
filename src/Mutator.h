@@ -37,6 +37,7 @@ public:
             DISPATCH_CASE(LAnd)
             DISPATCH_CASE(LOr)
             DISPATCH_CASE(Select)
+            DISPATCH_CASE(Assign)
             default:
                 throw std::runtime_error("Unrecognized ASTNodeType");
         }
@@ -46,7 +47,6 @@ public:
         switch (op->nodeType()) {
             DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(VarDef)
-            DISPATCH_CASE(Assign)
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(While)
@@ -93,7 +93,7 @@ protected:
         return VarDefNode::make(op->type_, op->name_);
     }
 
-    virtual std::shared_ptr<StmtNode> mutate(const AssignNode *op) {
+    virtual std::shared_ptr<ExprNode> mutate(const AssignNode *op) {
         return AssignNode::make(op->var_, (*this)(op->expr_));
     }
 

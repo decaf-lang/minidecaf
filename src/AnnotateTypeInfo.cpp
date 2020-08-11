@@ -22,7 +22,7 @@ std::shared_ptr<ExprNode> AnnotateTypeInfo::mutate(const VarNode *op) {
     return VarNode::make(types_->at(curFunc_ + "/" + ret->name_), ret->name_);
 }
 
-std::shared_ptr<StmtNode> AnnotateTypeInfo::mutate(const AssignNode *op) {
+std::shared_ptr<ExprNode> AnnotateTypeInfo::mutate(const AssignNode *op) {
     auto ret = AS(Mutator::mutate(op), Assign);
     return AssignNode::make(ret->var_, CastNode::make(types_->at(curFunc_ + "/" + ret->var_), ret->expr_));
 }

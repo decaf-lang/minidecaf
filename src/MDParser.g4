@@ -60,10 +60,6 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = StmtSeqNode::make($varDefs.nodes);
           }
-        | Identifier '=' expr ';'
-          {
-            $node = AssignNode::make($Identifier.text, $expr.node);
-          }
         | IF '(' expr ')' stmt
           {
             $node = IfThenElseNode::make($expr.node, $stmt.node);
@@ -187,6 +183,10 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = SelectNode::make($a.node, $b.node, $c.node);
           }
+        | Identifier '=' expr
+          {
+            $node = AssignNode::make($Identifier.text, $expr.node);
+          }
         ;
 
 exprs   returns [std::vector<std::shared_ptr<ExprNode>> nodes]
@@ -231,7 +231,7 @@ varDef  returns [std::shared_ptr<StmtNode> node]
           {
             $node = StmtSeqNode::make({
                         VarDefNode::make(ExprType::Int, $Identifier.text),
-                        AssignNode::make($Identifier.text, $expr.node)});
+                        InvokeNode::make(AssignNode::make($Identifier.text, $expr.node))});
           }
         ;
 

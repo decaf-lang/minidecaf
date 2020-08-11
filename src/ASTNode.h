@@ -147,12 +147,12 @@ struct InvokeNode : public StmtNode {
     DEFINE_NODE_TRAIT(Invoke)
 };
 
-struct AssignNode : public StmtNode {
+struct AssignNode : public ExprNode {
     std::string var_;
     std::shared_ptr<ExprNode> expr_;
 
     AssignNode(const std::string &var, const std::shared_ptr<ExprNode> &expr)
-        : var_(var), expr_(expr) {}
+        : ExprNode(expr->type_), var_(var), expr_(expr) {}
 
     static std::shared_ptr<AssignNode> make(std::string var, std::shared_ptr<ExprNode> expr) {
         return std::make_shared<AssignNode>(var, expr);
