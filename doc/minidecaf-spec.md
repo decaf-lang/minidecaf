@@ -116,7 +116,7 @@ stmt    = expr ";"
         | "return" expr ";"
         | "if" "(" expr ")" stmt ("else" stmt)?
         | "while" "(" expr ")" stmt
-        | "for" "(" expr? ";" expr? ";" expr? ")" stmt        
+        | "for" "(" expr? ";" expr? ";" expr? ")" stmt
 expr       = assign
 assign     = equality ("=" assign)?
 equality   = relational ("==" relational | "!=" relational)*
@@ -139,7 +139,7 @@ stmt    = expr ";"
         | "if" "(" expr ")" stmt ("else" stmt)?
         | "while" "(" expr ")" stmt
         | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-        | "{" stmt* "}"                
+        | "{" stmt* "}"
 expr       = assign
 assign     = equality ("=" assign)?
 equality   = relational ("==" relational | "!=" relational)*
@@ -160,7 +160,7 @@ stmt    = expr ";"
         | "if" "(" expr ")" stmt ("else" stmt)?
         | "while" "(" expr ")" stmt
         | "for" "(" expr? ";" expr? ";" expr? ")" stmt
-        | "{" stmt* "}"                
+        | "{" stmt* "}"
 expr       = assign
 assign     = equality ("=" assign)?
 equality   = relational ("==" relational | "!=" relational)*
@@ -168,7 +168,7 @@ relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 add        = mul ("+" mul | "-" mul)*
 mul        = unary ("*" unary | "/" unary)*
 unary      = ("+" | "-")? primary
-primary = num 
+primary = num
         | ident ("(" ")")?
         | "(" expr ")"
 num = digit+
@@ -295,7 +295,7 @@ Integer literal [0-9]+
 program = Program(function_declaration)
 function_declaration = Function(string, statement) //string is the function name
 statement = Return(exp) | Assign(variable, exp)
-exp = Constant(int) 
+exp = Constant(int)
 ```
 
 ## 步骤2：Unary Operators
@@ -341,7 +341,7 @@ exp = UnOp(operator, exp) | Constant(int)
 ```
 
 ## 步骤3：Binary Operators and  Parenthesis for ( expr )
-支持 
+支持
 ```
 Addition +
 Subtraction -
@@ -415,7 +415,7 @@ Greater than or equal to >=
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
-<unary_op> ::= "!" | "~" | "-"	
+<unary_op> ::= "!" | "~" | "-"
 ```
 对应的Token为：
 ```
@@ -467,16 +467,16 @@ a=3;
 <function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
-              | "int" <id> [ = <exp>] ";" 
+              | "int" <id> [ = <exp>] ";"
 <exp> ::= <id> "=" <exp> | <logical-or-exp>
-<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> } 
+<logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
 <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
-<unary_op> ::= "!" | "~" | "-"	
+<unary_op> ::= "!" | "~" | "-"
 ```
 对应的Token为：
 ```
@@ -510,7 +510,7 @@ Assignment =
 ```
 program = Program(function_declaration)
 function_declaration = Function(string, statement list) //string is the function name
-statement = Return(exp) 
+statement = Return(exp)
           | Declare(string, exp option) //string is variable name
                                         //exp is optional initializer
           | Exp(exp)
@@ -518,7 +518,7 @@ exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
     | UnOp(unary_operator, exp)
-    | Constant(int)  
+    | Constant(int)
 ```
 
 ## 步骤6：Conditional statements & expressions
@@ -591,15 +591,15 @@ function_declaration = Function(string, block_item list) //string is the functio
 
 block_item = Statement(statement) | Declaration(declaration)
 
-declaration = Declare(string, exp option) //string is variable name 
+declaration = Declare(string, exp option) //string is variable name
                                           //exp is optional initializer
 
-statement = Return(exp) 
+statement = Return(exp)
           | Exp(exp)
           | Conditional(exp, statement, statement option) //exp is controlling condition
                                                           //first statement is 'if' block
                                                           //second statement is optional 'else' block
-                                                          
+
 exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
@@ -680,16 +680,16 @@ function_declaration = Function(string, block_item list) //string is the functio
 
 block_item = Statement(statement) | Declaration(declaration)
 
-declaration = Declare(string, exp option) //string is variable name 
+declaration = Declare(string, exp option) //string is variable name
                                           //exp is optional initializer
 
-statement = Return(exp) 
+statement = Return(exp)
           | Exp(exp)
           | Conditional(exp, statement, statement option) //exp is controlling condition
                                                           //first statement is 'if' block
                                                           //second statement is optional 'else' block
           | Compound(block_item list)
-                                                          
+
 exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
@@ -728,7 +728,7 @@ while (i < 10) {
               | "break" ";"
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
-<exp-option-close-paren> ::= <exp> ")" | ")"              
+<exp-option-close-paren> ::= <exp> ")" | ")"
 <exp> ::= <id> "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
@@ -784,10 +784,10 @@ function_declaration = Function(string, block_item list) //string is the functio
 
 block_item = Statement(statement) | Declaration(declaration)
 
-declaration = Declare(string, exp option) //string is variable name 
+declaration = Declare(string, exp option) //string is variable name
                                           //exp is optional initializer
 
-statement = Return(exp) 
+statement = Return(exp)
           | Exp(exp option)
           | Conditional(exp, statement, statement option) // exp is controlling condition
                                                           // first statement is 'if' block
@@ -799,7 +799,7 @@ statement = Return(exp)
           | Do(statement, expression) // body, condition
           | Break
           | Continue
-                                                          
+
 exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
@@ -836,7 +836,7 @@ int main() {
               | "break" ";"
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
-<exp-option-close-paren> ::= <exp> ")" | ")"              
+<exp-option-close-paren> ::= <exp> ")" | ")"
 <exp> ::= <id> "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
@@ -894,10 +894,10 @@ function_declaration = Function(string, block_item list) //string is the functio
 
 block_item = Statement(statement) | Declaration(declaration)
 
-declaration = Declare(string, exp option) //string is variable name 
+declaration = Declare(string, exp option) //string is variable name
                                           //exp is optional initializer
 
-statement = Return(exp) 
+statement = Return(exp)
           | Exp(exp option)
           | Conditional(exp, statement, statement option) // exp is controlling condition
                                                           // first statement is 'if' block
@@ -909,7 +909,7 @@ statement = Return(exp)
           | Do(statement, expression) // body, condition
           | Break
           | Continue
-                                                          
+
 exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
@@ -955,8 +955,8 @@ int main() {
               | "do" <statement> "while" <exp> ";"
               | "break" ";"
               | "continue" ";"
-<exp-option-semicolon> ::= <exp> ";" | ";"	
-<exp-option-close-paren> ::= <exp> ")" | ")"              
+<exp-option-semicolon> ::= <exp> ";" | ";"
+<exp-option-close-paren> ::= <exp> ")" | ")"
 <exp> ::= <id> "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
@@ -1011,17 +1011,17 @@ continue
 ```
 toplevel_item = Function(function_declaration)
               | Variable(declaration)
-toplevel = Program(toplevel_item list)      
+toplevel = Program(toplevel_item list)
 program = Program(function_declaration list)
 
 function_declaration = Function(string, block_item list) //string is the function name
 
 block_item = Statement(statement) | Declaration(declaration)
 
-declaration = Declare(string, exp option) //string is variable name 
+declaration = Declare(string, exp option) //string is variable name
                                           //exp is optional initializer
 
-statement = Return(exp) 
+statement = Return(exp)
           | Exp(exp option)
           | Conditional(exp, statement, statement option) // exp is controlling condition
                                                           // first statement is 'if' block
@@ -1033,7 +1033,7 @@ statement = Return(exp)
           | Do(statement, expression) // body, condition
           | Break
           | Continue
-                                                          
+
 exp = Assign(string, exp)
     | Var(string) //string is variable name
     | BinOp(binary_operator, exp, exp)
@@ -1042,6 +1042,112 @@ exp = Assign(string, exp)
     | CondExp(exp, exp, exp) //the three expressions are the condition, 'if' expression and 'else' expression, respectively
     | FunCall(string, exp list) // string is the function name
 ```
+
+## 步骤11 (WIP) 指针
+
+指针和数组是否要做？
+
+请完善
+
+主要改动部分
+
+```
+func
+    : ty Ident '(' paramList ')'  (block | ';')     // 参数本质就是 decl
+    ;
+
+ty
+    : 'int'
+    | ty '*'
+    ;
+
+decl
+    : ty Ident ('=' expr)?      // 去掉了分号，之前用到的地方记得加分号
+    ;
+
+paramList
+    : (decl (',' decl)*)?       // 逗号隔开的 decl，并且语义检查 decl 不能有初始值
+    ;
+
+factor
+    : ...
+    | '&' factor                // 要做类型和 lvalue 检查，不允许 &(2+3) 这种
+                                // lvalue : Ident | '*' expr
+    | '*' factor                // 要做类型检查
+    ;
+```
+
+其中取地址算符 `&` 要求
+* 如果 `& Ident` 那直接返回 Ident 地址
+* `&*expr` 等价于 `expr`，（但是不再是 lvalue 了）
+
+## 步骤12 (WIP) 数组
+
+请完善
+
+主要改动部分
+
+```
+decl
+    : ty Ident  ('[' Integer ']')*  ('=' expr)?     // 语义检查：数组 decl 不能给初始值
+    ;
+
+factor
+    : ...
+    | '&' factor                // lvalue : Ident | '*' expr | expr '[' expr ']'
+    | expr '[' expr ']'         // 要做类型检查，要求第一个 expr 类型是 ty* 或者数组
+                                // a: int[2][3]，那么 a[1]: int[3]，a[1][2]: int
+                                // b: int*[2], 那么 b[1]: int*, b[1][3]: int
+```
+
+并且：
+* 没有变长数组 `int a[n];` 也没有不定长数组 `int a[];`
+  - 否则预留空间和计算偏移量更麻烦——可以作为较复杂的小练习
+* 没有越界检查，有负长度检查
+* 指针不能指向数组，不存在 `int (*)[2]` 这种东西
+  - 否则声明会很麻烦，如 `int (*a)[2]` 和 `int *a[2]`
+* 数组初始化只能是默认零初始化，没字面量也不能 `int a[2] = {2, 3}`
+  - 否则麻烦
+* 数组可以在栈上或者 .bss（全局变量）里
+* 如果数组作为函数参数出现，不预留空间，否则预留空间并且零初始化
+
+关于数组和指针的隐式转换
+* 只有一个地方允许指针和数组之间的隐式转换：传参，其他地方只能有数组到指针的显式类型转换
+* 如果形参类型是数组（如 `int* param[2][3]`），那么实参必须是同样的数组（`int *arg[2][3]`），或者同样基类型的指针（`int **arg`）
+* 如果形参类型是指针（如 `int *param`），那么实参必须是同样的指针（`int *arg`），或者同样基类型的数组（`int arg[2]` 或 `int arg[3][10]`）
+
+例子：
+```
+int a[2][2]; int b[3][3]; int c[2][2];
+int *p; int *q;
+
+void matmul2(int a[2][2], int b[2][2], int c[2][2]); // ok
+matmul2(a, a, c);                                    // ok
+matmul2(a, b, c);                                    // bad 长度不匹配
+p = (int*) b; q = (int*) c; matmul2(a, p, q);        // ok，有两个 int* -> int[2][2] 的隐式转换
+
+int *row2 = a[1];                                    // ok
+row2 = a[1];                                         // bad，这里 int[2] -> int* 转换必须显式
+
+a = p;                                               // bad，数组不能赋值
+a[1] = p;                                            // bad，数组不能赋值
+a[1][1] = (int) p;                                   // ok
+
+int **ptr2level = a;                                 // bad，类型不对
+int x = a;                                           // bad，类型不对
+
+int *p1 = a;     // ok
+int *p2 = &a;    // ok
+p1 = (int*) a;   // ok
+p1 = (int*) &a;  // ok，这四个取到的值是一样的
+p1 = (int*) &&a; // bad，不是 lvalue
+p1 = a;          // bad，必须显式转换
+p1 = &a;         // bad，必须显式转换
+```
+
+## 步骤13 结构体
+是否必须？工作量是否过大？
+
 
 
 # feature文法
