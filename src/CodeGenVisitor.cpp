@@ -62,6 +62,7 @@ void CodeGenVisitor::visit(const InvokeNode *op) {
 }
 
 void CodeGenVisitor::visit(const IfThenElseNode *op) {
+    stmtPrelude();
     (*this)(op->cond_);
     if (op->elseCase_ == nullptr) {
         auto elseTarget = jumpCnt_++;
@@ -81,6 +82,7 @@ void CodeGenVisitor::visit(const IfThenElseNode *op) {
 }
 
 void CodeGenVisitor::visit(const WhileNode *op) {
+    stmtPrelude();
     auto beginTarget = continueTarget_ = jumpCnt_++;
     auto endTarget = breakTarget_ = jumpCnt_++;
     os << beginTarget << ":\n";
@@ -92,6 +94,7 @@ void CodeGenVisitor::visit(const WhileNode *op) {
 }
 
 void CodeGenVisitor::visit(const ForNode *op) {
+    stmtPrelude();
     auto beginTarget = continueTarget_ = jumpCnt_++;
     auto noIncrTarget = jumpCnt_++;
     auto endTarget = breakTarget_ = jumpCnt_++;
