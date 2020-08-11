@@ -33,6 +33,7 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
         os << "ld t0, " << (8 * i) << "(fp)\n"
               "sd t0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->args_[i].second << "\n";
     }
+    os << "mv a0, x0\n";  // step5 requires the default return value to be 0
     (*this)(op->body_);
     os << retTarget_ << ":\n";
     os << "mv sp, fp\n"
