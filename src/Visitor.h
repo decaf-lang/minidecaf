@@ -27,6 +27,8 @@ public:
             DISPATCH_CASE(While)
             DISPATCH_CASE(For)
             DISPATCH_CASE(Return)
+            DISPATCH_CASE(Break)
+            DISPATCH_CASE(Continue)
             DISPATCH_CASE(Call)
             DISPATCH_CASE(Cast)
             DISPATCH_CASE(Add)
@@ -116,6 +118,10 @@ protected:
     virtual void visit(const ReturnNode *op) {
         (*this)(op->expr_);
     }
+
+    virtual void visit(const BreakNode *op) {}
+
+    virtual void visit(const ContinueNode *op) {}
 
     virtual void visit(const InvokeNode *op) {
         (*this)(op->expr_);

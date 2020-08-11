@@ -14,7 +14,7 @@ enum class ASTNodeType : int {
     VarDef,
     Assign, Invoke,
     IfThenElse, While, For,
-    Return,
+    Return, Break, Continue,
     Call,
     Cast,
     Add, Sub, Mul, Div,
@@ -222,6 +222,22 @@ struct ReturnNode : public StmtNode {
     }
 
     DEFINE_NODE_TRAIT(Return);
+};
+
+struct BreakNode : public StmtNode {
+    static std::shared_ptr<BreakNode> make() {
+        return std::make_shared<BreakNode>();
+    }
+
+    DEFINE_NODE_TRAIT(Break);
+};
+
+struct ContinueNode : public StmtNode {
+    static std::shared_ptr<ContinueNode> make() {
+        return std::make_shared<ContinueNode>();
+    }
+
+    DEFINE_NODE_TRAIT(Continue);
 };
 
 struct CallNode : public ExprNode {

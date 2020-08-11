@@ -87,6 +87,14 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = ReturnNode::make($expr.node);
           }
+        | BREAK ';'
+          {
+            $node = BreakNode::make();
+          }
+        | CONTINUE ';'
+          {
+            $node = ContinueNode::make();
+          }
         | ';'
           {
             $node = StmtSeqNode::make({});

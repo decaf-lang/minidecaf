@@ -24,6 +24,8 @@ protected:
     virtual void visit(const WhileNode *op) override;
     virtual void visit(const ForNode *op) override;
     virtual void visit(const ReturnNode *op) override;
+    virtual void visit(const BreakNode *op) override;
+    virtual void visit(const ContinueNode *op) override;
     virtual void visit(const IntegerNode *op) override;
     virtual void visit(const CallNode *op) override;
     virtual void visit(const CastNode *op) override;
@@ -63,7 +65,7 @@ private:
     const std::unordered_map<std::string, int> *varMap_;
     const std::unordered_map<std::string, ExprType> *typeInfo_;
     int jumpCnt_ = 0;
-    int retTarget_;
+    int retTarget_, breakTarget_, continueTarget_;
     int curFuncNVar_;
 };
 
