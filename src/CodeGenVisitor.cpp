@@ -10,7 +10,9 @@ std::string CodeGenVisitor::genCode(
 }
 
 void CodeGenVisitor::visit(const ProgramNode *op) {
-    os << ".global main\n";
+    os << "\n"
+          ".section .text\n"
+          ".global main\n";
     Visitor::visit(op);
 }
 
@@ -47,8 +49,14 @@ void CodeGenVisitor::visit(const FunctionNode *op) {
 
 void CodeGenVisitor::visit(const VarNode *op) {
     Visitor::visit(op);
-    auto offset = varMap_->at(getFullname(op->name_));
-    os << "ld a0, " << (-16 - 8 * offset) << "(fp)  # Load from " << op->name_ << "\n" << push;
+    auto fullname = getFullname(op->name_);
+    if (varMap_->count(fullname)) {
+        auto offset = varMap_->at(fullname);
+        os << "ld a0, " << (-16 - 8 * offset) << "(fp)  # Load from " << op->name_ << "\n" << push;
+    } else {
+        ASSERT(op->name_ == fullname);  // global va
+        os << "ld a0, " << op->name_ << "\n" << push;
+    }
 }
 
 void CodeGenVisitor::visit(const AssignNode *op) {
@@ -56,8 +64,13 @@ void CodeGenVisitor::visit(const AssignNode *op) {
     ASSERT(op->expr_->type_ == typeInfo_->at(fullname));
     stmtPrelude();
     (*this)(op->expr_);
-    auto offset = varMap_->at(fullname);
-    os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_ << "\n";
+    if (varMap_->count(fullname)) {
+        auto offset = varMap_->at(fullname);
+        os << "sd a0, " << (-16 - 8 * offset) << "(fp)  # Store to " << op->var_ << "\n";
+    } else {
+        ASSERT(op->var_ == fullname);  // global va
+        os << "sd a0, " << op->var_ << ", t0\n" << push;  // t0 is a scratch register
+    }
 }
 
 void CodeGenVisitor::visit(const InvokeNode *op) {
@@ -299,10 +312,13 @@ std::string CodeGenVisitor::getFullname(const std::string &name) const {
     for (auto i = curPath_.length(); ~i; i--) {
         if (curPath_[i] == '/') {
             auto fullname = curPath_.substr(0, i + 1) + name;
-            if (varMap_->count(fullname)) {
+            if (typeInfo_->count(fullname)) {
                 return fullname;
             }
         }
+    }
+    if (typeInfo_->count(name)) {
+        return name;
     }
     throw std::runtime_error("name " + name + " not found");
 }

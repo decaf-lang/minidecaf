@@ -35,6 +35,11 @@ funcs   returns [std::shared_ptr<ProgramNode> node]
             $node = $part.node;
             $node->funcs_.push_back($funcDec.node);
           }
+        | part=funcs gVarDef
+          {
+            $node = $part.node;
+            $node->funcs_.push_back($gVarDef.node);
+          }
         ;
 
 func    returns [std::shared_ptr<FunctionNode> node]
@@ -48,6 +53,17 @@ funcDec returns [std::shared_ptr<FunctionNode> node]
         : INT Identifier '(' args ')' ';'
           {
             $node = FunctionNode::make(ExprType::Int, $Identifier.text, $args.nodes, nullptr);
+          }
+        ;
+
+gVarDef returns [std::shared_ptr<GlobalVarDefNode> node]
+        : INT Identifier ';'
+          {
+            $node = GlobalVarDefNode::make(ExprType::Int, $Identifier.text);
+          }
+        | INT Identifier '=' expr ';'
+          {
+            $node = GlobalVarDefNode::make(ExprType::Int, $Identifier.text, $expr.text);
           }
         ;
 

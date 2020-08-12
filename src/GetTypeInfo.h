@@ -11,6 +11,7 @@ public:
 
 protected:
     virtual void visit(const FunctionNode *op) override;
+    virtual void visit(const GlobalVarDefNode *op) override;
     virtual void visit(const VarDefNode *op) override;
 
 private:

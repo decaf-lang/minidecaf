@@ -59,11 +59,16 @@ public:
         }
     }
 
-#undef DISPATCH_CASE
-
-    virtual std::shared_ptr<FunctionNode> operator()(const std::shared_ptr<FunctionNode> &op) {
-        return mutate(op.get());
+    virtual std::shared_ptr<GlobalNode> operator()(const std::shared_ptr<GlobalNode> &op) {
+        switch (op->nodeType()) {
+            DISPATCH_CASE(Function)
+            DISPATCH_CASE(GlobalVarDef)
+            default:
+                throw std::runtime_error("Unrecognized ASTNodeType");
+        }
     }
+
+#undef DISPATCH_CASE
 
     virtual std::shared_ptr<ProgramNode> operator()(const std::shared_ptr<ProgramNode> &op) {
         return mutate(op.get());
@@ -71,7 +76,7 @@ public:
 
 protected:
     virtual std::shared_ptr<ProgramNode> mutate(const ProgramNode *op) {
-        std::vector<std::shared_ptr<FunctionNode>> funcs;
+        std::vector<std::shared_ptr<GlobalNode>> funcs;
         funcs.reserve(op->funcs_.size());
         for (auto &&func : op->funcs_) {
             funcs.push_back((*this)(func));
@@ -79,9 +84,13 @@ protected:
         return ProgramNode::make(funcs);
     }
 
-    virtual std::shared_ptr<FunctionNode> mutate(const FunctionNode *op) {
+    virtual std::shared_ptr<GlobalNode> mutate(const FunctionNode *op) {
         curPath_ = op->name_ + "/";
         return FunctionNode::make(op->type_, op->name_, op->args_, op->body_ ? (*this)(op->body_) : nullptr);
+    }
+
+    virtual std::shared_ptr<GlobalNode> mutate(const GlobalVarDefNode *op) {
+        return GlobalVarDefNode::make(op->type_, op->name_, op->init_);
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const StmtSeqNode *op) {

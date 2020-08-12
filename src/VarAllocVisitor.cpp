@@ -15,15 +15,6 @@ void VarAllocVisitor::visit(const FunctionNode *op) {
     Visitor::visit(op);
 }
 
-void VarAllocVisitor::visit(const VarNode *op) {
-    for (size_t i = 0, n = curPath_.length(); i < n; i++) {
-        if (curPath_[i] == '/' && varMap_.count(curPath_.substr(0, i + 1) + op->name_)) {
-            return;
-        }
-    }
-    throw std::runtime_error("Var " + op->name_ + " is used before definition");
-}
-
 void VarAllocVisitor::visit(const VarDefNode *op) {
     if (!varMap_.count(curPath_ + op->name_)) {
         varMap_[curPath_ + op->name_] = offset_++;

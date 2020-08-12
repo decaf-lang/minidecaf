@@ -8,7 +8,7 @@
 
 enum class ASTNodeType : int {
     Program,
-    Function, FunctionDecl,
+    Function, FunctionDecl, GlobalVarDef,
     StmtSeq,
     Integer, Var,
     VarDef,
@@ -42,6 +42,8 @@ std::shared_ptr<T> as(const std::shared_ptr<U> &ptr) {
         return ASTNodeType::name; \
     }
 
+struct GlobalNode : public ASTNode {};
+
 struct StmtNode : public ASTNode {};
 
 enum class ExprType : int {
@@ -55,7 +57,7 @@ struct ExprNode : public ASTNode {
     ExprType type_;
 };
 
-struct FunctionNode : public ASTNode {
+struct FunctionNode : public GlobalNode {
     ExprType type_;
     std::string name_;
     std::vector<std::pair<ExprType, std::string>> args_;
@@ -73,12 +75,27 @@ struct FunctionNode : public ASTNode {
     DEFINE_NODE_TRAIT(Function);
 };
 
+struct GlobalVarDefNode : public GlobalNode {
+    ExprType type_;
+    std::string name_, init_;  // init_ can be empty
+
+    GlobalVarDefNode(ExprType type, const std::string &name, const std::string &init)
+        : type_(type), name_(name), init_(init) {}
+
+    static std::shared_ptr<GlobalVarDefNode> make(
+            ExprType type, const std::string &name, const std::string &init="") {
+        return std::make_shared<GlobalVarDefNode>(type, name, init);
+    }
+
+    DEFINE_NODE_TRAIT(GlobalVarDef);
+};
+
 struct ProgramNode : public ASTNode {
-    std::vector<std::shared_ptr<FunctionNode>> funcs_;
+    std::vector<std::shared_ptr<GlobalNode>> funcs_;
 
-    ProgramNode(const std::vector<std::shared_ptr<FunctionNode>> &funcs) : funcs_(funcs) {}
+    ProgramNode(const std::vector<std::shared_ptr<GlobalNode>> &funcs) : funcs_(funcs) {}
 
-    static std::shared_ptr<ProgramNode> make(const std::vector<std::shared_ptr<FunctionNode>> &funcs) {
+    static std::shared_ptr<ProgramNode> make(const std::vector<std::shared_ptr<GlobalNode>> &funcs) {
         return std::make_shared<ProgramNode>(funcs);
     }
 
@@ -130,7 +147,7 @@ struct VarDefNode : public StmtNode {
 
     VarDefNode(ExprType type, const std::string &name) : type_(type), name_(name) {}
 
-    static std::shared_ptr<VarDefNode> make(ExprType type, const std::string name) {
+    static std::shared_ptr<VarDefNode> make(ExprType type, const std::string &name) {
         return std::make_shared<VarDefNode>(type, name);
     }
 
@@ -157,7 +174,7 @@ struct AssignNode : public ExprNode {
     AssignNode(const std::string &var, const std::shared_ptr<ExprNode> &expr)
         : ExprNode(expr->type_), var_(var), expr_(expr) {}
 
-    static std::shared_ptr<AssignNode> make(std::string var, std::shared_ptr<ExprNode> expr) {
+    static std::shared_ptr<AssignNode> make(std::string var, const std::shared_ptr<ExprNode> &expr) {
         return std::make_shared<AssignNode>(var, expr);
     }
 
@@ -298,10 +315,10 @@ struct SelectNode : public ExprNode {
     struct name##Node : public ExprNode { \
         std::shared_ptr<ExprNode> lhs_, rhs_; \
         \
-        name##Node(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) \
+        name##Node(const std::shared_ptr<ExprNode> &lhs, const std::shared_ptr<ExprNode> &rhs) \
             : ExprNode(ExprType::retType), lhs_(lhs), rhs_(rhs) {} \
         \
-        static std::shared_ptr<name##Node> make(std::shared_ptr<ExprNode> lhs, std::shared_ptr<ExprNode> rhs) { \
+        static std::shared_ptr<name##Node> make(const std::shared_ptr<ExprNode> &lhs, const std::shared_ptr<ExprNode> &rhs) { \
             return std::make_shared<name##Node>(CastNode::make(ExprType::opType, lhs), CastNode::make(ExprType::opType, rhs)); \
         } \
         \

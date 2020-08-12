@@ -7,6 +7,7 @@
 #include "AnnotateTypeInfo.h"
 #include "VarAllocVisitor.h"
 #include "CodeGenVisitor.h"
+#include "DataGenVisitor.h"
 
 int main(int argc, const char* argv[]) {
     if (argc != 2) {
@@ -26,8 +27,9 @@ int main(int argc, const char* argv[]) {
     auto typeInfo = GetTypeInfo().get(program);
     program = AnnotateTypeInfo().annotate(program, typeInfo);
     auto varMap = VarAllocVisitor().allocVar(program);
+    auto data = DataGenVisitor().genData(program, typeInfo);
     auto code = CodeGenVisitor().genCode(program, varMap, typeInfo);
-    std::cout << code;
+    std::cout << data << code;
 
     return 0;
 }

@@ -7,7 +7,7 @@ std::shared_ptr<ProgramNode> AnnotateTypeInfo::annotate(
     return (*this)(op);
 }
 
-std::shared_ptr<FunctionNode> AnnotateTypeInfo::mutate(const FunctionNode *op) {
+std::shared_ptr<GlobalNode> AnnotateTypeInfo::mutate(const FunctionNode *op) {
     curFunc_ = op->name_;
     return Mutator::mutate(op);
 }
@@ -40,6 +40,9 @@ std::string AnnotateTypeInfo::getFullname(const std::string &name) const {
                 return fullname;
             }
         }
+    }
+    if (types_->count(name)) {
+        return name;
     }
     throw std::runtime_error("name " + name + " not found");
 }

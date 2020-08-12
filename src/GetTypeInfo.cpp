@@ -13,6 +13,11 @@ void GetTypeInfo::visit(const FunctionNode *op) {
     Visitor::visit(op);
 }
 
+void GetTypeInfo::visit(const GlobalVarDefNode *op) {
+    types_[op->name_] = op->type_;
+    Visitor::visit(op);
+}
+
 void GetTypeInfo::visit(const VarDefNode *op) {
     types_[curPath_ + op->name_] = op->type_;
     Visitor::visit(op);

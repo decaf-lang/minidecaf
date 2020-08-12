@@ -17,6 +17,7 @@ public:
 
             DISPATCH_CASE(Program)
             DISPATCH_CASE(Function)
+            DISPATCH_CASE(GlobalVarDef)
             DISPATCH_CASE(StmtSeq)
             DISPATCH_CASE(Integer)
             DISPATCH_CASE(Var)
@@ -71,6 +72,8 @@ protected:
             (*this)(op->body_);
         }
     }
+
+    virtual void visit(const GlobalVarDefNode *op) {}
 
     virtual void visit(const StmtSeqNode *op) {
         if (!op->isBlock_) {

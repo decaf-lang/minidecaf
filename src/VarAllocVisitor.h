@@ -5,6 +5,7 @@
 
 #include "Visitor.h"
 
+// Allocate local variables on stack
 class VarAllocVisitor : public Visitor {
 public:
     template <class T>
@@ -14,7 +15,6 @@ public:
 
 protected:
     virtual void visit(const FunctionNode *op) override;
-    virtual void visit(const VarNode *op) override;
     virtual void visit(const VarDefNode *op) override;
 
 private:
