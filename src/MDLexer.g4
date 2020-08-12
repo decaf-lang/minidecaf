@@ -20,6 +20,7 @@ PLUS:       '+';
 MINUS:      '-';
 STAR:       '*';
 SLASH:      '/';
+PERCENT:    '%';
 NOT:        '!';
 TILDE:      '~';
 AND:        '&';

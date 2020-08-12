@@ -17,7 +17,7 @@ enum class ASTNodeType : int {
     Return, Break, Continue,
     Call,
     Cast,
-    Add, Sub, Mul, Div,
+    Add, Sub, Mul, Div, Mod,
     LNot,
     LT, LE, GT, GE, EQ, NE,
     LAnd, LOr, BAnd, BOr, BXor, SLL, SRA,
@@ -329,6 +329,7 @@ DEFINE_BINARY_NODE(Add, Int, Int)
 DEFINE_BINARY_NODE(Sub, Int, Int)
 DEFINE_BINARY_NODE(Mul, Int, Int)
 DEFINE_BINARY_NODE(Div, Int, Int)
+DEFINE_BINARY_NODE(Mod, Int, Int)
 DEFINE_BINARY_NODE(BAnd, Int, Int)
 DEFINE_BINARY_NODE(BOr, Int, Int)
 DEFINE_BINARY_NODE(BXor, Int, Int)

@@ -169,12 +169,14 @@ expr    returns [std::shared_ptr<ExprNode> node]
           {
             $node = BXorNode::make(IntegerNode::make(-1), $expr.node);
           }
-        | lhs=expr op=('*' | '/') rhs=expr
+        | lhs=expr op=('*' | '/' | '%') rhs=expr
           {
             if ($op.text == "*") {
                 $node = MulNode::make($lhs.node, $rhs.node);
-            } else {
+            } else if ($op.text == "/") {
                 $node = DivNode::make($lhs.node, $rhs.node);
+            } else if ($op.text == "%") {
+                $node = ModNode::make($lhs.node, $rhs.node);
             }
           }
         | lhs=expr op=('+' | '-') rhs=expr

@@ -204,6 +204,12 @@ void CodeGenVisitor::visit(const DivNode *op) {
     os << pop2 << "div a0, t0, t1\n" << push;
 }
 
+void CodeGenVisitor::visit(const ModNode *op) {
+    ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
+    Visitor::visit(op);
+    os << pop2 << "rem a0, t0, t1\n" << push;
+}
+
 void CodeGenVisitor::visit(const BAndNode *op) {
     ASSERT(op->lhs_->type_ == ExprType::Int && op->rhs_->type_ == ExprType::Int);
     Visitor::visit(op);
