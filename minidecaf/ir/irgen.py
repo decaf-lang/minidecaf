@@ -18,11 +18,18 @@ class StackIRGen(MiniDecafVisitor):
         self.visitChildren(ctx)
         self._E(instr.Unary(text(ctx.unaryOp())))
 
+    def _binaryExpr(self, ctx, op):
+        self.visitChildren(ctx)
+        self._E(instr.Binary(text(op)))
     def visitCAdd(self, ctx:MiniDecafParser.CAddContext):
-        self.visitChildren(ctx)
-        self._E(instr.Binary(text(ctx.addOp())))
-
+        self._binaryExpr(ctx, ctx.addOp())
     def visitCMul(self, ctx:MiniDecafParser.CMulContext):
-        self.visitChildren(ctx)
-        self._E(instr.Binary(text(ctx.mulOp())))
-
+        self._binaryExpr(ctx, ctx.mulOp())
+    def visitCRel(self, ctx:MiniDecafParser.CRelContext):
+        self._binaryExpr(ctx, ctx.relOp())
+    def visitCEq(self, ctx:MiniDecafParser.CEqContext):
+        self._binaryExpr(ctx, ctx.eqOp())
+    def visitCLand(self, ctx:MiniDecafParser.CLandContext):
+        self._binaryExpr(ctx, "&&")
+    def visitCLor(self, ctx:MiniDecafParser.CLorContext):
+        self._binaryExpr(ctx, "||")

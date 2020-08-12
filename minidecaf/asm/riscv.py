@@ -31,8 +31,23 @@ def unary(op):
 
 @Instrs
 def binary(op):
-    op = { "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "rem" }[op]
-    return pop("t1", "t2") + [f"{op} t1, t2, t1"] + push("t1")
+    b1 = { "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "rem" }
+    if op in b1:
+        return pop("t2", "t1") + [f"{b1[op]} t1, t1, t2"] + push("t1")
+    b2 = { "==": "seqz", "!=": "snez" }
+    if op in b2:
+        return pop("t2", "t1") + [f"sub t1, t1, t2", f"{b2[op]} t1, t1"] + push("t1")
+    b3 = { "<": "slt", ">": "sgt" }
+    if op in b3:
+        return pop("t2", "t1") + [f"{b3[op]} t1, t1, t2"] + push("t1")
+    if op == "||":
+        return pop("t2", "t1") + [f"or t1, t1, t2", f"snez t1, t1"] + push("t1")
+    if op == "&&":
+        return pop("t2") + unary("!") + push("t2") + unary("!") + binary("||") + unary("!")
+    if op == "<=":
+        return binary(">") + unary("!")
+    if op == ">=":
+        return binary("<") + unary("!")
 
 class RISCVAsmGen:
     def __init__(self, emitter):
