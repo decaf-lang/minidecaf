@@ -6,11 +6,18 @@ CLASSPATH = $(ANTLR_JAR):generated
 
 all: run
 
+run: asm
+	riscv64-unknown-elf-gcc $(o)
+	qemu-riscv64 a.out ; echo $$?
+
 cst: grammar-java
 	java -cp $(CLASSPATH) org.antlr.v4.gui.TestRig MiniDecaf prog -gui $(i)
 
-run: grammar-py
+asm: grammar-py
 	python3 -m minidecaf $(i) $(o)
+
+ir: grammar-py
+	python3 -m minidecaf -ir $(i)
 
 grammar-py:
 	cd minidecaf && java -jar $(ANTLR_JAR) -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
@@ -21,6 +28,6 @@ grammar-java:
 
 clean:
 	rm -rf generated minidecaf/generated
-	rm -rf **/__pycache__
+	rm -rf minidecaf/**__pycache__
 
 .PHONY: all clean run cst  grammar-py grammar-java
