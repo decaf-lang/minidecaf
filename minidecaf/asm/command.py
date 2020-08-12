@@ -20,7 +20,7 @@ class AsmDirective(AsmCommand):
 
 class AsmComment(AsmCommand):
     def __str__(self):
-        return f"\t#{self.s}"
+        return f"\t\t\t\t# {self.s}"
 
 class AsmBlank(AsmCommand):
     def __str__(self):

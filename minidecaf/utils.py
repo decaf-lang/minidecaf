@@ -9,6 +9,19 @@ def text(x):
     if x is not None:
         return str(x.getText())
 
+def flatten(l):
+    r = []
+    for i in l:
+        if type(i) is list:
+            r += flatten(i)
+        else:
+            r += [i]
+    return r
+
 unaryOps = ['-', '!', '~']
 unaryOpStrs = ["neg", 'lnot', "not"]
 strOfUnaryOp = {o: s for (o, s) in zip(unaryOps, unaryOpStrs)}
+
+binaryOps = ['+', '-', '*', '/', '%']
+binaryOpStrs = ["add", "sub", "mul", "div", "rem"]
+strOfBinaryOp = {o: s for (o, s) in zip(binaryOps, binaryOpStrs)}

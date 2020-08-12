@@ -27,3 +27,11 @@ class Unary(IRInstr):
     def __str__(self):
         return strOfUnaryOp[self.op]
 
+
+class Binary(IRInstr):
+    def __init__(self, op:str):
+        assert op in binaryOps
+        self.op = op
+
+    def __str__(self):
+        return strOfBinaryOp[self.op]

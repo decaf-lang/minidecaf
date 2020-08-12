@@ -17,3 +17,12 @@ class StackIRGen(MiniDecafVisitor):
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         self.visitChildren(ctx)
         self._E(instr.Unary(text(ctx.unaryOp())))
+
+    def visitCAdd(self, ctx:MiniDecafParser.CAddContext):
+        self.visitChildren(ctx)
+        self._E(instr.Binary(text(ctx.addOp())))
+
+    def visitCMul(self, ctx:MiniDecafParser.CMulContext):
+        self.visitChildren(ctx)
+        self._E(instr.Binary(text(ctx.mulOp())))
+
