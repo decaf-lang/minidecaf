@@ -55,8 +55,13 @@ lor
     ;
 
 land
-    : rel # tLand
-    | land '&&' rel # cLand
+    : eq # tLand
+    | land '&&' eq # cLand
+    ;
+
+eq
+    : rel # tEq
+    | eq eqOp rel # cEq
     ;
 
 rel
@@ -104,7 +109,11 @@ mulOp
     ;
 
 relOp
-    : '==' | '!=' | '<' | '>' | '<=' | '>='
+    : '<' | '>' | '<=' | '>='
+    ;
+
+eqOp
+    : '==' | '!='
     ;
 
 asgnOp
