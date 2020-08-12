@@ -9,3 +9,6 @@ def text(x):
     if x is not None:
         return str(x.getText())
 
+unaryOps = ['-', '!', '~']
+unaryOpStrs = ["neg", 'lnot', "not"]
+strOfUnaryOp = {o: s for (o, s) in zip(unaryOps, unaryOpStrs)}

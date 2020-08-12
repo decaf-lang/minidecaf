@@ -9,12 +9,19 @@ def Instrs(f):
 
 @Instrs
 def push(val):
-    return [f"addi sp, sp, -8", f"li t1, {val}", f"sd t1, 0(sp)"]
+    if type(val) is int:
+        return [f"addi sp, sp, -8", f"li t1, {val}", f"sd t1, 0(sp)"] # push int
+    else:
+        return [f"addi sp, sp, -8", f"sd {val}, 0(sp)"] # push register
 
 @Instrs
 def pop(reg):
     return [f"ld {reg}, 0(sp)", f"addi sp, sp, 8"]
 
+@Instrs
+def unary(op):
+    op = {'-': "neg", '!': "seqz", '~': "not"}[op]
+    return pop("t1") + [f"{op} t1, t1"] + push("t1")
 
 class RISCVAsmGen:
     def __init__(self, emitter):
@@ -26,6 +33,9 @@ class RISCVAsmGen:
     def genConst(self, instr:Const):
         self._E(push(instr.v))
 
+    def genUnary(self, instr:Unary):
+        self._E(unary(instr.op))
+
     def gen(self, ir):
         self._E([
             AsmDirective(".text"),
@@ -36,5 +46,5 @@ class RISCVAsmGen:
         self._E([
             AsmInstr("jr ra")])
 
-_g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst }
+_g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary }
 

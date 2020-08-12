@@ -11,6 +11,9 @@ class StackIRGen(MiniDecafVisitor):
         self.visitChildren(ctx)
         self._E(instr.Ret())
 
-    def visitExpr(self, ctx:MiniDecafParser.ExprContext):
-        v = int(text(ctx.Integer()))
-        self._E(instr.Const(v))
+    def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
+        self._E(instr.Const(int(text(ctx.Integer()))))
+
+    def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
+        self.visitChildren(ctx)
+        self._E(instr.Unary(text(ctx.unaryOp())))

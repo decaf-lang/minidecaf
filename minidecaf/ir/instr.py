@@ -18,3 +18,12 @@ class Ret(IRInstr):
     def __str__(self):
         return f"ret"
 
+
+class Unary(IRInstr):
+    def __init__(self, op:str):
+        assert op in unaryOps
+        self.op = op
+
+    def __str__(self):
+        return strOfUnaryOp[self.op]
+
