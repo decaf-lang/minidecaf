@@ -110,6 +110,21 @@ void CodeGenVisitor::visit(const WhileNode *op) {
     os << endTarget << ":\n";
 }
 
+void CodeGenVisitor::visit(const DoWhileNode *op) {
+    stmtPrelude();
+    auto beginTarget = continueTarget_ = jumpCnt_++;
+    auto initTarget = jumpCnt_++;
+    auto endTarget = breakTarget_ = jumpCnt_++;
+    os << "j " << initTarget << "f\n";
+    os << beginTarget << ":\n";
+    (*this)(op->cond_);
+    os << "beqz a0, " << endTarget << "f\n";
+    os << initTarget << ":\n";
+    (*this)(op->body_);
+    os << "j " << beginTarget << "b\n";
+    os << endTarget << ":\n";
+}
+
 void CodeGenVisitor::visit(const ForNode *op) {
     stmtPrelude();
     auto beginTarget = continueTarget_ = jumpCnt_++;

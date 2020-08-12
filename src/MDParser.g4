@@ -100,6 +100,10 @@ stmt    returns [std::shared_ptr<StmtNode> node]
           {
             $node = WhileNode::make($expr.node, $stmt.node);
           }
+        | DO stmt WHILE '(' expr ')' ';'
+          {
+            $node = DoWhileNode::make($expr.node, $stmt.node);
+          }
         | FOR '(' init=mayExpr ';' cond=mayExpr ';' incr=mayExpr ')' stmt
           {
             std::shared_ptr<StmtNode> init, incr;

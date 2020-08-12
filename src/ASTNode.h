@@ -13,7 +13,7 @@ enum class ASTNodeType : int {
     Integer, Var,
     VarDef,
     Assign, Invoke,
-    IfThenElse, While, For,
+    IfThenElse, While, DoWhile, For,
     Return, Break, Continue,
     Call,
     Cast,
@@ -210,6 +210,21 @@ struct WhileNode : public StmtNode {
     }
 
     DEFINE_NODE_TRAIT(While)
+};
+
+struct DoWhileNode : public StmtNode {
+    std::shared_ptr<ExprNode> cond_;
+    std::shared_ptr<StmtNode> body_;
+
+    DoWhileNode(const std::shared_ptr<ExprNode> &cond, const std::shared_ptr<StmtNode> &body)
+        : cond_(cond), body_(body) {}
+
+    static std::shared_ptr<DoWhileNode> make(
+            const std::shared_ptr<ExprNode> &cond, const std::shared_ptr<StmtNode> &body) {
+        return std::make_shared<DoWhileNode>(cond, body);
+    }
+
+    DEFINE_NODE_TRAIT(DoWhile)
 };
 
 struct ForNode : public StmtNode {

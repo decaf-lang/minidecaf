@@ -51,6 +51,7 @@ public:
             DISPATCH_CASE(Invoke)
             DISPATCH_CASE(IfThenElse)
             DISPATCH_CASE(While)
+            DISPATCH_CASE(DoWhile)
             DISPATCH_CASE(For)
             DISPATCH_CASE(Return)
             DISPATCH_CASE(Break)
@@ -130,6 +131,10 @@ protected:
 
     virtual std::shared_ptr<StmtNode> mutate(const WhileNode *op) {
         return WhileNode::make((*this)(op->cond_), (*this)(op->body_));
+    }
+
+    virtual std::shared_ptr<StmtNode> mutate(const DoWhileNode *op) {
+        return DoWhileNode::make((*this)(op->cond_), (*this)(op->body_));
     }
 
     virtual std::shared_ptr<StmtNode> mutate(const ForNode *op) {
