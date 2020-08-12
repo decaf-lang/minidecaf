@@ -1,0 +1,26 @@
+ANTLR_JAR ?= /usr/local/lib/antlr-4.8-complete.jar
+i ?= i.c
+o ?= o.s
+
+CLASSPATH = $(ANTLR_JAR):generated
+
+all: run
+
+cst: grammar-java
+	java -cp $(CLASSPATH) org.antlr.v4.gui.TestRig MiniDecaf prog -gui $(i)
+
+run: grammar-py
+	python3 -m minidecaf $(i) $(o)
+
+grammar-py:
+	cd minidecaf && java -jar $(ANTLR_JAR) -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
+
+grammar-java:
+	cd minidecaf && java -jar $(ANTLR_JAR) -o ../generated MiniDecaf.g4
+	javac -cp $(CLASSPATH) generated/*.java
+
+clean:
+	rm -rf generated minidecaf/generated
+	rm -rf **/__pycache__
+
+.PHONY: all clean run cst  grammar-py grammar-java
