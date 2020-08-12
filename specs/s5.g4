@@ -92,7 +92,7 @@ argList
 
 
 unaryOp
-    : '-' | '!'
+    : '-' | '!' | '~'
     ;
 
 addOp
