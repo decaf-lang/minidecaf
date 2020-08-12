@@ -330,7 +330,7 @@ void CodeGenVisitor::stmtPrelude() {
 }
 
 std::string CodeGenVisitor::getFullname(const std::string &name) const {
-    for (auto i = curPath_.length(); ~i; i--) {
+    for (auto i = curPath_.length() - 1; ~i; i--) {
         if (curPath_[i] == '/') {
             auto fullname = curPath_.substr(0, i + 1) + name;
             if (typeInfo_->count(fullname)) {

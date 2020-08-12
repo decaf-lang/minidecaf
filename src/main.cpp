@@ -3,6 +3,7 @@
 
 #include "MDLexer.h"
 #include "MDParser.h"
+#include "ScopeMutator.h"
 #include "GetTypeInfo.h"
 #include "AnnotateTypeInfo.h"
 #include "VarAllocVisitor.h"
@@ -24,6 +25,7 @@ int main(int argc, const char* argv[]) {
 
     std::shared_ptr<ProgramNode> program = parser.program()->node;
 
+    program = ScopeMutator()(program);
     auto typeInfo = GetTypeInfo().get(program);
     program = AnnotateTypeInfo().annotate(program, typeInfo);
     auto varMap = VarAllocVisitor().allocVar(program);
