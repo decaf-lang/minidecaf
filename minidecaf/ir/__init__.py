@@ -5,8 +5,14 @@ class IRProg:
         self.instrs = instrs
 
     def __str__(self):
-        f = lambda x: f"\t\t\t{x}" if type(x) is instr.Comment else f"{x}"
-        return "main:\n\t" + '\n\t'.join(map(f, self.instrs))
+        def f(i):
+            if type(i) is instr.Comment:
+                return f"\t\t\t\t{i}"
+            if type(i) is instr.Label:
+                return f"{i}"
+            return f"\t{i}"
+        return "main:\n" + '\n'.join(map(f, self.instrs))
+
 
 class IREmitter:
     def __init__(self):

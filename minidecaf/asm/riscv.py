@@ -66,6 +66,18 @@ def store():
 def ret(func:str):
     return [f"beqz x0, {func}_exit"]
 
+@Instrs
+def branch(op, label:str):
+    b1 = { "br": (2, "beq"), "beqz": (1, "beq"), "bnez": (1, "bne") }
+    if op in b1:
+        naux, op = b1[op]
+        return push(*[0]*naux) + branch(op, label)
+    return pop("t2", "t1") + [f"{op} t1, t2, {label}"]
+
+@Instrs
+def label(label:str):
+    return [f"{label}:"]
+
 class RISCVAsmGen:
     def __init__(self, emitter):
         self._E = emitter
@@ -93,6 +105,12 @@ class RISCVAsmGen:
 
     def genPop(self, instr:Pop):
         self._E(pop(None))
+
+    def genBranch(self, instr:Branch):
+        self._E(branch(instr.op, instr.label))
+
+    def genLabel(self, instr:Label):
+        self._E(label(instr.label))
 
     def genPrologue(self, func:str):
         self._E([
@@ -127,5 +145,6 @@ class RISCVAsmGen:
 
 _g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary,
         Binary: RISCVAsmGen.genBinary, Comment: noOp, FrameSlot: RISCVAsmGen.genFrameSlot,
-        Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop }
+        Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop,
+        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel }
 

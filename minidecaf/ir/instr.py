@@ -64,6 +64,26 @@ class Store(IRInstr):
         return "store"
 
 
+class Label(IRInstr):
+    def __init__(self, label:str):
+        self.label = label
+
+    def __str__(self):
+        return f"{self.label}:"
+
+
+class Branch(IRInstr):
+    """Consumes 0 (for br), 1 (for beqz) or 2 (for beq) args.
+    Uses the same lhs/rhs rule as binary."""
+    def __init__(self, op, label:str):
+        assert op in branchOps
+        self.op = op
+        self.label = label
+
+    def __str__(self):
+        return f"{self.op} {self.label}"
+
+
 class FrameSlot(IRInstr):
     """Denotes a region within the current stackframe. No length information
     is stored; only the starting address (the lowest address in the region) is

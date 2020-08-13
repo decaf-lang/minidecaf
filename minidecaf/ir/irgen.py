@@ -20,10 +20,23 @@ class OffsetManager:
         return self._top
 
 
+class LabelManager:
+    def __init__(self):
+        self.nlabels = {}
+
+    def newLabel(self, scope="_L"):
+        if scope not in self.nlabels:
+            self.nlabels[scope] = 1
+        else:
+            self.nlabels[scope] += 1
+        return f"{scope}_{self.nlabels[scope]}"
+
+
 class StackIRGen(MiniDecafVisitor):
     def __init__(self, emitter:IREmitter):
         self._E = emitter
         self.off = OffsetManager()
+        self.lbl = LabelManager()
 
     def visitReturnStmt(self, ctx:MiniDecafParser.ReturnStmtContext):
         self._E([Comment("[ir-stmt] Ret")])
@@ -38,6 +51,22 @@ class StackIRGen(MiniDecafVisitor):
     def visitDeclStmt(self, ctx:MiniDecafParser.DeclStmtContext):
         self._E([Comment("[ir-stmt] Decl")])
         self.visitChildren(ctx)
+
+    def visitIfStmt(self, ctx:MiniDecafParser.IfStmtContext):
+        self._E([Comment("[ir-stmt] If")])
+        ctx.expr().accept(self)
+        exitLabel = self.lbl.newLabel("if_end")
+        elseLabel = self.lbl.newLabel("if_else")
+        if ctx.el is not None:
+            self._E([Branch("beqz", elseLabel)])
+            ctx.th.accept(self)
+            self._E([Branch("br", exitLabel), Label(elseLabel)])
+            ctx.el.accept(self)
+            self._E([Label(exitLabel)])
+        else:
+            self._E([Branch("beqz", exitLabel)])
+            ctx.th.accept(self)
+            self._E([Label(exitLabel)])
 
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
         self._E([Const(int(text(ctx.Integer())))])
@@ -88,3 +117,13 @@ class StackIRGen(MiniDecafVisitor):
         ctx.asgn().accept(self)
         self._computeAddr(ctx.unary())
         self._E([Store()])
+
+    def visitCCond(self, ctx:MiniDecafParser.CCondContext):
+        ctx.lor().accept(self)
+        exitLabel = self.lbl.newLabel("cond_end")
+        elseLabel = self.lbl.newLabel("cond_else")
+        self._E([Branch("beqz", elseLabel)])
+        ctx.expr().accept(self)
+        self._E([Branch("br", exitLabel), Label(elseLabel)])
+        ctx.cond().accept(self)
+        self._E([Label(exitLabel)])
