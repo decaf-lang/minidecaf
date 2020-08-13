@@ -66,7 +66,7 @@ eq
 
 rel
     : add # tRel
-    | add relOp add # cRel
+    | rel relOp add # cRel
     ;
 
 add
