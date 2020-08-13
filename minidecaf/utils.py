@@ -1,9 +1,18 @@
-MAX_INT = 2**63 - 1
-MIN_INT = -2**63
+INT_BYTES = 8
+
+MAX_INT = 2**(INT_BYTES*8-1) - 1
+MIN_INT = -2**(INT_BYTES*8)
 
 class MiniDecafError(Exception):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, *kwargs)
+
+class MiniDecafLocatedError(MiniDecafError):
+    def __init__(self, ctx, msg:str):
+        self.msg = f"input:{ctx.start.line},{ctx.start.column}: {msg}"
+
+    def __str__(self):
+        return self.msg
 
 def text(x):
     if type(x) is str:
@@ -19,6 +28,9 @@ def flatten(l):
         else:
             r += [i]
     return r
+
+def noOp(*args, **kwargs):
+    pass
 
 unaryOps = ['-', '!', '~']
 unaryOpStrs = ["neg", 'lnot', "not"]
