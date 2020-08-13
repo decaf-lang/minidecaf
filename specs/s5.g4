@@ -86,7 +86,7 @@ unary
 
 atom
     : Integer # atomInteger
-    | Ident # aotmIdent
+    | Ident # atomIdent
     | '(' expr ')' # atomParen
     | Ident '(' argList ')' # atomCall
     ;
