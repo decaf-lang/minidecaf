@@ -23,6 +23,9 @@ class AsmComment(AsmCommand):
         return f"\t\t\t\t# {self.s}"
 
 class AsmBlank(AsmCommand):
+    def __init__(self):
+        pass
+
     def __str__(self):
         return f""
 

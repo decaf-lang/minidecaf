@@ -1,3 +1,4 @@
+from ..utils import *
 from ..ir.instr import *
 from . import *
 
@@ -49,12 +50,28 @@ def binary(op):
     if op == ">=":
         return binary("<") + unary("!")
 
+@Instrs
+def frameSlot(offset):
+    return push("fp", offset) + binary("+")
+
+@Instrs
+def load():
+    return pop("t1") + [f"ld t1, 0(t1)"] + push("t1")
+
+@Instrs
+def store():
+    return pop("t2", "t1") + [f"sd t1, 0(t2)"] + push("t1")
+
+@Instrs
+def ret(func:str):
+    return [f"beqz x0, {func}_exit"]
+
 class RISCVAsmGen:
     def __init__(self, emitter):
         self._E = emitter
 
     def genRet(self, instr:Ret):
-        self._E(pop("a0"))
+        self._E(ret("main"))
 
     def genConst(self, instr:Const):
         self._E(push(instr.v))
@@ -65,18 +82,50 @@ class RISCVAsmGen:
     def genBinary(self, instr:Binary):
         self._E(binary(instr.op))
 
-    def gen(self, ir):
+    def genFrameSlot(self, instr:FrameSlot):
+        self._E(frameSlot(instr.offset))
+
+    def genLoad(self, instr:Load):
+        self._E(load())
+
+    def genStore(self, instr:Store):
+        self._E(store())
+
+    def genPop(self, instr:Pop):
+        self._E(pop(None))
+
+    def genPrologue(self, func:str):
         self._E([
+            AsmBlank(),
             AsmDirective(".text"),
-            AsmDirective(".globl main"),
-            AsmLabel("main")])
+            AsmDirective(f".globl {func}"),
+            AsmLabel(f"{func}")] +
+            push("ra", "fp") + [
+            AsmInstr("mv fp, sp"),
+            AsmComment("END PROLOGUE"),
+            AsmBlank()])
+
+    def genEpilogue(self, func:str):
+        self._E([
+            AsmBlank(),
+            AsmComment("BEGIN EPOLOGUE")] +
+            push(0) + [
+            AsmLabel(f"{func}_exit"),
+            AsmInstr("ld a0, 0(sp)"),
+            AsmInstr("mv sp, fp")] +
+            pop("fp", "ra") + [
+            AsmInstr("jr ra"),
+            AsmBlank()])
+
+    def gen(self, ir):
+        self.genPrologue("main")
         for instr in ir.instrs:
             self._E([
                 AsmComment(instr)])
             _g[type(instr)](self, instr)
-        self._E([
-            AsmInstr("jr ra")])
+        self.genEpilogue("main")
 
 _g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary,
-        Binary:RISCVAsmGen.genBinary }
+        Binary: RISCVAsmGen.genBinary, Comment: noOp, FrameSlot: RISCVAsmGen.genFrameSlot,
+        Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop }
 
