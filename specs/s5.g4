@@ -25,6 +25,8 @@ stmt
     | block # blockStmt
     | 'for' '(' init=decl ';' ctrl=expr? ';' post=expr? ')' stmt # forDeclStmt
     | 'for' '(' init=expr? ';' ctrl=expr? ';' post=expr? ')' stmt # forStmt
+    | 'while' '(' expr ')' stmt # whileStmt
+    | 'do' stmt 'while' '(' expr ')' ';' # doWhileStmt
     ;
 
 expr
