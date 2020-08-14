@@ -27,6 +27,8 @@ stmt
     | 'for' '(' init=expr? ';' ctrl=expr? ';' post=expr? ')' stmt # forStmt
     | 'while' '(' expr ')' stmt # whileStmt
     | 'do' stmt 'while' '(' expr ')' ';' # doWhileStmt
+    | 'break' ';' # breakStmt
+    | 'continue' ';' # continueStmt
     ;
 
 expr
