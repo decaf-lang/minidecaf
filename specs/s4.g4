@@ -22,8 +22,8 @@ stmt
     | ';' # nullStmt
     | 'if' '(' expr ')' th=stmt ('else' el=stmt)? # IfStmt
     | block # blockStmt
-    | 'for' '(' init=decl ';' ctrl=expr ';' post=expr? ')' stmt # forDeclStmt
-    | 'for' '(' init=expr? ';' ctrl=expr ';' post=expr? ')' stmt # forStmt
+    | 'for' '(' init=decl ';' ctrl=expr? ';' post=expr? ')' stmt # forDeclStmt
+    | 'for' '(' init=expr? ';' ctrl=expr? ';' post=expr? ')' stmt # forStmt
     ;
 
 expr
