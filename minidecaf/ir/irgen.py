@@ -1,23 +1,9 @@
 from . import *
 from .instr import *
+from .namer import NameInfo
 from ..utils import *
 from ..generated.MiniDecafParser import MiniDecafParser
 from ..generated.MiniDecafVisitor import MiniDecafVisitor
-
-
-class OffsetManager:
-    def __init__(self):
-        self._off = {}
-        self._top = 0
-
-    def __getitem__(self, var):
-        return self._off[var]
-
-    def newSlot(self, var=None):
-        self._top -= INT_BYTES
-        if var is not None:
-            self._off[var] = self._top
-        return self._top
 
 
 class LabelManager:
@@ -25,18 +11,18 @@ class LabelManager:
         self.nlabels = {}
 
     def newLabel(self, scope="_L"):
-        if scope not in self.nlabels:
-            self.nlabels[scope] = 1
-        else:
-            self.nlabels[scope] += 1
+        incOrInit(self.nlabels, scope)
         return f"{scope}_{self.nlabels[scope]}"
 
 
 class StackIRGen(MiniDecafVisitor):
-    def __init__(self, emitter:IREmitter):
+    def __init__(self, emitter:IREmitter, nameInfo:NameInfo):
         self._E = emitter
-        self.off = OffsetManager()
         self.lbl = LabelManager()
+        self.ni = nameInfo
+
+    def _var(self, term):
+        return self.ni[term]
 
     def visitReturnStmt(self, ctx:MiniDecafParser.ReturnStmtContext):
         self._E([Comment("[ir-stmt] Ret")])
@@ -68,6 +54,12 @@ class StackIRGen(MiniDecafVisitor):
             ctx.th.accept(self)
             self._E([Label(exitLabel)])
 
+    def visitBlock(self, ctx:MiniDecafParser.BlockContext):
+        self._E([Comment("[ir-block] Enter")])
+        self.visitChildren(ctx)
+        self._E([Pop()] * self.ni.blockSlots[ctx])
+        self._E([Comment("[ir-block] Exit")])
+
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
         self._E([Const(int(text(ctx.Integer())))])
 
@@ -92,23 +84,23 @@ class StackIRGen(MiniDecafVisitor):
         self._binaryExpr(ctx, "||")
 
     def visitDecl(self, ctx:MiniDecafParser.DeclContext):
-        var = text(ctx.Ident())
+        var = self._var(ctx.Ident())
         if ctx.expr() is not None:
             ctx.expr().accept(self)
         else:
             self._E([Const(0)])
-        self.off.newSlot(var)
-        self._E([Comment(f"[ir-offset]: {var} -> {self.off[var]}")])
+        self._E([Comment(f"[ir-offset]: {var} -> {var.offset}")])
 
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
-        var = text(ctx.Ident())
-        self._E([FrameSlot(self.off[var]), Load()])
+        var = self._var(ctx.Ident())
+        self._E([FrameSlot(var.offset), Load()])
 
     def _computeAddr(self, lvalue:Unary):
         if isinstance(lvalue, MiniDecafParser.TUnaryContext):
             return self._computeAddr(lvalue.atom())
         if isinstance(lvalue, MiniDecafParser.AtomIdentContext):
-            return self._E([FrameSlot(self.off[text(lvalue)])])
+            var = self._var(lvalue.Ident())
+            return self._E([FrameSlot(var.offset)])
         elif isinstance(lvalue, MiniDecafParser.AtomParenContext):
             return self._computeAddr(lvalue.expr())
         raise MiniDecafLocatedError(lvalue, f"{text(lvalue)} is not a lvalue")

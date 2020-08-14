@@ -19,6 +19,12 @@ asm: grammar-py
 ir: grammar-py
 	python3 -m minidecaf -ir $(i)
 
+ni: grammar-py
+	python3 -m minidecaf -ni $(i)
+
+usage: grammar-py
+	python3 -m minidecaf -h
+
 grammar-py:
 	cd minidecaf && java -jar $(ANTLR_JAR) -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
 
@@ -30,4 +36,4 @@ clean:
 	rm -rf generated minidecaf/generated
 	rm -rf minidecaf/**__pycache__
 
-.PHONY: all clean run cst  grammar-py grammar-java
+.PHONY: all clean run cst ir ni usage  grammar-py grammar-java

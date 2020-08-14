@@ -11,6 +11,13 @@ make [i=i.c] [o=o.s]
 
 # 显示源代码的具体语法树
 make cst [i=i.c]
+
+# 打印 ir / 名字解析结果
+make ir
+make ni
+
+# 用法
+make usage
 ```
 
 大致结构
