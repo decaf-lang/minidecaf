@@ -8,7 +8,7 @@ prog
     ;
 
 func
-    : ty Ident '(' paramList ')' '{' stmt* '}' # funcDef
+    : ty Ident '(' paramList ')' block # funcDef
     | ty Ident '(' paramList ')' ';' # funcDecl
     ;
 
@@ -22,7 +22,7 @@ stmt
     | expr ';' # exprStmt
     | ';' # nullStmt
     | 'if' '(' expr ')' th=stmt ('else' el=stmt)? # IfStmt
-    | '{' stmt* '}' # blockStmt
+    | block # blockStmt
     | 'for' '(' init=decl ';' ctrl=expr ';' post=expr? ')' stmt # forDeclStmt
     | 'for' '(' init=expr? ';' ctrl=expr ';' post=expr? ')' stmt # forStmt
     ;
@@ -33,6 +33,10 @@ expr
 
 decl
     : ty Ident ('=' expr)?
+    ;
+
+block
+    : '{' stmt* '}'
     ;
 
 paramList
