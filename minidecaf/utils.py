@@ -69,6 +69,12 @@ def incOrInit(d:dict, key, init=0):
 def noOp(*args, **kwargs):
     pass
 
+def listFind(f, l):
+    for i, v in enumerate(l):
+        if f(v):
+            return i, v
+    return None
+
 unaryOps = ['-', '!', '~']
 unaryOpStrs = ["neg", 'lnot', "not"]
 strOfUnaryOp = {o: s for (o, s) in zip(unaryOps, unaryOpStrs)}

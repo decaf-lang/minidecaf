@@ -1,5 +1,6 @@
 from ..utils import *
 from ..ir.instr import *
+from ..ir import ParamInfo
 from . import *
 
 def Instrs(f):
@@ -78,12 +79,18 @@ def branch(op, label:str):
 def label(label:str):
     return [f"{label}:"]
 
+@Instrs
+def call(func:str, paramNum:int):
+    return [f"call {func}"] + pop(*[None]*paramNum) + push("a0")
+
 class RISCVAsmGen:
     def __init__(self, emitter):
         self._E = emitter
+        self.curFunc = None
+        self.curParamInfo = None
 
     def genRet(self, instr:Ret):
-        self._E(ret("main"))
+        self._E(ret(self.curFunc))
 
     def genConst(self, instr:Const):
         self._E(push(instr.v))
@@ -112,7 +119,11 @@ class RISCVAsmGen:
     def genLabel(self, instr:Label):
         self._E(label(instr.label))
 
-    def genPrologue(self, func:str):
+    def genCall(self, instr:Call):
+        _, func = listFind(lambda func: func.name == instr.func, self.ir.funcs)
+        self._E(call(func.name, func.paramInfo.paramNum))
+
+    def genPrologue(self, func:str, paramInfo:ParamInfo):
         self._E([
             AsmBlank(),
             AsmDirective(".text"),
@@ -120,6 +131,13 @@ class RISCVAsmGen:
             AsmLabel(f"{func}")] +
             push("ra", "fp") + [
             AsmInstr("mv fp, sp"),
+            AsmComment("copy args:")])
+        for i in range(paramInfo.paramNum):
+            fr, to = 8*(i+2), -8*(i+1)
+            self._E([
+                AsmInstr(f"ld t1, {fr}(fp)")] +
+                push("t1"))
+        self._E([
             AsmComment("END PROLOGUE"),
             AsmBlank()])
 
@@ -136,15 +154,19 @@ class RISCVAsmGen:
             AsmBlank()])
 
     def gen(self, ir):
-        self.genPrologue("main")
-        for instr in ir.instrs:
-            self._E([
-                AsmComment(instr)])
-            _g[type(instr)](self, instr)
-        self.genEpilogue("main")
+        self.ir = ir
+        for func in ir.funcs:
+            self.curFunc = func.name
+            self.genPrologue(f"{func.name}", func.paramInfo)
+            for instr in func.instrs:
+                self._E([
+                    AsmComment(instr)])
+                _g[type(instr)](self, instr)
+            self.genEpilogue(f"{func.name}")
+
 
 _g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary,
         Binary: RISCVAsmGen.genBinary, Comment: noOp, FrameSlot: RISCVAsmGen.genFrameSlot,
         Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop,
-        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel }
+        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel, Call: RISCVAsmGen.genCall }
 

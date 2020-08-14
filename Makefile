@@ -13,6 +13,10 @@ run: asm
 cst: grammar-java
 	java -cp $(CLASSPATH) org.antlr.v4.gui.TestRig MiniDecaf prog -gui $(i)
 
+justrun:
+	riscv64-unknown-elf-gcc $(o)
+	qemu-riscv64 a.out ; echo $$?
+
 asm: grammar-py
 	python3 -m minidecaf $(i) $(o)
 
@@ -36,4 +40,4 @@ clean:
 	rm -rf generated minidecaf/generated
 	rm -rf minidecaf/**__pycache__
 
-.PHONY: all clean run cst ir ni usage  grammar-py grammar-java
+.PHONY: all clean run justrun cst ir ni usage  grammar-py grammar-java
