@@ -78,10 +78,24 @@ class StackIRGen(MiniDecafVisitor):
         self._binaryExpr(ctx, ctx.relOp())
     def visitCEq(self, ctx:MiniDecafParser.CEqContext):
         self._binaryExpr(ctx, ctx.eqOp())
+
     def visitCLand(self, ctx:MiniDecafParser.CLandContext):
-        self._binaryExpr(ctx, "&&")
+        falseLabel = self.lbl.newLabel("land_false")
+        exitLabel = self.lbl.newLabel("land_exit")
+        ctx.land().accept(self)
+        self._E([Branch("beqz", falseLabel)])
+        ctx.eq().accept(self)
+        self._E([Branch("beqz", falseLabel), Const(1), Branch("br", exitLabel),
+            Label(falseLabel), Const(0), Label(exitLabel)])
+
     def visitCLor(self, ctx:MiniDecafParser.CLorContext):
-        self._binaryExpr(ctx, "||")
+        trueLabel = self.lbl.newLabel("lor_true")
+        exitLabel = self.lbl.newLabel("lor_exit")
+        ctx.lor().accept(self)
+        self._E([Branch("bnez", trueLabel)])
+        ctx.land().accept(self)
+        self._E([Branch("bnez", trueLabel), Const(0), Branch("br", exitLabel),
+            Label(trueLabel), Const(1), Label(exitLabel)])
 
     def visitDecl(self, ctx:MiniDecafParser.DeclContext):
         var = self._var(ctx.Ident())
