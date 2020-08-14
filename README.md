@@ -26,10 +26,10 @@ make cst [i=i.c]
 
 本质是一个 alpha conversion 做了 renaming。
 
+这一部分计算 var 的 frameslot。
+
 ## irgen
 不需要考虑类型，没啥可说的. 栈 IR 和 mashplant 的很像。
-
-这一部分计算 var 的 frameslot。
 
 ## asmgen
 暴力展开，注意处理 prologue 和 epilogue。
