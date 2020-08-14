@@ -42,8 +42,8 @@ class NameInfo:
         res += "\nnumber of slots in each block:\n"
         def f(bs):
             ctx, slots = bs
-            startPos = (ctx.start.line, ctx.stop.line)
-            stopPos = (ctx.stop.line, ctx.stop.line)
+            startPos = (ctx.start.line, ctx.start.column)
+            stopPos = (ctx.stop.line, ctx.stop.column)
             region = f"{startPos} ~ {stopPos}"
             return f"{region:>32} : {slots}"
         res += "\n".join(map(f, 
