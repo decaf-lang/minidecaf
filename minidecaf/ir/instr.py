@@ -113,3 +113,11 @@ class FrameSlot(IRInstr):
 
     def __str__(self):
         return f"frameslot {self.offset}"
+
+class Call(IRInstr):
+    """Before call, arguments need be pushed (from right to left)."""
+    def __init__(self, func:str):
+        self.func = func
+
+    def __str__(self):
+        return f"call {self.func}"

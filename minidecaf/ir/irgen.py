@@ -41,9 +41,10 @@ class StackIRGen(MiniDecafVisitor):
         self._E = emitter
         self.lbl = LabelManager()
         self.ni = nameInfo
+        self._curFuncNameInfo = None
 
     def _var(self, term):
-        return self.ni[term]
+        return self._curFuncNameInfo[term]
 
     def visitReturnStmt(self, ctx:MiniDecafParser.ReturnStmtContext):
         self._E([Comment("[ir-stmt] Ret")])
@@ -78,7 +79,7 @@ class StackIRGen(MiniDecafVisitor):
     def visitBlock(self, ctx:MiniDecafParser.BlockContext):
         self._E([Comment("[ir-block] Enter")])
         self.visitChildren(ctx)
-        self._E([Pop()] * self.ni.blockSlots[ctx])
+        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
         self._E([Comment("[ir-block] Exit")])
 
     def loop(self, name, init, cond, body, post):
@@ -110,7 +111,7 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
         self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
-        self._E([Pop()] * self.ni.blockSlots[ctx])
+        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
 
     def visitForStmt(self, ctx:MiniDecafParser.ForStmtContext):
         self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
@@ -200,3 +201,23 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Branch("br", exitLabel), Label(elseLabel)])
         ctx.cond().accept(self)
         self._E([Label(exitLabel)])
+
+    def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
+        func = text(ctx.Ident())
+        self._curFuncNameInfo = self.ni.funcNameInfos[func]
+        paramInfo = self.ni.paramInfos[func]
+        self._E.enterFunction(func, paramInfo)
+        for var in paramInfo.vars:
+            self._E([Comment(f"[ir-offset]: {var} -> {var.offset}  # param")])
+        ctx.block().accept(self)
+        self._E.exitFunction()
+
+    def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
+        pass
+
+    def visitAtomCall(self, ctx:MiniDecafParser.AtomCallContext):
+        args = ctx.argList().expr()
+        for arg in reversed(args):
+            arg.accept(self)
+        func = text(ctx.Ident())
+        self._E([Call(func)])

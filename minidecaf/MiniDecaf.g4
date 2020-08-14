@@ -1,1 +1,1 @@
-../specs/s4.g4
+../specs/s5.g4
