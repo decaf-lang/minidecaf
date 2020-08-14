@@ -4,7 +4,7 @@ grammar MiniDecaf;
 import CommonLex;
 
 prog
-    : (func | decl ';')+
+    : (func | decl ';')+ EOF
     ;
 
 func

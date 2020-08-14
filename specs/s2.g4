@@ -4,7 +4,7 @@ grammar MiniDecaf;
 import CommonLex;
 
 prog
-    : func
+    : func EOF
     ;
 
 func
