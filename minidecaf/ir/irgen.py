@@ -9,10 +9,31 @@ from ..generated.MiniDecafVisitor import MiniDecafVisitor
 class LabelManager:
     def __init__(self):
         self.nlabels = {}
+        self.loopEntry = []
+        self.loopExit = []
 
     def newLabel(self, scope="_L"):
         incOrInit(self.nlabels, scope)
         return f"{scope}_{self.nlabels[scope]}"
+
+    def enterLoop(self, entry, exit):
+        self.loopEntry.append(entry)
+        self.loopExit.append(exit)
+
+    def exitLoop(self):
+        self.loopEntry.pop()
+        self.loopExit.pop()
+
+    def breakLabel(self):
+        if len(self.loopExit) == 0:
+            raise MiniDecafLocatedError("not in a loop")
+        return self.loopExit[-1]
+
+    def continueLabel(self):
+        if len(self.loopExit) == 0:
+            raise MiniDecafLocatedError("not in a loop")
+        return self.loopEntry[-1]
+
 
 
 class StackIRGen(MiniDecafVisitor):
@@ -60,8 +81,54 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Pop()] * self.ni.blockSlots[ctx])
         self._E([Comment("[ir-block] Exit")])
 
+    def loop(self, name, init, cond, body, post):
+        entryLabel = self.lbl.newLabel(f"{name}_entry")
+        if post is not None:
+            continueLabel = self.lbl.newLabel(f"{name}_continue")
+        else:
+            continueLabel = entryLabel
+        exitLabel = self.lbl.newLabel(f"{name}_exit")
+        self.lbl.enterLoop(continueLabel, exitLabel)
+        if init is not None:
+            init.accept(self)
+            if isinstance(init, MiniDecafParser.ExprContext):
+                self._E([Pop()])
+        self._E([Label(entryLabel)])
+        if cond is not None:
+            cond.accept(self)
+        else:
+            self._E([Const(1)])
+        self._E([Branch("beqz", exitLabel)])
+        body.accept(self)
+        if post is not None:
+            self._E([Label(continueLabel)])
+            post.accept(self)
+            if isinstance(post, MiniDecafParser.ExprContext):
+                self._E([Pop()])
+        self._E([Branch("br", entryLabel), Label(exitLabel)])
+        self.lbl.exitLoop()
+
+    def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
+        self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
+        self._E([Pop()] * self.ni.blockSlots[ctx])
+
+    def visitForStmt(self, ctx:MiniDecafParser.ForStmtContext):
+        self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
+
+    def visitWhileStmt(self, ctx:MiniDecafParser.WhileStmtContext):
+        self.loop("while", None, ctx.expr(), ctx.stmt(), None)
+
+    def visitDoWhileStmt(self, ctx:MiniDecafParser.DoWhileStmtContext):
+        self.loop("dowhile", ctx.stmt(), ctx.expr(), ctx.stmt(), None)
+
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
         self._E([Const(int(text(ctx.Integer())))])
+
+    def visitBreakStmt(self, ctx:MiniDecafParser.BreakStmtContext):
+        self._E([Branch("br", self.lbl.breakLabel())])
+
+    def visitContinueStmt(self, ctx:MiniDecafParser.ContinueStmtContext):
+        self._E([Branch("br", self.lbl.continueLabel())])
 
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         self.visitChildren(ctx)

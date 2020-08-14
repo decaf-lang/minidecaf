@@ -29,7 +29,7 @@ class NameInfo:
     def __init__(self):
         self._v = {}    # term -> Variable
         self._pos = {}  # term -> (int, int)
-        self.blockSlots = {} # BlockContext -> int >= 0
+        self.blockSlots = {} # BlockContext / ForDeclStmtContext -> int >= 0
 
     def __str__(self):
         res = "name resolution:\n"
@@ -106,6 +106,11 @@ class Namer(MiniDecafVisitor):
         if var in self._v.peek():
             raise MiniDecafLocatedError(ctx, f"redefinition of {var}")
         self.defVar(ctx, ctx.Ident())
+
+    def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
+        self.enterScope(ctx)
+        self.visitChildren(ctx)
+        self.exitScope(ctx)
 
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
         var = text(ctx.Ident())
