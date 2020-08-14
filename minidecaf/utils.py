@@ -77,4 +77,4 @@ binaryOps = ['+', '-', '*', '/', '%', "==", "!=", "<", "<=", ">", ">=", "&&", "|
 binaryOpStrs = ["add", "sub", "mul", "div", "rem", "eq", "ne", "lt", "le", "gt", "ge", "land", "lor"]
 strOfBinaryOp = {o: s for (o, s) in zip(binaryOps, binaryOpStrs)}
 
-branchOps = ["br", "beqz", "bnez", "beq"]
+branchOps = ["br", "beqz", "bnez", "beq", "bne"]
