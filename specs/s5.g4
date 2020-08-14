@@ -4,7 +4,12 @@ grammar MiniDecaf;
 import CommonLex;
 
 prog
-    : (func | decl ';')+ EOF
+    : externalDecl+ EOF
+    ;
+
+externalDecl
+    : func # funcExternalDecl
+    | decl ';' # declExternalDecl
     ;
 
 func
