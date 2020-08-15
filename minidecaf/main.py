@@ -28,7 +28,7 @@ def NameGen(tree):
 
 
 def IRGen(tree, nameInfo):
-    return irGen(tree, nameInfo)
+    ir = irGen(tree, nameInfo)
     if args.ir:
         print(ir)
         exit(0)
