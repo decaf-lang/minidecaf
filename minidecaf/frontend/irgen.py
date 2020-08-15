@@ -1,5 +1,6 @@
 from ..ir.instr import *
 from .namer import *
+from .typer import *
 from ..utils import *
 from ..generated.MiniDecafParser import MiniDecafParser
 from ..generated.MiniDecafVisitor import MiniDecafVisitor
@@ -36,10 +37,11 @@ class LabelManager:
 
 
 class StackIRGen(MiniDecafVisitor):
-    def __init__(self, emitter, nameInfo:NameInfo):
+    def __init__(self, emitter, nameInfo:NameInfo, typeInfo:TypeInfo):
         self._E = emitter
         self.lbl = LabelManager()
         self.ni = nameInfo
+        self.ti = typeInfo
         self._curFuncNameInfo = None
 
     def _var(self, term):
@@ -137,8 +139,9 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Branch("br", self.lbl.continueLabel())])
 
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
+        op = text(ctx.unaryOp())
         self.visitChildren(ctx)
-        self._E([Unary(text(ctx.unaryOp()))])
+        self._E([Unary(op)])
 
     def _binaryExpr(self, ctx, op):
         self.visitChildren(ctx)
@@ -186,21 +189,17 @@ class StackIRGen(MiniDecafVisitor):
         self.emitVar(var)
         self._E([Load()])
 
-    def _computeAddr(self, lvalue):
-        if isinstance(lvalue, MiniDecafParser.TUnaryContext):
-            return self._computeAddr(lvalue.postfix())
-        if isinstance(lvalue, MiniDecafParser.TPostfixContext):
-            return self._computeAddr(lvalue.atom())
-        if isinstance(lvalue, MiniDecafParser.AtomParenContext):
-            return self._computeAddr(lvalue.expr())
-        if isinstance(lvalue, MiniDecafParser.AtomIdentContext):
-            var = self._var(lvalue.Ident())
-            return self.emitVar(var)
-        raise MiniDecafLocatedError(lvalue, f"{text(lvalue)} is not a lvalue")
+    def emitLoc(self, lvalue:MiniDecafParser.ExprContext):
+        loc = self.ti.lvalueLoc(lvalue)
+        for locStep in loc:
+            if isinstance(locStep, IRInstr):
+                self._E([locStep])
+            else:
+                locStep.accept(self)
 
     def visitCAsgn(self, ctx:MiniDecafParser.CAsgnContext):
         ctx.asgn().accept(self)
-        self._computeAddr(ctx.unary())
+        self.emitLoc(ctx.unary())
         self._E([Store()])
 
     def visitCCond(self, ctx:MiniDecafParser.CCondContext):

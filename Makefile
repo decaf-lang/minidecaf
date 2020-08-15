@@ -26,6 +26,9 @@ ir: grammar-py
 ni: grammar-py
 	python3 -m minidecaf -ni $(i)
 
+ty: grammar-py
+	python3 -m minidecaf -ty $(i)
+
 usage: grammar-py
 	python3 -m minidecaf -h
 

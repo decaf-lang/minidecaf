@@ -12,10 +12,14 @@ class MiniDecafError(Exception):
 
 class MiniDecafLocatedError(MiniDecafError):
     def __init__(self, ctx, msg:str):
-        self.msg = f"input:{ctx.start.line},{ctx.start.column}: {msg}"
+        self.msg = msg
+        self.locatedMsg = f"input:{ctx.start.line},{ctx.start.column}: {msg}"
 
     def __str__(self):
-        return self.msg
+        return self.locatedMsg
+
+class MiniDecafTypeError(MiniDecafLocatedError):
+    pass
 
 class stacked_dict:
     def __init__(self):
@@ -77,10 +81,13 @@ def listFind(f, l):
     return None
 
 
-unaryOps = ['-', '!', '~']
-unaryOpStrs = ["neg", 'lnot', "not"]
+unaryOps = ['-', '!', '~', '&', '*']
+unaryOpStrs = ["neg", 'lnot', "not", "addrof", "deref"]
 strOfUnaryOp = {o: s for (o, s) in zip(unaryOps, unaryOpStrs)}
 
+arithOps = ['+', '-', '*', '/', '%']
+eqrelOps = ["==", "!=", "<", "<=", ">", ">="]
+logicOps = ["&&", "||"]
 binaryOps = ['+', '-', '*', '/', '%', "==", "!=", "<", "<=", ">", ">=", "&&", "||"]
 binaryOpStrs = ["add", "sub", "mul", "div", "rem", "eq", "ne", "lt", "le", "gt", "ge", "land", "lor"]
 strOfBinaryOp = {o: s for (o, s) in zip(binaryOps, binaryOpStrs)}

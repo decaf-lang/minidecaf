@@ -1,6 +1,7 @@
 from ..ir import *
 from .namer import ParamInfo, GlobInfo, Namer
 from .irgen import StackIRGen
+from .typer import Typer
 
 
 def _mkIRGlob(globInfo: GlobInfo):
@@ -14,9 +15,15 @@ def nameGen(tree):
     return namer.nameInfo
 
 
-def irGen(tree, nameInfo):
+def typeCheck(tree, nameInfo):
+    typer = Typer(nameInfo)
+    typer.visit(tree)
+    return typer.typeInfo
+
+
+def irGen(tree, nameInfo, typeInfo):
     irEmitter = IREmitter()
-    StackIRGen(irEmitter, nameInfo).visit(tree)
+    StackIRGen(irEmitter, nameInfo, typeInfo).visit(tree)
     return irEmitter.getIR()
 
 
