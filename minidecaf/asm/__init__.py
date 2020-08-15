@@ -1,4 +1,12 @@
 from .command import *
+from .riscv import RISCVAsmGen as AsmGen
+
+
+def asmGen(ir, outfile):
+    asmEmitter = AsmEmitter(outfile)
+    AsmGen(asmEmitter).gen(ir)
+    asmEmitter.close()
+
 
 class AsmEmitter:
     def __init__(self, outfile:str):

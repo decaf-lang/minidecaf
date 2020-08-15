@@ -4,11 +4,8 @@ from antlr4 import *
 
 from .generated.MiniDecafLexer import MiniDecafLexer
 from .generated.MiniDecafParser import MiniDecafParser
-from .ir import IREmitter
-from .ir.irgen import StackIRGen
-from .ir.namer import Namer
-from .asm import AsmEmitter
-from .asm.riscv import RISCVAsmGen as AsmGen
+from .frontend import irGen, nameGen
+from .asm import asmGen
 
 
 def parseArgs(argv):
@@ -22,31 +19,24 @@ def parseArgs(argv):
     return parser.parse_args()
 
 
-def nameInfoGenerator(tree):
-    namer = Namer()
-    namer.visit(tree)
-    nameInfo = namer.nameInfo
+def NameGen(tree):
+    nameInfo = nameGen(tree)
     if args.ni:
         print(nameInfo)
         exit(0)
     return nameInfo
 
 
-def irGenerator(tree, nameInfo):
-    irEmitter = IREmitter()
-    StackIRGen(irEmitter, nameInfo).visit(tree)
-    ir = irEmitter.getIR()
+def IRGen(tree, nameInfo):
+    return irGen(tree, nameInfo)
     if args.ir:
         print(ir)
         exit(0)
-    else:
-        return ir
+    return ir
 
 
-def asmGenerator(ir, outfile):
-    asmEmitter = AsmEmitter(outfile)
-    AsmGen(asmEmitter).gen(ir)
-    asmEmitter.close()
+def AsmGen(ir, outfile):
+    return asmGen(ir, outfile)
 
 
 def main():
@@ -57,6 +47,6 @@ def main():
     tokenStream = CommonTokenStream(lexer)
     parser = MiniDecafParser(tokenStream)
     tree = parser.prog()
-    nameInfo = nameInfoGenerator(tree)
-    ir = irGenerator(tree, nameInfo)
-    asmGenerator(ir, args.outfile)
+    nameInfo = NameGen(tree)
+    ir = IRGen(tree, nameInfo)
+    AsmGen(ir, args.outfile)

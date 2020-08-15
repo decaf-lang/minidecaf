@@ -1,5 +1,4 @@
-from . import *
-from .instr import *
+from ..ir.instr import *
 from .namer import *
 from ..utils import *
 from ..generated.MiniDecafParser import MiniDecafParser
@@ -37,7 +36,7 @@ class LabelManager:
 
 
 class StackIRGen(MiniDecafVisitor):
-    def __init__(self, emitter:IREmitter, nameInfo:NameInfo):
+    def __init__(self, emitter, nameInfo:NameInfo):
         self._E = emitter
         self.lbl = LabelManager()
         self.ni = nameInfo
@@ -187,14 +186,16 @@ class StackIRGen(MiniDecafVisitor):
         self.emitVar(var)
         self._E([Load()])
 
-    def _computeAddr(self, lvalue:Unary):
+    def _computeAddr(self, lvalue):
         if isinstance(lvalue, MiniDecafParser.TUnaryContext):
+            return self._computeAddr(lvalue.postfix())
+        if isinstance(lvalue, MiniDecafParser.TPostfixContext):
             return self._computeAddr(lvalue.atom())
+        if isinstance(lvalue, MiniDecafParser.AtomParenContext):
+            return self._computeAddr(lvalue.expr())
         if isinstance(lvalue, MiniDecafParser.AtomIdentContext):
             var = self._var(lvalue.Ident())
             return self.emitVar(var)
-        elif isinstance(lvalue, MiniDecafParser.AtomParenContext):
-            return self._computeAddr(lvalue.expr())
         raise MiniDecafLocatedError(lvalue, f"{text(lvalue)} is not a lvalue")
 
     def visitCAsgn(self, ctx:MiniDecafParser.CAsgnContext):
@@ -225,7 +226,7 @@ class StackIRGen(MiniDecafVisitor):
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
         pass
 
-    def visitAtomCall(self, ctx:MiniDecafParser.AtomCallContext):
+    def visitPostfixCall(self, ctx:MiniDecafParser.PostfixCallContext):
         args = ctx.argList().expr()
         for arg in reversed(args):
             arg.accept(self)
@@ -236,3 +237,4 @@ class StackIRGen(MiniDecafVisitor):
         for globInfo in self.ni.globInfos.values():
             self._E.emitGlobal(globInfo)
         self.visitChildren(ctx)
+
