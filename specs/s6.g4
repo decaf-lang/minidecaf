@@ -18,8 +18,8 @@ func
     ;
 
 ty
-    : 'int'
-    | ty '*'
+    : 'int' # intType
+    | ty '*' # ptrType
     ;
 
 stmt

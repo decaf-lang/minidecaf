@@ -18,7 +18,7 @@ func
     ;
 
 ty
-    : 'int'
+    : 'int' # intType
     ;
 
 stmt
