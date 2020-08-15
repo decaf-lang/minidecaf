@@ -1,6 +1,6 @@
 from . import *
 from .instr import *
-from .namer import NameInfo
+from .namer import *
 from ..utils import *
 from ..generated.MiniDecafParser import MiniDecafParser
 from ..generated.MiniDecafVisitor import MiniDecafVisitor
@@ -45,6 +45,12 @@ class StackIRGen(MiniDecafVisitor):
 
     def _var(self, term):
         return self._curFuncNameInfo[term]
+
+    def emitVar(self, var:Variable):
+        if var.offset is None:
+            self._E([GlobalSymbol(var.ident)])
+        else:
+            self._E([FrameSlot(var.offset)])
 
     def visitReturnStmt(self, ctx:MiniDecafParser.ReturnStmtContext):
         self._E([Comment("[ir-stmt] Ret")])
@@ -173,16 +179,20 @@ class StackIRGen(MiniDecafVisitor):
             self._E([Const(0)])
         self._E([Comment(f"[ir-offset]: {var} -> {var.offset}")])
 
+    def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):
+        pass
+
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
         var = self._var(ctx.Ident())
-        self._E([FrameSlot(var.offset), Load()])
+        self.emitVar(var)
+        self._E([Load()])
 
     def _computeAddr(self, lvalue:Unary):
         if isinstance(lvalue, MiniDecafParser.TUnaryContext):
             return self._computeAddr(lvalue.atom())
         if isinstance(lvalue, MiniDecafParser.AtomIdentContext):
             var = self._var(lvalue.Ident())
-            return self._E([FrameSlot(var.offset)])
+            return self.emitVar(var)
         elif isinstance(lvalue, MiniDecafParser.AtomParenContext):
             return self._computeAddr(lvalue.expr())
         raise MiniDecafLocatedError(lvalue, f"{text(lvalue)} is not a lvalue")
@@ -221,3 +231,8 @@ class StackIRGen(MiniDecafVisitor):
             arg.accept(self)
         func = text(ctx.Ident())
         self._E([Call(func)])
+
+    def visitProg(self, ctx:MiniDecafParser.ProgContext):
+        for globInfo in self.ni.globInfos.values():
+            self._E.emitGlobal(globInfo)
+        self.visitChildren(ctx)

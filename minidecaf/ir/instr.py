@@ -114,6 +114,13 @@ class FrameSlot(IRInstr):
     def __str__(self):
         return f"frameslot {self.offset}"
 
+class GlobalSymbol(IRInstr):
+    def __init__(self, sym:str):
+        self.sym = sym
+
+    def __str__(self):
+        return f"globalsymbol {self.sym}"
+
 class Call(IRInstr):
     """Before call, arguments need be pushed (from right to left)."""
     def __init__(self, func:str):

@@ -1,5 +1,5 @@
 from .instr import IRInstr
-from .namer import ParamInfo
+from .namer import ParamInfo, GlobInfo
 
 
 class IRFunc:
@@ -19,17 +19,44 @@ class IRFunc:
         return f"{self.name}({self.paramInfo}):\n{body}"
 
 
-class IRProg:
-    def __init__(self, funcs:[IRFunc]):
-        self.funcs = funcs
+class IRGlob:
+    def __init__(self, sym:str, size:int, init=None, align=8):
+        self.sym = sym
+        self.size = size
+        self.init = init # byte array
+        self.align = align
+
+    def fromGlobInfo(globInfo:GlobInfo):
+        assert globInfo.var.offset is None
+        return IRGlob(globInfo.var.ident, globInfo.size, globInfo.init)
 
     def __str__(self):
-        return "\n\n".join(map(str, self.funcs))
+        return f"{self.sym}:\n\tsize={self.size}, align={self.align}\n\t{self.initStr()}"
+
+    def initStr(self):
+        if self.init is None:
+            return "uninitialized"
+        else:
+            return f"initializer={self.init}"
+
+
+class IRProg:
+    def __init__(self, funcs:[IRFunc], globs:[IRGlob]):
+        self.funcs = funcs
+        self.globs = globs
+
+    def __str__(self):
+        globs = "\n".join(map(str, self.globs))
+        funcs = "\n\n".join(map(str, self.funcs))
+        res = "========Globs:\n" + globs
+        res += "\n\n========Funcs:\n" + funcs
+        return res
 
 
 class IREmitter:
     def __init__(self):
         self.funcs = []
+        self.globs = []
         self.curName = None
         self.curParamInfo = None
         self.curInstrs = []
@@ -46,7 +73,10 @@ class IREmitter:
         self.curInstrs += irs
 
     def getIR(self):
-        return IRProg(self.funcs)
+        return IRProg(self.funcs, self.globs)
+
+    def emitGlobal(self, globInfo:GlobInfo):
+        self.globs += [IRGlob.fromGlobInfo(globInfo)]
 
     def __call__(self, irs:[IRInstr]):
         self.emit(irs)

@@ -1,6 +1,6 @@
 from ..utils import *
 from ..ir.instr import *
-from ..ir import ParamInfo
+from ..ir import *
 from . import *
 
 def Instrs(f):
@@ -83,6 +83,10 @@ def label(label:str):
 def call(func:str, paramNum:int):
     return [f"call {func}"] + pop(*[None]*paramNum) + push("a0")
 
+@Instrs
+def globalSymbol(sym:str):
+    return [f"la t1, {sym}"] + push("t1")
+
 class RISCVAsmGen:
     def __init__(self, emitter):
         self._E = emitter
@@ -123,6 +127,9 @@ class RISCVAsmGen:
         _, func = listFind(lambda func: func.name == instr.func, self.ir.funcs)
         self._E(call(func.name, func.paramInfo.paramNum))
 
+    def genGlobalSymbol(self, instr:GlobalSymbol):
+        self._E(globalSymbol(instr.sym))
+
     def genPrologue(self, func:str, paramInfo:ParamInfo):
         self._E([
             AsmBlank(),
@@ -153,20 +160,38 @@ class RISCVAsmGen:
             AsmInstr("jr ra"),
             AsmBlank()])
 
+    def genFunc(self, func:IRFunc):
+        self.curFunc = func.name
+        self.genPrologue(f"{func.name}", func.paramInfo)
+        for instr in func.instrs:
+            self._E([
+                AsmComment(instr)])
+            _g[type(instr)](self, instr)
+        self.genEpilogue(f"{func.name}")
+
+    def genGlob(self, glob:IRGlob):
+        if glob.init is None:
+            self._E([AsmDirective(f".comm {glob.sym},{glob.size},{glob.align}")])
+        else:
+            self._E([
+                AsmDirective(".data"),
+                AsmDirective(f".globl {glob.sym}"),
+                AsmDirective(f".align {glob.align}"),
+                AsmDirective(f".size {glob.sym}, {glob.size}"),
+                AsmLabel(f"{glob.sym}"),
+                AsmDirective(f".quad {glob.init}")])
+
     def gen(self, ir):
         self.ir = ir
+        for glob in ir.globs:
+            self.genGlob(glob)
         for func in ir.funcs:
-            self.curFunc = func.name
-            self.genPrologue(f"{func.name}", func.paramInfo)
-            for instr in func.instrs:
-                self._E([
-                    AsmComment(instr)])
-                _g[type(instr)](self, instr)
-            self.genEpilogue(f"{func.name}")
+            self.genFunc(func)
 
 
 _g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary,
         Binary: RISCVAsmGen.genBinary, Comment: noOp, FrameSlot: RISCVAsmGen.genFrameSlot,
         Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop,
-        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel, Call: RISCVAsmGen.genCall }
+        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel, Call: RISCVAsmGen.genCall,
+        GlobalSymbol: RISCVAsmGen.genGlobalSymbol }
 

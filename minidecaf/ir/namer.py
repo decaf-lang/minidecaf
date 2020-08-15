@@ -35,7 +35,11 @@ class FuncNameInfo:
         res = "name resolution:\n"
         def f(pv):
             pos, var = pv
-            return f"{str(pos):>16} : {str(var):<10} at frameslot {var.offset}"
+            if var.offset is not None:
+                loc = f"at frameslot {var.offset}"
+            else:
+                loc = f"global symbol"
+            return f"{str(pos):>16} : {str(var):<10} {loc}"
         res += "\n".join(map(f,
             [(self._pos[term], self._v[term]) for term in self._v]))
 
@@ -46,7 +50,7 @@ class FuncNameInfo:
             stopPos = (ctx.stop.line, ctx.stop.column)
             region = f"{startPos} ~ {stopPos}"
             return f"{region:>32} : {slots}"
-        res += "\n".join(map(f, 
+        res += "\n".join(map(f,
             [(ctx, self.blockSlots[ctx]) for ctx in self.blockSlots]))
 
         return res
@@ -74,10 +78,30 @@ class ParamInfo:
         return self.paramNum == other.paramNum
 
 
+class GlobInfo:
+    def __init__(self, var:Variable, size:int, init=None):
+        self.var = var
+        self.size = size
+        self.init = init # not a byte array -- that requires endian info
+
+    def __str__(self):
+        return f"{self.var}, size={self.size}, {self.initStr()}"
+
+    def initStr(self):
+        if self.init is None:
+            return "uninitialized"
+        else:
+            return f"initializer={self.init}"
+
+    def compatible(self, other):
+        return True
+
+
 class NameInfo:
     def __init__(self):
         self.funcNameInfos = {} # str -> FuncNameInfo. Initialized by Def.
         self.paramInfos = {} # str -> ParamInfo. Fixed by Def; can be initialized by Decl.
+        self.globInfos = {} # Variable -> GlobInfo.
 
     def enterFunction(self, func:str, funcNameInfo: FuncNameInfo, paramInfo:ParamInfo):
         self.funcNameInfos[func] = funcNameInfo
@@ -88,7 +112,10 @@ class NameInfo:
             func, funcNameInfo = fn
             indentedFuncNameInfo = "\t" + str(funcNameInfo).replace("\n", "\n\t")
             return f"NameInfo for {func}:\n{indentedFuncNameInfo}"
-        return "\n--------\n\n".join(map(f, self.funcNameInfos.items()))
+        res = "\n--------\n\n".join(map(f, self.funcNameInfos.items()))
+        res += "\n--------\n\nGlobInfos:\n\t"
+        res += "\n\t".join(map(str, self.globInfos.values()))
+        return res
 
 
 class Namer(MiniDecafVisitor):
@@ -166,6 +193,7 @@ class Namer(MiniDecafVisitor):
             if func not in self.nameInfo.funcNameInfos:
                 self.nameInfo.paramInfos[func] = paramInfo
         self.exitScope(ctx)
+        self._curFuncNameInfo = None
 
     def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
         self.func(ctx, "def")
@@ -178,3 +206,34 @@ class Namer(MiniDecafVisitor):
         def f(decl):
             return self._v[text(decl.Ident())]
         return list(map(f, ctx.decl()))
+
+    def globalInitializer(self, ctx:MiniDecafParser.ExprContext):
+        if ctx is None:
+            return None
+        try:
+            initializer = eval(text(ctx), {}, {})
+            return initializer
+        except:
+            raise MiniDecafLocatedError(ctx, "global initializers must be constants")
+
+    def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):
+        ctx = ctx.decl()
+        init = self.globalInitializer(ctx.expr())
+        varStr = text(ctx.Ident())
+        var = Variable(varStr, None)
+        globInfo = GlobInfo(var, INT_BYTES, init)
+        if varStr in self._v.peek():
+            prevVar = self._v[varStr]
+            prevGlobInfo = self.nameInfo.globInfos[prevVar]
+            if not prevGlobInfo.compatible(globInfo):
+                raise MiniDecafLocatedError(ctx, f"conflicting types for {varStr}")
+            if prevGlobInfo.init is not None:
+                if globInfo.init is not None:
+                    raise MiniDecafLocatedError(ctx, f"redefinition of variable {varStr}")
+                return
+            elif globInfo.init is not None:
+                self.nameInfo.globInfos[prevVar].init = init
+        else:
+            self._v[varStr] = var
+            self.nameInfo.globInfos[var] = globInfo
+
