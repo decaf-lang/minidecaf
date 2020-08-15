@@ -1,5 +1,6 @@
 from .instr import IRInstr
 from ..frontend.namer import ParamInfo
+from .visitor import IRVisitor
 
 
 class IRFunc:

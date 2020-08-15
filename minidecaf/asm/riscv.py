@@ -87,47 +87,47 @@ def call(func:str, paramNum:int):
 def globalSymbol(sym:str):
     return [f"la t1, {sym}"] + push("t1")
 
-class RISCVAsmGen:
+class RISCVAsmGen(IRVisitor):
     def __init__(self, emitter):
         self._E = emitter
         self.curFunc = None
         self.curParamInfo = None
 
-    def genRet(self, instr:Ret):
+    def visitRet(self, instr:Ret):
         self._E(ret(self.curFunc))
 
-    def genConst(self, instr:Const):
+    def visitConst(self, instr:Const):
         self._E(push(instr.v))
 
-    def genUnary(self, instr:Unary):
+    def visitUnary(self, instr:Unary):
         self._E(unary(instr.op))
 
-    def genBinary(self, instr:Binary):
+    def visitBinary(self, instr:Binary):
         self._E(binary(instr.op))
 
-    def genFrameSlot(self, instr:FrameSlot):
+    def visitFrameSlot(self, instr:FrameSlot):
         self._E(frameSlot(instr.offset))
 
-    def genLoad(self, instr:Load):
+    def visitLoad(self, instr:Load):
         self._E(load())
 
-    def genStore(self, instr:Store):
+    def visitStore(self, instr:Store):
         self._E(store())
 
-    def genPop(self, instr:Pop):
+    def visitPop(self, instr:Pop):
         self._E(pop(None))
 
-    def genBranch(self, instr:Branch):
+    def visitBranch(self, instr:Branch):
         self._E(branch(instr.op, instr.label))
 
-    def genLabel(self, instr:Label):
+    def visitLabel(self, instr:Label):
         self._E(label(instr.label))
 
-    def genCall(self, instr:Call):
+    def visitCall(self, instr:Call):
         _, func = listFind(lambda func: func.name == instr.func, self.ir.funcs)
         self._E(call(func.name, func.paramInfo.paramNum))
 
-    def genGlobalSymbol(self, instr:GlobalSymbol):
+    def visitGlobalSymbol(self, instr:GlobalSymbol):
         self._E(globalSymbol(instr.sym))
 
     def genPrologue(self, func:str, paramInfo:ParamInfo):
@@ -166,7 +166,7 @@ class RISCVAsmGen:
         for instr in func.instrs:
             self._E([
                 AsmComment(instr)])
-            _g[type(instr)](self, instr)
+            instr.accept(self)
         self.genEpilogue(f"{func.name}")
 
     def genGlob(self, glob:IRGlob):
@@ -187,11 +187,4 @@ class RISCVAsmGen:
             self.genGlob(glob)
         for func in ir.funcs:
             self.genFunc(func)
-
-
-_g = { Ret: RISCVAsmGen.genRet, Const: RISCVAsmGen.genConst, Unary: RISCVAsmGen.genUnary,
-        Binary: RISCVAsmGen.genBinary, Comment: noOp, FrameSlot: RISCVAsmGen.genFrameSlot,
-        Load: RISCVAsmGen.genLoad, Store: RISCVAsmGen.genStore, Pop: RISCVAsmGen.genPop,
-        Branch: RISCVAsmGen.genBranch, Label: RISCVAsmGen.genLabel, Call: RISCVAsmGen.genCall,
-        GlobalSymbol: RISCVAsmGen.genGlobalSymbol }
 
