@@ -420,7 +420,7 @@ class Locator(MiniDecafVisitor):
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         op = text(ctx.unaryOp())
         if op == '*':
-            return ctx.unary().accept(self) + [Load()]
+            return [ctx.unary()]
 
     def visitAtomParen(self, ctx:MiniDecafParser.AtomParenContext):
         return ctx.expr().accept(self)
