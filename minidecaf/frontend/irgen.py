@@ -179,7 +179,6 @@ class StackIRGen(MiniDecafVisitor):
             ctx.expr().accept(self)
         else:
             self._E([Const(0)])
-        self._E([Comment(f"[ir-offset]: {var} -> {var.offset}")])
 
     def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):
         pass
@@ -214,11 +213,9 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
         func = text(ctx.Ident())
-        self._curFuncNameInfo = self.ni.funcNameInfos[func]
-        paramInfo = self.ni.paramInfos[func]
-        self._E.enterFunction(func, paramInfo)
-        for var in paramInfo.vars:
-            self._E([Comment(f"[ir-offset]: {var} -> {var.offset}  # param")])
+        self._curFuncNameInfo = self.ni.funcs[func]
+        nParams = len(self.ti.funcs[func].paramTy)
+        self._E.enterFunction(func, nParams)
         ctx.block().accept(self)
         self._E.exitFunction()
 
@@ -233,7 +230,7 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Call(func)])
 
     def visitProg(self, ctx:MiniDecafParser.ProgContext):
-        for globInfo in self.ni.globInfos.values():
+        for globInfo in self.ni.globs.values():
             self._E.emitGlobal(globInfo)
         self.visitChildren(ctx)
 

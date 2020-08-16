@@ -1,5 +1,5 @@
 from ..ir import *
-from .namer import ParamInfo, GlobInfo, Namer
+from .namer import GlobInfo, Namer
 from .irgen import StackIRGen
 from .typer import Typer
 
@@ -32,16 +32,16 @@ class IREmitter:
         self.funcs = []
         self.globs = []
         self.curName = None
-        self.curParamInfo = None
+        self.curNParams = None
         self.curInstrs = []
 
-    def enterFunction(self, name:str, paramInfo:ParamInfo):
+    def enterFunction(self, name:str, nParams:int):
         self.curName = name
-        self.curParamInfo = paramInfo
+        self.curNParams = nParams
         self.curInstrs = []
 
     def exitFunction(self):
-        self.funcs.append(IRFunc(self.curName, self.curParamInfo, self.curInstrs))
+        self.funcs.append(IRFunc(self.curName, self.curNParams, self.curInstrs))
 
     def emit(self, irs:[IRInstr]):
         self.curInstrs += irs

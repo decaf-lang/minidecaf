@@ -10,6 +10,17 @@ class Type:
         return self.__str__()
 
 
+class VoidType:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return "void"
+
+    def __eq__(self, other):
+        return isinstance(other, VoidType)
+
+
 class IntType(Type):
     def __init__(self):
         pass
@@ -89,17 +100,17 @@ def ptrArithRule(ctx, lhs, rhs):
     return f"pointer and integer, got {lhs} and {rhs}"
 
 @TypeRule
-def derefTypeRule(ctx, ty):
+def derefRule(ctx, ty):
     if isinstance(ty, PtrType):
         return ty.base
     return f"pointer expected, got {ty}"
 
 @TypeRule
-def addrofTypeRule(ctx, ty):
+def addrofRule(ctx, ty):
     return PtrType(ty)
 
 @TypeRule
-def eqrelTypeRule(ctx, lhs, rhs):
+def eqrelRule(ctx, lhs, rhs):
     if lhs != rhs:
         return f"cannot equate or compare {lhs} to {rhs}"
     if lhs != IntType() and not isinstance(lhs, PtrType):
@@ -107,7 +118,7 @@ def eqrelTypeRule(ctx, lhs, rhs):
     return IntType()
 
 @TypeRule
-def asgnTypeRule(ctx, lhs, rhs):
+def asgnRule(ctx, lhs, rhs):
     if lhs != rhs:
         return f"cannot assign {rhs} to {lhs}"
     return lhs
@@ -116,6 +127,7 @@ def asgnTypeRule(ctx, lhs, rhs):
 class TypeInfo:
     def __init__(self):
         self.loc = {} # ExprContext -> (IRInstr|ExprContext)+
+        self.funcs = {} # str -> FuncTypeInfo
 
     def lvalueLoc(self, ctx):
         return self.loc[ctx]
@@ -138,7 +150,31 @@ class TypeInfo:
             locStr = " :: ".join(map(g, loc))
             return f"{ctxStr:>32} : {locStr}"
         res += "\n\t".join(map(f, self.loc.items()))
+        res += "\n\nType info for funcs:\n\t"
+        def f(nf):
+            name, funcInfo = nf
+            return f"{name:>32} : ({funcInfo.paramTy}) -> {funcInfo.retTy}"
+        res += "\n\t".join(map(f, self.funcs.items()))
         return res
+
+
+class FuncTypeInfo:
+    def __init__(self, retTy:Type, paramTy:list):
+        self.retTy = retTy
+        self.paramTy = paramTy
+
+    def compatible(self, other):
+        return self.retTy == other.retTy and self.paramTy == other.paramTy
+
+    def call(self):
+        @TypeRule
+        def callRule(ctx, argTy:list):
+            if self.paramTy == argTy:
+                return self.retTy
+            print(self.paramTy)
+            print(argTy)
+            return f"bad argument types"
+        return callRule
 
 
 class Typer(MiniDecafVisitor):
@@ -159,6 +195,14 @@ class Typer(MiniDecafVisitor):
 
     def _declTyp(self, ctx:MiniDecafParser.DeclContext):
         return ctx.ty().accept(self)
+
+    def _funcTypeInfo(self, ctx):
+        retTy = ctx.ty().accept(self)
+        paramTy = self.paramTy(ctx.paramList())
+        return FuncTypeInfo(retTy, paramTy)
+
+    def _argTy(self, ctx:MiniDecafParser.ArgListContext):
+        return list(map(lambda x: x.accept(self), ctx.expr()))
 
     def visitPtrType(self, ctx:MiniDecafParser.PtrTypeContext):
         return PtrType(ctx.ty().accept(self))
@@ -181,10 +225,10 @@ class Typer(MiniDecafVisitor):
             return x
         if op == "&":
             self.locate(ctx)
-            rule = addrofTypeRule
+            rule = addrofRule
             return rule(ctx, ty)
         if op == "*":
-            rule = derefTypeRule
+            rule = derefRule
             return rule(ctx, ty)
 
     def checkBinary(self, ctx, op:str, lhs:Type, rhs:Type):
@@ -194,14 +238,14 @@ class Typer(MiniDecafVisitor):
             return rule(ctx, lhs, rhs)
         b2 = { *eqrelOps }
         if op in b2:
-            rule = eqrelTypeRule
+            rule = eqrelRule
             return rule(ctx, lhs, rhs)
         b3 = { '+', '-' }
         if op in b3:
             rule = tryEach('+', intBinopRule, ptrArithRule)
             return rule(ctx, lhs, rhs)
         if op == "=":
-            rule = asgnTypeRule
+            rule = asgnRule
             return rule(ctx, lhs, rhs)
 
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
@@ -245,8 +289,10 @@ class Typer(MiniDecafVisitor):
                 ctx.unary().accept(self), ctx.asgn().accept(self))
 
     def visitPostfixCall(self, ctx:MiniDecafParser.PostfixCallContext):
-        assert False
-        pass #TODO
+        argTy = self._argTy(ctx.argList())
+        func = text(ctx.Ident())
+        rule = self.typeInfo.funcs[func].call()
+        return rule(ctx, argTy)
 
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
         return IntType()
@@ -257,17 +303,56 @@ class Typer(MiniDecafVisitor):
 
     def visitDecl(self, ctx:MiniDecafParser.DeclContext):
         var = self._var(ctx.Ident())
-        typ = self._declTyp(ctx)
-        self.vartyp[var] = typ
+        ty = self._declTyp(ctx)
+        self.vartyp[var] = ty
         if ctx.expr() is not None:
             initTyp = ctx.expr().accept(self)
-            asgnTypeRule(ctx, typ, initTyp)
+            asgnRule(ctx, ty, initTyp)
+
+    def checkFunc(self, ctx):
+        funcTypeInfo = self._funcTypeInfo(ctx)
+        func = text(ctx.Ident())
+        if func in self.typeInfo.funcs:
+            prevFuncTypeInfo = self.typeInfo.funcs[func]
+            if not funcTypeInfo.compatible(prevFuncTypeInfo):
+                raise MiniDecafLocatedError(ctx, f"conflicting types for {func}")
+        else:
+            self.typeInfo.funcs[func] = funcTypeInfo
 
     def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
         func = text(ctx.Ident())
-        self._curFuncNameInfo = self.nameInfo.funcNameInfos[func]
+        self._curFuncNameInfo = self.nameInfo.funcs[func]
+        self.checkFunc(ctx)
         self.visitChildren(ctx)
         self._curFuncNameInfo = None
+
+    def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
+        func = text(ctx.Ident())
+        self._curFuncNameInfo = self.nameInfo.funcs[func]
+        self.checkFunc(ctx)
+        self._curFuncNameInfo = None
+
+    def paramTy(self, ctx:MiniDecafParser.ParamListContext):
+        res = []
+        for decl in ctx.decl():
+            if decl.expr() is not None:
+                raise MiniDecafLocatedError(decl, "parameter cannot have initializers")
+            res += [self._declTyp(decl)]
+        return res
+
+    def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):
+        ctx = ctx.decl()
+        var = self.nameInfo.globs[text(ctx.Ident())].var
+        ty = self._declTyp(ctx)
+        if var in self.vartyp:
+            prevTy = self.vartyp[var]
+            if prevTy != ty:
+                raise MiniDecafLocatedError(ctx, f"conflicting types for {var.ident}")
+        else:
+            self.vartyp[var] = ty
+        if ctx.expr() is not None:
+            initTyp = ctx.expr().accept(self)
+            asgnRule(ctx, ty, initTyp)
 
 class Locator(MiniDecafVisitor):
     def locate(self, curFuncNameInfo:FuncNameInfo, ctx):

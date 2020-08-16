@@ -1,12 +1,11 @@
 from .instr import IRInstr
-from ..frontend.namer import ParamInfo
 from .visitor import IRVisitor
 
 
 class IRFunc:
-    def __init__(self, name:str, paramInfo:ParamInfo, instrs:[IRInstr]):
+    def __init__(self, name:str, nParams:int, instrs:[IRInstr]):
         self.name = name
-        self.paramInfo = paramInfo
+        self.nParams = nParams
         self.instrs = instrs
 
     def __str__(self):
@@ -17,7 +16,7 @@ class IRFunc:
                 return f"{i}"
             return f"\t{i}"
         body = '\n'.join(map(f, self.instrs))
-        return f"{self.name}({self.paramInfo}):\n{body}"
+        return f"{self.name}({self.nParams}):\n{body}"
 
 
 class IRGlob:

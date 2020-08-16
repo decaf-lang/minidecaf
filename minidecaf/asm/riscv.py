@@ -80,8 +80,8 @@ def label(label:str):
     return [f"{label}:"]
 
 @Instrs
-def call(func:str, paramNum:int):
-    return [f"call {func}"] + pop(*[None]*paramNum) + push("a0")
+def call(func:str, nParam:int):
+    return [f"call {func}"] + pop(*[None]*nParam) + push("a0")
 
 @Instrs
 def globalSymbol(sym:str):
@@ -125,21 +125,21 @@ class RISCVAsmGen(IRVisitor):
 
     def visitCall(self, instr:Call):
         _, func = listFind(lambda func: func.name == instr.func, self.ir.funcs)
-        self._E(call(func.name, func.paramInfo.paramNum))
+        self._E(call(func.name, func.nParams))
 
     def visitGlobalSymbol(self, instr:GlobalSymbol):
         self._E(globalSymbol(instr.sym))
 
-    def genPrologue(self, func:str, paramInfo:ParamInfo):
+    def genPrologue(self, func:IRFunc):
         self._E([
             AsmBlank(),
             AsmDirective(".text"),
-            AsmDirective(f".globl {func}"),
-            AsmLabel(f"{func}")] +
+            AsmDirective(f".globl {func.name}"),
+            AsmLabel(f"{func.name}")] +
             push("ra", "fp") + [
             AsmInstr("mv fp, sp"),
             AsmComment("copy args:")])
-        for i in range(paramInfo.paramNum):
+        for i in range(func.nParams):
             fr, to = 8*(i+2), -8*(i+1)
             self._E([
                 AsmInstr(f"ld t1, {fr}(fp)")] +
@@ -148,12 +148,12 @@ class RISCVAsmGen(IRVisitor):
             AsmComment("END PROLOGUE"),
             AsmBlank()])
 
-    def genEpilogue(self, func:str):
+    def genEpilogue(self, func:IRFunc):
         self._E([
             AsmBlank(),
             AsmComment("BEGIN EPOLOGUE")] +
             push(0) + [
-            AsmLabel(f"{func}_exit"),
+            AsmLabel(f"{func.name}_exit"),
             AsmInstr("ld a0, 0(sp)"),
             AsmInstr("mv sp, fp")] +
             pop("fp", "ra") + [
@@ -162,12 +162,12 @@ class RISCVAsmGen(IRVisitor):
 
     def genFunc(self, func:IRFunc):
         self.curFunc = func.name
-        self.genPrologue(f"{func.name}", func.paramInfo)
+        self.genPrologue(func)
         for instr in func.instrs:
             self._E([
                 AsmComment(instr)])
             instr.accept(self)
-        self.genEpilogue(f"{func.name}")
+        self.genEpilogue(func)
 
     def genGlob(self, glob:IRGlob):
         if glob.init is None:

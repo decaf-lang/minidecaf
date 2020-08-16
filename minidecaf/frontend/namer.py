@@ -26,10 +26,11 @@ class Variable:
 
 
 class FuncNameInfo:
-    def __init__(self):
+    def __init__(self, hasDef=True):
         self._v = {}    # term -> Variable
         self._pos = {}  # term -> (int, int)
         self.blockSlots = {} # BlockContext / ForDeclStmtContext -> int >= 0
+        self.hasDef = hasDef
 
     def __str__(self):
         res = "name resolution:\n"
@@ -66,18 +67,6 @@ class FuncNameInfo:
         return self._v[term]
 
 
-class ParamInfo:
-    def __init__(self, vars:[Variable]):
-        self.vars = vars
-        self.paramNum = len(vars)
-
-    def __str__(self):
-        return f"{self.paramNum}"
-
-    def compatible(self, other):
-        return self.paramNum == other.paramNum
-
-
 class GlobInfo:
     def __init__(self, var:Variable, size:int, init=None):
         self.var = var
@@ -93,28 +82,23 @@ class GlobInfo:
         else:
             return f"initializer={self.init}"
 
-    def compatible(self, other):
-        return True
-
 
 class NameInfo:
     def __init__(self):
-        self.funcNameInfos = {} # str -> FuncNameInfo. Initialized by Def.
-        self.paramInfos = {} # str -> ParamInfo. Fixed by Def; can be initialized by Decl.
-        self.globInfos = {} # Variable -> GlobInfo.
+        self.funcs = {} # str -> FuncNameInfo. Initialized by Def.
+        self.globs = {} # str -> GlobInfo.
 
-    def enterFunction(self, func:str, funcNameInfo: FuncNameInfo, paramInfo:ParamInfo):
-        self.funcNameInfos[func] = funcNameInfo
-        self.paramInfos[func] = paramInfo
+    def enterFunction(self, func:str, funcNameInfo: FuncNameInfo):
+        self.funcs[func] = funcNameInfo
 
     def __str__(self):
         def f(fn):
             func, funcNameInfo = fn
             indentedFuncNameInfo = "\t" + str(funcNameInfo).replace("\n", "\n\t")
             return f"NameInfo for {func}:\n{indentedFuncNameInfo}"
-        res = "\n--------\n\n".join(map(f, self.funcNameInfos.items()))
+        res = "\n--------\n\n".join(map(f, self.funcs.items()))
         res += "\n--------\n\nGlobInfos:\n\t"
-        res += "\n\t".join(map(str, self.globInfos.values()))
+        res += "\n\t".join(map(str, self.globs.values()))
         return res
 
 
@@ -175,37 +159,24 @@ class Namer(MiniDecafVisitor):
             raise MiniDecafLocatedError(ctx, f"{var} undeclared")
         self.useVar(ctx, ctx.Ident())
 
-    def func(self, ctx, typ="def"):
+    def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
         func = text(ctx.Ident())
-        if typ == "def":
-            if func in self.nameInfo.funcNameInfos:
-                raise MiniDecafLocatedError(f"redefinition of function {func}")
-        funcNameInfo = self._curFuncNameInfo = FuncNameInfo()
+        if func in self.nameInfo.funcs and\
+                self.nameInfo.funcs[func].hasDef:
+            raise MiniDecafLocatedError(f"redefinition of function {func}")
+        funcNameInfo = self._curFuncNameInfo = FuncNameInfo(hasDef=True)
+        self.nameInfo.enterFunction(func, funcNameInfo)
         self.enterScope(ctx)
-        paramInfo = ParamInfo(ctx.paramList().accept(self))
-        if func in self.nameInfo.paramInfos:
-            if not paramInfo.compatible(self.nameInfo.paramInfos[func]):
-                raise MiniDecafLocatedError(f"conflicting types for {func}")
-        if typ == "def":
-            self.nameInfo.enterFunction(func, funcNameInfo, paramInfo)
-            ctx.block().accept(self)
-        elif typ == "decl":
-            if func not in self.nameInfo.funcNameInfos:
-                self.nameInfo.paramInfos[func] = paramInfo
+        ctx.paramList().accept(self)
+        ctx.block().accept(self)
         self.exitScope(ctx)
         self._curFuncNameInfo = None
 
-    def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
-        self.func(ctx, "def")
-
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
-        self.func(ctx, "decl")
-
-    def visitParamList(self, ctx:MiniDecafParser.ParamListContext):
-        self.visitChildren(ctx)
-        def f(decl):
-            return self._v[text(decl.Ident())]
-        return list(map(f, ctx.decl()))
+        func = text(ctx.Ident())
+        funcNameInfo = FuncNameInfo(hasDef=False)
+        if func not in self.nameInfo.funcs:
+            self.nameInfo.enterFunction(func, funcNameInfo)
 
     def globalInitializer(self, ctx:MiniDecafParser.ExprContext):
         if ctx is None:
@@ -223,17 +194,12 @@ class Namer(MiniDecafVisitor):
         var = Variable(varStr, None)
         globInfo = GlobInfo(var, INT_BYTES, init)
         if varStr in self._v.peek():
-            prevVar = self._v[varStr]
-            prevGlobInfo = self.nameInfo.globInfos[prevVar]
-            if not prevGlobInfo.compatible(globInfo):
-                raise MiniDecafLocatedError(ctx, f"conflicting types for {varStr}")
-            if prevGlobInfo.init is not None:
-                if globInfo.init is not None:
-                    raise MiniDecafLocatedError(ctx, f"redefinition of variable {varStr}")
-                return
-            elif globInfo.init is not None:
-                self.nameInfo.globInfos[prevVar].init = init
+            prevGlobInfo = self.nameInfo.globs[varStr]
+            if prevGlobInfo.init is not None and globInfo.init is not None:
+                raise MiniDecafLocatedError(ctx, f"redefinition of variable {varStr}")
+            if globInfo.init is not None:
+                self.nameInfo.globs[varStr].init = init
         else:
             self._v[varStr] = var
-            self.nameInfo.globInfos[var] = globInfo
+            self.nameInfo.globs[varStr] = globInfo
 
