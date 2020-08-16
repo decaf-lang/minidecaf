@@ -43,9 +43,6 @@ class TypeInfo:
     def __getitem__(self, ctx):
         return self._t[ctx]
 
-    def __setitem__(self, ctx, ty):
-        self._t[ctx] = ty
-
 
 class FuncTypeInfo:
     def __init__(self, retTy:Type, paramTy:list):
@@ -64,6 +61,14 @@ class FuncTypeInfo:
         return callRule
 
 
+def SaveType(f):
+    def g(self, ctx):
+        ty = f(self, ctx)
+        self.typeInfo._t[ctx] = ty
+        return ty
+    return g
+
+
 class Typer(MiniDecafVisitor):
     """Type checking.
     Run after name resolution, type checking computes the type of each
@@ -79,7 +84,7 @@ class Typer(MiniDecafVisitor):
 
     def visitChildren(self, ctx):
         ty = MiniDecafVisitor.visitChildren(self, ctx)
-        self.typeInfo[ctx] = ty
+        self.typeInfo._t[ctx] = ty
         return ty
 
     def _var(self, term):
@@ -87,7 +92,7 @@ class Typer(MiniDecafVisitor):
 
     def _declTyp(self, ctx:MiniDecafParser.DeclContext):
         base = ctx.ty().accept(self)
-        dims = [int(text(x)) for x in ctx.Integer()]
+        dims = [int(text(x)) for x in reversed(ctx.Integer())]
         if len(dims) == 0:
             return base
         else:
@@ -135,64 +140,79 @@ class Typer(MiniDecafVisitor):
             rule = tryEach('-', intBinopRule, ptrArithRule, ptrDiffRule)
         return rule(ctx, lhs, rhs)
 
+    @SaveType
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         if text(ctx.unaryOp()) == '&':
             self.locate(ctx.unary())
         return self.checkUnary(ctx.unaryOp(), text(ctx.unaryOp()),
                 ctx.unary().accept(self))
 
+    @SaveType
     def visitAtomParen(self, ctx:MiniDecafParser.AtomParenContext):
         return ctx.expr().accept(self)
 
+    @SaveType
     def visitCAdd(self, ctx:MiniDecafParser.CAddContext):
         return self.checkBinary(ctx.addOp(), text(ctx.addOp()),
                 ctx.add().accept(self), ctx.mul().accept(self))
 
+    @SaveType
     def visitCMul(self, ctx:MiniDecafParser.CMulContext):
         return self.checkBinary(ctx.mulOp(), text(ctx.mulOp()),
                 ctx.mul().accept(self), ctx.unary().accept(self))
 
+    @SaveType
     def visitCRel(self, ctx:MiniDecafParser.CRelContext):
         return self.checkBinary(ctx.relOp(), text(ctx.relOp()),
                 ctx.rel().accept(self), ctx.add().accept(self))
 
+    @SaveType
     def visitCEq(self, ctx:MiniDecafParser.CEqContext):
         return self.checkBinary(ctx.eqOp(), text(ctx.eqOp()),
                 ctx.eq().accept(self), ctx.rel().accept(self))
 
+    @SaveType
     def visitCLand(self, ctx:MiniDecafParser.CLandContext):
         return self.checkBinary(ctx, "&&",
                 ctx.land().accept(self), ctx.eq().accept(self))
 
+    @SaveType
     def visitCLor(self, ctx:MiniDecafParser.CLorContext):
         return self.checkBinary(ctx, "||",
                 ctx.lor().accept(self), ctx.land().accept(self))
 
+    @SaveType
     def visitCCond(self, ctx:MiniDecafParser.CCondContext):
         return condRule(ctx, ctx.lor().accept(self),
                 ctx.expr().accept(self), ctx.cond().accept(self))
 
+    @SaveType
     def visitCAsgn(self, ctx:MiniDecafParser.CAsgnContext):
-        self.locate(ctx.unary())
-        return self.checkBinary(ctx.asgnOp(), text(ctx.asgnOp()),
+        res = self.checkBinary(ctx.asgnOp(), text(ctx.asgnOp()),
                 ctx.unary().accept(self), ctx.asgn().accept(self))
+        self.locate(ctx.unary())
+        return res
 
+    @SaveType
     def visitPostfixCall(self, ctx:MiniDecafParser.PostfixCallContext):
         argTy = self._argTy(ctx.argList())
         func = text(ctx.Ident())
         rule = self.typeInfo.funcs[func].call()
         return rule(ctx, argTy)
 
+    @SaveType
     def visitPostfixArray(self, ctx:MiniDecafParser.PostfixArrayContext):
         return arrayRule(ctx,
                 ctx.postfix().accept(self), ctx.expr().accept(self))
 
+    @SaveType
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
         if safeEval(text(ctx)) == 0:
             return ZeroType()
         else:
             return IntType()
 
+    @SaveType
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
         var = self._var(ctx.Ident())
         return self.vartyp[var]
@@ -300,9 +320,8 @@ class Locator(MiniDecafVisitor):
             return [ctx.unary()]
 
     def visitPostfixArray(self, ctx:MiniDecafParser.PostfixArrayContext):
-        assert False
-        return ctx.postfix().accept(self) + ctx.expr().accept(self)
-        pass # TODO
+        fixupMult = self.typeInfo[ctx.postfix()].base.sizeof()
+        return [ctx.postfix(), ctx.expr(), Const(fixupMult), Binary('*'), Binary('+')]
 
     def visitAtomParen(self, ctx:MiniDecafParser.AtomParenContext):
         return ctx.expr().accept(self)

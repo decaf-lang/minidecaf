@@ -152,8 +152,34 @@ class StackIRGen(MiniDecafVisitor):
     def _binaryExpr(self, ctx, op):
         self.visitChildren(ctx)
         self._E([Binary(text(op))])
+
+    def _addExpr(self, ctx, op, lhs, rhs):
+        if isinstance(self.ti[lhs], PtrType):
+            sz = self.ti[lhs].sizeof()
+            if isinstance(self.ti[rhs], PtrType): # ptr - ptr
+                lhs.accept(self)
+                rhs.accept(self)
+                self._E([Binary(op)])
+                self._E([Const(sz), Binary('/')])
+            else: # ptr +- int
+                lhs.accept(self)
+                rhs.accept(self)
+                self._E([Const(sz), Binary('*')])
+                self._E([Binary(op)])
+        else:
+            sz = self.ti[rhs].sizeof()
+            if isinstance(self.ti[rhs], PtrType): # int +- ptr
+                lhs.accept(self)
+                self._E([Const(sz), Binary('*')])
+                rhs.accept(self)
+                self._E([Binary(op)])
+            else: # int +- int
+                self.visitChildren(ctx)
+                self._E([Binary(op)])
+
     def visitCAdd(self, ctx:MiniDecafParser.CAddContext):
-        self._binaryExpr(ctx, ctx.addOp())
+        self._addExpr(ctx, text(ctx.addOp()), ctx.add(), ctx.mul())
+
     def visitCMul(self, ctx:MiniDecafParser.CMulContext):
         self._binaryExpr(ctx, ctx.mulOp())
     def visitCRel(self, ctx:MiniDecafParser.CRelContext):
@@ -184,7 +210,7 @@ class StackIRGen(MiniDecafVisitor):
         if ctx.expr() is not None:
             ctx.expr().accept(self)
         else:
-            self._E([Const(0)])
+            self._E([Const(0)] * (var.size//INT_BYTES))
 
     def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):
         pass
@@ -192,7 +218,8 @@ class StackIRGen(MiniDecafVisitor):
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
         var = self._var(ctx.Ident())
         self.emitVar(var)
-        self._E([Load()])
+        if not isinstance(self.ti[ctx], ArrayType):
+            self._E([Load()])
 
     def emitLoc(self, lvalue:MiniDecafParser.ExprContext):
         loc = self.ti.lvalueLoc(lvalue)
@@ -228,6 +255,14 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
         pass
+
+    def visitPostfixArray(self, ctx:MiniDecafParser.PostfixArrayContext):
+        fixupMult = self.ti[ctx.postfix()].base.sizeof()
+        ctx.postfix().accept(self)
+        ctx.expr().accept(self)
+        self._E([Const(fixupMult), Binary('*'), Binary('+')])
+        if not isinstance(self.ti[ctx], ArrayType):
+            self._E([Load()])
 
     def visitPostfixCall(self, ctx:MiniDecafParser.PostfixCallContext):
         args = ctx.argList().expr()

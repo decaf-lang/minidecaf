@@ -1,3 +1,5 @@
+from ..utils import *
+
 class Type:
     def __repr__(self):
         return self.__str__()
@@ -53,7 +55,7 @@ class ArrayType(Type):
         self.len = len
 
     def __str__(self):
-        return f"{self.base}[{self.len}]"
+        return f"[{self.len}]{self.base}"
 
     def __eq__(self, other):
         if not isinstance(other, ArrayType):
@@ -66,7 +68,7 @@ class ArrayType(Type):
         return base
 
     def sizeof(self):
-        return base.sizeof() * self.len()
+        return self.base.sizeof() * self.len
 
 
 class ZeroType(IntType, PtrType):
