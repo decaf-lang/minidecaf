@@ -141,7 +141,7 @@ class StackIRGen(MiniDecafVisitor):
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         op = text(ctx.unaryOp())
         if op == '&':
-            self.emitLoc(ctx.unary())
+            self.emitLoc(ctx.cast())
         elif op == '*':
             self.visitChildren(ctx)
             self._E([Load()])

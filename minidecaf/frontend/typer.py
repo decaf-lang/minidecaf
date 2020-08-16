@@ -141,11 +141,17 @@ class Typer(MiniDecafVisitor):
         return rule(ctx, lhs, rhs)
 
     @SaveType
+    def visitCCast(self, ctx:MiniDecafParser.CCastContext):
+        ctx.cast().accept(self)
+        return ctx.ty().accept(self)
+
+    @SaveType
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
+        res = self.checkUnary(ctx.unaryOp(), text(ctx.unaryOp()),
+                ctx.cast().accept(self))
         if text(ctx.unaryOp()) == '&':
-            self.locate(ctx.unary())
-        return self.checkUnary(ctx.unaryOp(), text(ctx.unaryOp()),
-                ctx.unary().accept(self))
+            self.locate(ctx.cast())
+        return res
 
     @SaveType
     def visitAtomParen(self, ctx:MiniDecafParser.AtomParenContext):
@@ -159,7 +165,7 @@ class Typer(MiniDecafVisitor):
     @SaveType
     def visitCMul(self, ctx:MiniDecafParser.CMulContext):
         return self.checkBinary(ctx.mulOp(), text(ctx.mulOp()),
-                ctx.mul().accept(self), ctx.unary().accept(self))
+                ctx.mul().accept(self), ctx.cast().accept(self))
 
     @SaveType
     def visitCRel(self, ctx:MiniDecafParser.CRelContext):
@@ -317,7 +323,7 @@ class Locator(MiniDecafVisitor):
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         op = text(ctx.unaryOp())
         if op == '*':
-            return [ctx.unary()]
+            return [ctx.cast()]
 
     def visitPostfixArray(self, ctx:MiniDecafParser.PostfixArrayContext):
         fixupMult = self.typeInfo[ctx.postfix()].base.sizeof()

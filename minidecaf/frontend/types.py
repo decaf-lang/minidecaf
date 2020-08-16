@@ -181,8 +181,8 @@ def stmtCondRule(ctx, ty):
 
 @TypeRule
 def arrayRule(ctx, arr, idx):
-    if not isinstance(arr, ArrayType):
-        return f"array expected, {arr} found"
+    if not isinstance(arr, ArrayType) and not isinstance(arr, PtrType):
+        return f"array/pointer expected, {arr} found"
     if idx != IntType():
         return f"index must be an integer, {idx} found"
     return arr.base

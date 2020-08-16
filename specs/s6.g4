@@ -89,13 +89,18 @@ add
     ;
 
 mul
-    : unary # tMul
-    | mul mulOp unary # cMul
+    : cast # tMul
+    | mul mulOp cast # cMul
+    ;
+
+cast
+    : unary # tCast
+    | '(' ty ')' cast # cCast
     ;
 
 unary
     : postfix # tUnary
-    | unaryOp unary # cUnary
+    | unaryOp cast # cUnary
     ;
 
 postfix
