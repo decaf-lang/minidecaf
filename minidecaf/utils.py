@@ -80,6 +80,10 @@ def listFind(f, l):
             return i, v
     return None
 
+def safeEval(s:str):
+    from ast import literal_eval
+    return literal_eval(s)
+
 
 unaryOps = ['-', '!', '~', '&', '*']
 unaryOpStrs = ["neg", 'lnot', "not", "addrof", "deref"]

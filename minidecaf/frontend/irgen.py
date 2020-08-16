@@ -86,8 +86,8 @@ class StackIRGen(MiniDecafVisitor):
     def visitBlock(self, ctx:MiniDecafParser.BlockContext):
         self._E([Comment("[ir-block] Enter")])
         self.visitChildren(ctx)
-        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
         self._E([Comment("[ir-block] Exit")])
+        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
 
     def loop(self, name, init, cond, body, post):
         entryLabel = self.lbl.newLabel(f"{name}_entry")
@@ -140,8 +140,14 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
         op = text(ctx.unaryOp())
-        self.visitChildren(ctx)
-        self._E([Unary(op)])
+        if op == '&':
+            self.emitLoc(ctx.unary())
+        elif op == '*':
+            self.visitChildren(ctx)
+            self._E([Load()])
+        else:
+            self.visitChildren(ctx)
+            self._E([Unary(op)])
 
     def _binaryExpr(self, ctx, op):
         self.visitChildren(ctx)

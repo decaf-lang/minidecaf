@@ -182,7 +182,7 @@ class Namer(MiniDecafVisitor):
         if ctx is None:
             return None
         try:
-            initializer = eval(text(ctx), {}, {})
+            initializer = safeEval(text(ctx))
             return initializer
         except:
             raise MiniDecafLocatedError(ctx, "global initializers must be constants")

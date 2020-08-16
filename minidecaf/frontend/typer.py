@@ -45,6 +45,17 @@ class PtrType(Type):
         return self.base == other.base
 
 
+class ZeroType(IntType, PtrType):
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return "zerotype"
+
+    def __eq__(self, other):
+        return isinstance(other, IntType) or isinstance(other, PtrType)
+
+
 def TypeRule(f):
     """A type rule is a function: (ctx, *inputTypes) -> {outputType | errStr | None}.
     The ctx parameter is only used for error reporting."""
@@ -171,8 +182,6 @@ class FuncTypeInfo:
         def callRule(ctx, argTy:list):
             if self.paramTy == argTy:
                 return self.retTy
-            print(self.paramTy)
-            print(argTy)
             return f"bad argument types"
         return callRule
 
@@ -217,19 +226,13 @@ class Typer(MiniDecafVisitor):
         self.typeInfo.setLvalueLoc(ctx, loc)
 
     def checkUnary(self, ctx, op:str, ty:Type):
-        b1 = { '-', '!', '~' }
-        if op in b1:
+        if op in { '-', '!', '~' }:
             rule = intUnaopRule
-            x=rule(ctx, ty)
-            print(x)
-            return x
-        if op == "&":
-            self.locate(ctx)
+        elif op == '&':
             rule = addrofRule
-            return rule(ctx, ty)
-        if op == "*":
+        elif op == '*':
             rule = derefRule
-            return rule(ctx, ty)
+        return rule(ctx, ty)
 
     def checkBinary(self, ctx, op:str, lhs:Type, rhs:Type):
         b1 = { '*', '/', '%', *logicOps }
@@ -244,11 +247,13 @@ class Typer(MiniDecafVisitor):
         if op in b3:
             rule = tryEach('+', intBinopRule, ptrArithRule)
             return rule(ctx, lhs, rhs)
-        if op == "=":
+        if op == '=':
             rule = asgnRule
             return rule(ctx, lhs, rhs)
 
     def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
+        if text(ctx.unaryOp()) == '&':
+            self.locate(ctx.unary())
         return self.checkUnary(ctx.unaryOp(), text(ctx.unaryOp()),
                 ctx.unary().accept(self))
 
@@ -295,7 +300,10 @@ class Typer(MiniDecafVisitor):
         return rule(ctx, argTy)
 
     def visitAtomInteger(self, ctx:MiniDecafParser.AtomIntegerContext):
-        return IntType()
+        if safeEval(text(ctx)) == 0:
+            return ZeroType()
+        else:
+            return IntType()
 
     def visitAtomIdent(self, ctx:MiniDecafParser.AtomIdentContext):
         var = self._var(ctx.Ident())
@@ -367,6 +375,11 @@ class Locator(MiniDecafVisitor):
             return [GlobalSymbol(var.ident)]
         else:
             return [FrameSlot(var.offset)]
+
+    def visitCUnary(self, ctx:MiniDecafParser.CUnaryContext):
+        op = text(ctx.unaryOp())
+        if op == '*':
+            return ctx.unary().accept(self) + [Load()]
 
     def visitAtomParen(self, ctx:MiniDecafParser.AtomParenContext):
         return ctx.expr().accept(self)

@@ -18,6 +18,7 @@ def parseArgs(argv):
     parser.add_argument("-ir", action="store_true", help="emit ir rather than asm")
     parser.add_argument("-ni", action="store_true", help="emit result of name resulution")
     parser.add_argument("-ty", action="store_true", help="emit type check information")
+    parser.add_argument("-backtrace", action="store_true", help="emit backtrace information (for debugging)")
     return parser.parse_args()
 
 
@@ -64,5 +65,7 @@ def main():
         AsmGen(ir, args.outfile)
         return 0
     except MiniDecafError as e:
+        if args.backtrace:
+            raise e
         print(e, file=sys.stderr)
         return 1

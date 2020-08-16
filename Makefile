@@ -2,6 +2,14 @@ ANTLR_JAR ?= /usr/local/lib/antlr-4.8-complete.jar
 i ?= i.c
 o ?= o.s
 
+ifdef DEBUG
+	EXTRA_ARGS = -backtrace
+else
+	EXTRA_ARGS =
+endif
+
+RUNMD = python -m minidecaf $(EXTRA_ARGS)
+
 CLASSPATH = $(ANTLR_JAR):generated
 
 all: run
@@ -18,19 +26,19 @@ justrun:
 	qemu-riscv64 a.out ; echo $$?
 
 asm: grammar-py
-	python3 -m minidecaf $(i) $(o)
+	$(RUNMD) $(i) $(o)
 
 ir: grammar-py
-	python3 -m minidecaf -ir $(i)
+	$(RUNMD) -ir $(i)
 
 ni: grammar-py
-	python3 -m minidecaf -ni $(i)
+	$(RUNMD) -ni $(i)
 
 ty: grammar-py
-	python3 -m minidecaf -ty $(i)
+	$(RUNMD) -ty $(i)
 
 usage: grammar-py
-	python3 -m minidecaf -h
+	$(RUNMD) -h
 
 grammar-py:
 	cd minidecaf && java -jar $(ANTLR_JAR) -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
