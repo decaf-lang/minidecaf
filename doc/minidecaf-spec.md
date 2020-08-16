@@ -1,4 +1,3 @@
-
 # 第一种选择
 缺点：step1-10的input还不是正常的C程序
 
@@ -266,19 +265,25 @@ typ        = ("int" | "char") "*"*
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" <statement> "}"
-<<statement> ::= "return" <int> ";" | "int" <id> "=" <int> ";"
+<function> ::= "int" "main" "(" ")" "{" <statement> "}"
+<statement> ::= "return" <int> ";"
 <exp> ::= <int>
 ```
 
 例子：
+
 ```
 int main() {
     return 2;
 }
 ```
 
+语义规定：
+
+- 为尽可能兼容指针，本实验中所有`int`类型均为64位长度。
+
 对应的Token为：
+
 ```
 Open brace {
 Close brace }
@@ -287,13 +292,13 @@ Close parenthesis \)
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
 Integer literal [0-9]+
+Main keyword main
 ```
 对应的AST为：
 ```
 program = Program(function_declaration)
-function_declaration = Function(string, statement) //string is the function name
+function_declaration = Function("main", statement)
 statement = Return(exp) | Assign(variable, exp)
 exp = Constant(int)
 ```
@@ -303,7 +308,7 @@ exp = Constant(int)
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" <statement> "}"
+<function> ::= "int" "main" "(" ")" "{" <statement> "}"
 <statement> ::= "return" <exp> ";"
 <exp> ::= <unary_op> <exp> | <int>
 <unary_op> ::= "!" | "~" | "-"
@@ -325,38 +330,40 @@ Close parenthesis \)
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
 Integer literal [0-9]+
 Negation -
 Bitwise complement ~
 Logical negation !
+Main keyword main
 ```
 
 对应的AST为：
 ```
 program = Program(function_declaration)
-function_declaration = Function(string, statement) //string is the function name
+function_declaration = Function("main", statement)
 statement = Return(exp)
 exp = UnOp(operator, exp) | Constant(int)
 ```
 
 ## 步骤3：Binary Operators and  Parenthesis for ( expr )
 支持
+
 ```
 Addition +
 Subtraction -
 Multiplication *
 Division /
+Modular %
 ```
 
 语言语法为：
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" <statement> "}"
+<function> ::= "int" "main" "(" ")" "{" <statement> "}"
 <statement> ::= "return" <exp> ";"
 <exp> ::= <term> { ("+" | "-") <term> }
-<term> ::= <factor> { ("*" | "/") <factor> }
+<term> ::= <factor> { ("*" | "/" | "%") <factor> }
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
 <unary_op> ::= "!" | "~" | "-"
 ```
@@ -370,7 +377,6 @@ Close parenthesis )
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
 Integer literal [0-9]+
 Minus -
 Bitwise complement ~
@@ -378,12 +384,13 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Main keyword main
 ```
 
 对应的AST为：
 ```
 program = Program(function_declaration)
-function_declaration = Function(string, statement) //string is the function name
+function_declaration = Function("main", statement)
 statement = Return(exp)
 exp = BinOp(binary_operator, exp, exp)
     | UnOp(unary_operator, exp)
@@ -392,6 +399,7 @@ exp = BinOp(binary_operator, exp, exp)
 
 ## 步骤4：Logical Binary Operators
 支持
+
 ```
 Logical AND &&
 Logical OR ||
@@ -406,7 +414,7 @@ Greater than or equal to >=
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" <statement> "}"
+<function> ::= "int" "main" "(" ")" "{" <statement> "}"
 <statement> ::= "return" <exp> ";"
 <exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -417,7 +425,20 @@ Greater than or equal to >=
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
 <unary_op> ::= "!" | "~" | "-"
 ```
+语义规定：
+
+- 本实验中是否实现短路求值不做要求，即属于未定义行为。例如，在后续步骤引入局部变量后可能出现如下程序：
+
+  ```
+  int x = 0;
+  int a = 1 || (x = 1);
+  return x;
+  ```
+
+  返回 0 或 1 均被接受。
+
 对应的Token为：
+
 ```
 Open brace {
 Close brace }
@@ -426,7 +447,6 @@ Close parenthesis )
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
 Integer literal [0-9]+
 Minus -
 Bitwise complement ~
@@ -442,11 +462,12 @@ Less than <
 Less than or equal <=
 Greater than >
 Greater than or equal >=
+Main keyword main
 ```
 对应的AST为：
 ```
 program = Program(function_declaration)
-function_declaration = Function(string, statement) //string is the function name
+function_declaration = Function("main", statement)
 statement = Return(exp)
 exp = BinOp(binary_operator, exp, exp)
     | UnOp(unary_operator, exp)
@@ -455,6 +476,7 @@ exp = BinOp(binary_operator, exp, exp)
 
 ## 步骤5：Local Variables
 支持Local Variables
+
 ```
 int a;
 a=3;
@@ -478,7 +500,14 @@ a=3;
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 <unary_op> ::= "!" | "~" | "-"
 ```
+> 注意：本步骤中 `main` 函数的函数名不再是一个关键字，而是与变量名同属于 ID。这意味着名为 `main` 的局部变量是合法的。
+
+语义规定：
+
+- 若函数中缺少`return` 语句，则一律返回0。
+
 对应的Token为：
+
 ```
 Open brace {
 Close brace }
@@ -487,7 +516,7 @@ Close parenthesis )
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 Minus -
 Bitwise complement ~
@@ -523,6 +552,7 @@ exp = Assign(string, exp)
 
 ## 步骤6：Conditional statements & expressions
 例如
+
 ```
 if (flag) {
   int e = a ? b : c;
@@ -552,7 +582,22 @@ if (flag) {
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 <unary_op> ::= "!" | "~" | "-"
 ```
+> 注意： `<declaration>` 和 `<statement>` 的定义细节与上一步骤不完全相同。这是因为形如 `if (1) int x;` 的语句是非法的。
+
+语义规定：
+
+- `?:`操作符应具有短路性质。例如
+
+  ```
+  int x = 0;
+  int a = 1 ? 2 : (x = 1);
+  return x;
+  ```
+
+  应返回 0。
+
 对应的Token为：
+
 ```
 Open brace {
 Close brace }
@@ -561,7 +606,7 @@ Close parenthesis )
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 Minus -
 Bitwise complement ~
@@ -608,15 +653,17 @@ exp = Assign(string, exp)
     | CondExp(exp, exp, exp) //the three expressions are the condition, 'if' expression and 'else' expression, respectively
 ```
 
-## 步骤7：Compound Statements
+## 步骤7：Compound Statements and Definition Scope
 例如
+
 ```
 int main() {
-    int a;
+    int a = 2;
     {
-        //this is also a compound statement!
-        a = 4;
+        int a;
+        a = 4;  // here a == 4
     }
+    // here a == 2
 }
 ```
 语言语法为：
@@ -641,7 +688,12 @@ int main() {
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 <unary_op> ::= "!" | "~" | "-"
 ```
+语义说明：
+
+- 局部变量的作用域开始于**局部变量定义之处**（而不是语句块开始处），结束于**所在语句块末尾**。因此，程序片段  `int a = 1; { return a; int a = 2;}`  应返回 1 而不是 2。
+
 对应的Token为（不变）：
+
 ```
 Open brace {
 Close brace }
@@ -650,7 +702,7 @@ Close parenthesis )
 Semicolon ;
 Int keyword int
 Return keyword return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 Minus -
 Bitwise complement ~
@@ -700,6 +752,7 @@ exp = Assign(string, exp)
 
 ## 步骤8：Loops
 例如
+
 ```
 int i;
 for (i = 0; i < 10; i = i + 1) {
@@ -721,10 +774,10 @@ while (i < 10) {
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
               | "{" { <block-item> } "}
-              | "for" "(" <exp-option-semicolon> <exp-option-semicolon> <exp-option-close-paren> ")" <statement>
-              | "for" "(" <declaration> <exp-option-semicolon> <exp-option-close-paren> ")" <statement>
+              | "for" "(" <exp-option-semicolon> <exp-option-semicolon> <exp-option-close-paren> <statement>
+              | "for" "(" <declaration> <exp-option-semicolon> <exp-option-close-paren> <statement>
               | "while" "(" <exp> ")" <statement>
-              | "do" <statement> "while" <exp> ";"
+              | "do" <statement> "while" "(" <exp> ")" ";"
               | "break" ";"
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
@@ -740,7 +793,14 @@ while (i < 10) {
 <factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
 <unary_op> ::= "!" | "~" | "-"
 ```
+语义说明：
+
+- 每个`for`循环意味着一个隐式的局部变量作用域。`...; for (...; ...; ...) { ... } ...;` 事实上等价于 `...; { for (...; ...; ...) { ... } } ...;` 。
+
+> 注意：程序片段 `for(int i;;) { int i; }` 的两个局部变量分属内外两个不同的作用域内，因此是合法的。
+
 对应的Token为：
+
 ```
 {
 }
@@ -749,7 +809,7 @@ while (i < 10) {
 ;
 int
 return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 -
 ~
@@ -809,6 +869,7 @@ exp = Assign(string, exp)
 ```
 ## 步骤9：Functions
 例如
+
 ```
 int three() {
     return 3;
@@ -849,7 +910,12 @@ int main() {
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 <unary_op> ::= "!" | "~" | "-"
 ```
+语义说明：
+
+- 本实验对于同名函数的重复声明不做要求，即属于未定义行为。测例中不会出现同名函数重复声明的情况。
+
 对应的Token为：
+
 ```
 {
 }
@@ -858,7 +924,7 @@ int main() {
 ;
 int
 return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 -
 ~
@@ -921,6 +987,7 @@ exp = Assign(string, exp)
 
 ## 步骤10：Global Variables
 例如
+
 ```
 int foo;
 
@@ -970,7 +1037,14 @@ int main() {
 <unary_op> ::= "!" | "~" | "-"
 ```
 
+语义说明：
+
+- 本实验对同名全局变量的重复定义不做要求，即属于未定义行为。测例中不会出现同名全局变量的重复定义。
+- 全局变量若没有初始化，则默认初始化为0。
+- 编译器只需实现用常数初始化全局变量，而无需实现表达式初始化。（但局部变量应能使用表达式初始化）
+
 对应的Token为(不变)：
+
 ```
 {
 }
@@ -979,7 +1053,7 @@ int main() {
 ;
 int
 return
-Identifier [a-zA-Z]\w*
+Identifier [a-zA-Z_][a-zA-Z0-9_]*
 Integer literal [0-9]+
 -
 ~
