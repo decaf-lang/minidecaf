@@ -84,6 +84,11 @@ def safeEval(s:str):
     from ast import literal_eval
     return literal_eval(s)
 
+def prod(l):
+    s = 1
+    for i in l:
+        s *= i
+    return s
 
 unaryOps = ['-', '!', '~', '&', '*']
 unaryOpStrs = ["neg", 'lnot', "not", "addrof", "deref"]

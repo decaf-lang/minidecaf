@@ -42,10 +42,10 @@ class StackIRGen(MiniDecafVisitor):
         self.lbl = LabelManager()
         self.ni = nameInfo
         self.ti = typeInfo
-        self._curFuncNameInfo = None
+        self.curFunc = None
 
     def _var(self, term):
-        return self._curFuncNameInfo[term]
+        return self.ni[term]
 
     def emitVar(self, var:Variable):
         if var.offset is None:
@@ -87,7 +87,7 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Comment("[ir-block] Enter")])
         self.visitChildren(ctx)
         self._E([Comment("[ir-block] Exit")])
-        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
+        self._E([Pop()] * self.ni.funcs[self.curFunc].blockSlots[ctx])
 
     def loop(self, name, init, cond, body, post):
         entryLabel = self.lbl.newLabel(f"{name}_entry")
@@ -118,7 +118,7 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
         self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
-        self._E([Pop()] * self._curFuncNameInfo.blockSlots[ctx])
+        self._E([Pop()] * self.ni.funcs[self.curFunc].blockSlots[ctx])
 
     def visitForStmt(self, ctx:MiniDecafParser.ForStmtContext):
         self.loop("for", ctx.init, ctx.ctrl, ctx.stmt(), ctx.post)
@@ -219,11 +219,12 @@ class StackIRGen(MiniDecafVisitor):
 
     def visitFuncDef(self, ctx:MiniDecafParser.FuncDefContext):
         func = text(ctx.Ident())
-        self._curFuncNameInfo = self.ni.funcs[func]
         nParams = len(self.ti.funcs[func].paramTy)
+        self.curFunc = func
         self._E.enterFunction(func, nParams)
         ctx.block().accept(self)
         self._E.exitFunction()
+        self.curFunc = None
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
         pass

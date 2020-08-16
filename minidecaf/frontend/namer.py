@@ -5,15 +5,21 @@ from ..generated.MiniDecafVisitor import MiniDecafVisitor
 
 class Variable:
     _varcnt = {}
-    def __init__(self, ident:str, offset:int):
+    def __init__(self, ident:str, offset:int, size:int=INT_BYTES):
+        """offset denotes a location in memory. It could be an int, indicating
+        the offset relative to frame pointer, or None indicating that self is a
+        global variable. The value of self is stored at that location. But when
+        self is an array, that location is the location of the first element in
+        the array."""
         incOrInit(Variable._varcnt, ident)
         self.id = Variable._varcnt[ident]
         self.ident = ident
         self.offset = offset
+        self.size = size
 
     def __eq__(self, other):
         return self.id == other.id and self.ident == other.ident and\
-            self.offset == other.offset
+            self.offset == other.offset and self.size == other.size
 
     def __str__(self):
         return f"{self.ident}({self.id})"
@@ -22,7 +28,7 @@ class Variable:
         return self.__str__()
 
     def __hash__(self):
-        return hash((self.ident, self.id, self.offset))
+        return hash((self.ident, self.id, self.offset, self.size))
 
 
 class FuncNameInfo:
@@ -70,7 +76,7 @@ class FuncNameInfo:
 class GlobInfo:
     def __init__(self, var:Variable, size:int, init=None):
         self.var = var
-        self.size = size
+        self.size = var.size
         self.init = init # not a byte array -- that requires endian info
 
     def __str__(self):
@@ -87,9 +93,14 @@ class NameInfo:
     def __init__(self):
         self.funcs = {} # str -> FuncNameInfo. Initialized by Def.
         self.globs = {} # str -> GlobInfo.
+        self._v = {}
 
-    def enterFunction(self, func:str, funcNameInfo: FuncNameInfo):
-        self.funcs[func] = funcNameInfo
+    def freeze(self):
+        for funcNameInfo in self.funcs.values():
+            self._v.update(funcNameInfo._v)
+
+    def __getitem__(self, ctx):
+        return self._v[ctx]
 
     def __str__(self):
         def f(fn):
@@ -114,9 +125,10 @@ class Namer(MiniDecafVisitor):
         self.nameInfo = NameInfo()
         self._curFuncNameInfo = None # == self.nameInfo[curFunc]
 
-    def defVar(self, ctx, term):
-        self.curNSlots += 1
-        var = self._v[text(term)] = Variable(text(term), -INT_BYTES * self.curNSlots)
+    def defVar(self, ctx, term, nQuads=1):
+        self.curNSlots += nQuads
+        var = self._v[text(term)] = Variable(text(term),
+                -INT_BYTES * self.curNSlots, INT_BYTES * nQuads)
         pos = (ctx.start.line, ctx.start.column)
         self._curFuncNameInfo.bind(term, var, pos)
 
@@ -124,6 +136,12 @@ class Namer(MiniDecafVisitor):
         var = self._v[text(term)]
         pos = (ctx.start.line, ctx.start.column)
         self._curFuncNameInfo.bind(term, var, pos)
+
+    def declNElems(self, ctx:MiniDecafParser.DeclContext):
+        res = prod([int(text(x)) for x in ctx.Integer()])
+        if res <= 0:
+            raise MiniDecafLocatedError(ctx, "array size <= 0")
+        return res
 
     def enterScope(self, ctx):
         self._v.push()
@@ -146,7 +164,7 @@ class Namer(MiniDecafVisitor):
         var = text(ctx.Ident())
         if var in self._v.peek():
             raise MiniDecafLocatedError(ctx, f"redefinition of {var}")
-        self.defVar(ctx, ctx.Ident())
+        self.defVar(ctx, ctx.Ident(), self.declNElems(ctx))
 
     def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
         self.enterScope(ctx)
@@ -164,8 +182,8 @@ class Namer(MiniDecafVisitor):
         if func in self.nameInfo.funcs and\
                 self.nameInfo.funcs[func].hasDef:
             raise MiniDecafLocatedError(f"redefinition of function {func}")
-        funcNameInfo = self._curFuncNameInfo = FuncNameInfo(hasDef=True)
-        self.nameInfo.enterFunction(func, funcNameInfo)
+        funcNameInfo = FuncNameInfo(hasDef=True)
+        self._curFuncNameInfo = self.nameInfo.funcs[func] = funcNameInfo
         self.enterScope(ctx)
         ctx.paramList().accept(self)
         ctx.block().accept(self)
@@ -176,7 +194,7 @@ class Namer(MiniDecafVisitor):
         func = text(ctx.Ident())
         funcNameInfo = FuncNameInfo(hasDef=False)
         if func not in self.nameInfo.funcs:
-            self.nameInfo.enterFunction(func, funcNameInfo)
+            self.nameInfo.funcs[func] = funcNameInfo
 
     def globalInitializer(self, ctx:MiniDecafParser.ExprContext):
         if ctx is None:
@@ -191,7 +209,7 @@ class Namer(MiniDecafVisitor):
         ctx = ctx.decl()
         init = self.globalInitializer(ctx.expr())
         varStr = text(ctx.Ident())
-        var = Variable(varStr, None)
+        var = Variable(varStr, None, INT_BYTES * self.declNElems(ctx))
         globInfo = GlobInfo(var, INT_BYTES, init)
         if varStr in self._v.peek():
             prevGlobInfo = self.nameInfo.globs[varStr]
@@ -203,3 +221,6 @@ class Namer(MiniDecafVisitor):
             self._v[varStr] = var
             self.nameInfo.globs[varStr] = globInfo
 
+    def visitProg(self, ctx:MiniDecafParser.ProgContext):
+        self.visitChildren(ctx)
+        self.nameInfo.freeze()
