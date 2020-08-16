@@ -134,6 +134,18 @@ def asgnRule(ctx, lhs, rhs):
         return f"cannot assign {rhs} to {lhs}"
     return lhs
 
+@TypeRule
+def retRule(ctx, funcRetTy, ty):
+    if funcRetTy != ty:
+        return f"return {funcRetTy} expected, {ty} found"
+    return VoidType()
+
+@TypeRule
+def stmtCondRule(ctx, ty):
+    if ty != IntType():
+        return f"integer expected, {ty} found"
+    return VoidType()
+
 
 class TypeInfo:
     def __init__(self):
@@ -198,6 +210,7 @@ class Typer(MiniDecafVisitor):
         self._curFuncNameInfo = None
         self.locator = Locator()
         self.typeInfo = TypeInfo()
+        self._curFuncTypeInfo = None
 
     def _var(self, term):
         return self._curFuncNameInfo[term]
@@ -331,7 +344,9 @@ class Typer(MiniDecafVisitor):
         func = text(ctx.Ident())
         self._curFuncNameInfo = self.nameInfo.funcs[func]
         self.checkFunc(ctx)
+        self._curFuncTypeInfo = self.typeInfo.funcs[func]
         self.visitChildren(ctx)
+        self._curFuncTypeInfo = None
         self._curFuncNameInfo = None
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
@@ -361,6 +376,32 @@ class Typer(MiniDecafVisitor):
         if ctx.expr() is not None:
             initTyp = ctx.expr().accept(self)
             asgnRule(ctx, ty, initTyp)
+
+    def visitReturnStmt(self, ctx:MiniDecafParser.ReturnStmtContext):
+        funcRetTy = self._curFuncTypeInfo.retTy
+        ty = ctx.expr().accept(self)
+        retRule(ctx, funcRetTy, ty)
+
+    def visitIfStmt(self, ctx:MiniDecafParser.IfStmtContext):
+        self.visitChildren(ctx)
+        stmtCondRule(ctx, ctx.expr().accept(self)) # idempotent
+
+    def visitForDeclStmt(self, ctx:MiniDecafParser.ForDeclStmtContext):
+        self.visitChildren(ctx)
+        if ctx.ctrl is not None: stmtCondRule(ctx, ctx.ctrl.accept(self))
+
+    def visitForStmt(self, ctx:MiniDecafParser.ForStmtContext):
+        self.visitChildren(ctx)
+        if ctx.ctrl is not None: stmtCondRule(ctx, ctx.ctrl.accept(self))
+
+    def visitWhileStmt(self, ctx:MiniDecafParser.WhileStmtContext):
+        self.visitChildren(ctx)
+        stmtCondRule(ctx, ctx.expr().accept(self))
+
+    def visitDoWhileStmt(self, ctx:MiniDecafParser.DoWhileStmtContext):
+        self.visitChildren(ctx)
+        stmtCondRule(ctx, ctx.expr().accept(self))
+
 
 class Locator(MiniDecafVisitor):
     def locate(self, curFuncNameInfo:FuncNameInfo, ctx):
