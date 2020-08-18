@@ -18,6 +18,8 @@ def parseArgs(argv):
     parser.add_argument("-ir", action="store_true", help="emit ir rather than asm")
     parser.add_argument("-ni", action="store_true", help="emit result of name resulution")
     parser.add_argument("-ty", action="store_true", help="emit type check information")
+    parser.add_argument("-lex", action="store_true", help="emit tokens produced by lexing")
+    parser.add_argument("-parse", action="store_true", help="emit cst produced by parsing (use `make cst` for graphical view)")
     parser.add_argument("-backtrace", action="store_true", help="emit backtrace information (for debugging)")
     return parser.parse_args()
 
@@ -50,15 +52,31 @@ def AsmGen(ir, outfile):
     return asmGen(ir, outfile)
 
 
+def Lexer(inputStream):
+    lexer = MiniDecafLexer(inputStream)
+    if args.lex:
+        dumpLexerTokens(lexer)
+        exit(0)
+    return CommonTokenStream(lexer)
+
+
+def Parser(tokenStream):
+    parser = MiniDecafParser(tokenStream)
+    tree = parser.prog()
+    if args.parse:
+        print(tree.toStringTree(recog=parser))
+        exit(0)
+    return tree
+
+
 def main():
     try:
         global args
         args = parseArgs(sys.argv)
+
         inputStream = FileStream(args.infile)
-        lexer = MiniDecafLexer(inputStream)
-        tokenStream = CommonTokenStream(lexer)
-        parser = MiniDecafParser(tokenStream)
-        tree = parser.prog()
+        tokenStream = Lexer(inputStream)
+        tree = Parser(tokenStream)
         nameInfo = NameGen(tree)
         typeInfo = TypeCheck(tree, nameInfo)
         ir = IRGen(tree, nameInfo, typeInfo)

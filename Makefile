@@ -37,6 +37,12 @@ ni: grammar-py
 ty: grammar-py
 	$(RUNMD) -ty $(i)
 
+lex: grammar-py
+	$(RUNMD) -lex $(i)
+
+parse: grammar-py
+	$(RUNMD) -parse $(i)
+
 usage: grammar-py
 	$(RUNMD) -h
 
@@ -51,4 +57,4 @@ clean:
 	rm -rf generated minidecaf/generated
 	rm -rf minidecaf/**__pycache__
 
-.PHONY: all clean run justrun cst ir ni usage  grammar-py grammar-java
+.PHONY: all clean run justrun cst ir ni lex parse usage  grammar-py grammar-java
