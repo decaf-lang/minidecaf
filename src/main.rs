@@ -1,11 +1,12 @@
-use std::env;
+pub mod ast;
+pub mod codegen;
+pub mod ir;
+pub mod lexer;
+pub mod parser;
 
-fn main() {
-    let args : Vec<String> = env::args().collect();
-    let value = &args[1];
-
-    println!(".global main");
-    println!("main:");
-    println!("\tli a0, {}", value);
-    println!("\tret");
+fn main() -> std::io::Result<()> {
+  let path = std::env::args()
+    .nth(1)
+    .expect("usage: minidecaf <input path>");
+  minidecaf::run(path, &mut std::io::stdout())
 }
