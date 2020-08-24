@@ -266,8 +266,8 @@ typ        = ("int" | "char") "*"*
 ```
 <program> ::= <function>
 <function> ::= "int" "main" "(" ")" "{" <statement> "}"
-<statement> ::= "return" <int> ";"
-<exp> ::= <int>
+<statement> ::= "return" Integer ";"
+<exp> ::= Integer
 ```
 
 例子：
@@ -310,7 +310,7 @@ exp = Constant(int)
 <program> ::= <function>
 <function> ::= "int" "main" "(" ")" "{" <statement> "}"
 <statement> ::= "return" <exp> ";"
-<exp> ::= <unary_op> <exp> | <int>
+<exp> ::= <unary_op> <exp> | Integer
 <unary_op> ::= "!" | "~" | "-"
 ```
 
@@ -364,7 +364,7 @@ Modular %
 <statement> ::= "return" <exp> ";"
 <exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/" | "%") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer
 <unary_op> ::= "!" | "~" | "-"
 ```
 
@@ -422,7 +422,7 @@ Greater than or equal to >=
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer
 <unary_op> ::= "!" | "~" | "-"
 ```
 语义规定：
@@ -486,18 +486,18 @@ a=3;
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" { <statement> } "}"
+<function> ::= "int" Identifier "(" ")" "{" { <statement> } "}"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
-              | "int" <id> [ = <exp>] ";"
-<exp> ::= <id> "=" <exp> | <logical-or-exp>
+              | "int" Identifier [ = <exp>] ";"
+<exp> ::= Identifier "=" <exp> | <logical-or-exp>
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
 <equality-exp> ::= <relational-exp> { ("!=" | "==") <relational-exp> }
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <unary_op> ::= "!" | "~" | "-"
 ```
 > 注意：本步骤中 `main` 函数的函数名不再是一个关键字，而是与变量名同属于 ID。这意味着名为 `main` 的局部变量是合法的。
@@ -563,15 +563,15 @@ if (flag) {
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+<function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" <id> [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ = <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
 
 
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<exp> ::= Identifier "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -579,7 +579,7 @@ if (flag) {
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <unary_op> ::= "!" | "~" | "-"
 ```
 > 注意： `<declaration>` 和 `<statement>` 的定义细节与上一步骤不完全相同。这是因为形如 `if (1) int x;` 的语句是非法的。
@@ -670,14 +670,14 @@ int main() {
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+<function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" <id> [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ = <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
               | "{" { <block-item> } "}
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<exp> ::= Identifier "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -685,7 +685,7 @@ int main() {
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <unary_op> ::= "!" | "~" | "-"
 ```
 语义说明：
@@ -767,9 +767,9 @@ while (i < 10) {
 
 ```
 <program> ::= <function>
-<function> ::= "int" <id> "(" ")" "{" { <block-item> } "}"
+<function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" <id> [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ = <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -782,7 +782,7 @@ while (i < 10) {
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
 <exp-option-close-paren> ::= <exp> ")" | ")"
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<exp> ::= Identifier "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -790,7 +790,7 @@ while (i < 10) {
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <unary_op> ::= "!" | "~" | "-"
 ```
 语义说明：
@@ -883,9 +883,9 @@ int main() {
 
 ```
 <program> ::= { <function> }
-<function> ::= "int" <id> "(" [ "int" <id> { "," "int" <id> } ] ")" ( "{" { <block-item> } "}" | ";" )
+<function> ::= "int" Identifier "(" [ "int" Identifier { "," "int" Identifier } ] ")" ( "{" { <block-item> } "}" | ";" )
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" <id> [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ = <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -898,7 +898,7 @@ int main() {
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
 <exp-option-close-paren> ::= <exp> ")" | ")"
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<exp> ::= Identifier "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -906,7 +906,7 @@ int main() {
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 <unary_op> ::= "!" | "~" | "-"
 ```
@@ -1009,9 +1009,9 @@ int main() {
 
 ```
 <program> ::= { <function> | <declaration> }
-<function> ::= "int" <id> "(" [ "int" <id> { "," "int" <id> } ] ")" ( "{" { <block-item> } "}" | ";" )
+<function> ::= "int" Identifier "(" [ "int" Identifier { "," "int" Identifier } ] ")" ( "{" { <block-item> } "}" | ";" )
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" <id> [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ = <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -1024,7 +1024,7 @@ int main() {
               | "continue" ";"
 <exp-option-semicolon> ::= <exp> ";" | ";"
 <exp-option-close-paren> ::= <exp> ")" | ")"
-<exp> ::= <id> "=" <exp> | <conditional-exp>
+<exp> ::= Identifier "=" <exp> | <conditional-exp>
 <conditional-exp> ::= <logical-or-exp> [ "?" <exp> ":" <conditional-exp> ]
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -1032,7 +1032,7 @@ int main() {
 <relational-exp> ::= <additive-exp> { ("<" | ">" | "<=" | ">=") <additive-exp> }
 <additive-exp> ::= <term> { ("+" | "-") <term> }
 <term> ::= <factor> { ("*" | "/") <factor> }
-<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | <int> | <id>
+<factor> ::= <function-call> | "(" <exp> ")" | <unary_op> <factor> | Integer | Identifier
 <function-call> ::= id "(" [ <exp> { "," <exp> } ] ")"
 <unary_op> ::= "!" | "~" | "-"
 ```
