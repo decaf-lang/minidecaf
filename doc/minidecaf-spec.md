@@ -763,7 +763,7 @@ while (i < 10) {
     i  = i + 1;
 }
 ```
-语言语法为：(注意语法和AST定义之间存在差异;语法允许for循环中的控制表达式为空，但AST不允许。)
+语言语法为：
 
 ```
 <program> ::= <function>
@@ -853,8 +853,8 @@ statement = Return(exp)
                                                           // first statement is 'if' block
                                                           // second statement is optional 'else' block
           | Compound(block_item list)
-          | For(exp option, exp, exp option, statement) // initial expression, condition, post-expression, body
-          | ForDecl(declaration, exp, exp option, statement) // initial declaration, condition, post-expression, body
+          | For(exp option, exp option, exp option, statement) // initial expression, condition, post-expression, body
+          | ForDecl(declaration, exp option, exp option, statement) // initial declaration, condition, post-expression, body
           | While(expression, statement) // condition, body
           | Do(statement, expression) // body, condition
           | Break
@@ -969,8 +969,8 @@ statement = Return(exp)
                                                           // first statement is 'if' block
                                                           // second statement is optional 'else' block
           | Compound(block_item list)
-          | For(exp option, exp, exp option, statement) // initial expression, condition, post-expression, body
-          | ForDecl(declaration, exp, exp option, statement) // initial declaration, condition, post-expression, body
+          | For(exp option, exp option, exp option, statement) // initial expression, condition, post-expression, body
+          | ForDecl(declaration, exp option, exp option, statement) // initial declaration, condition, post-expression, body
           | While(expression, statement) // condition, body
           | Do(statement, expression) // body, condition
           | Break
@@ -1101,8 +1101,8 @@ statement = Return(exp)
                                                           // first statement is 'if' block
                                                           // second statement is optional 'else' block
           | Compound(block_item list)
-          | For(exp option, exp, exp option, statement) // initial expression, condition, post-expression, body
-          | ForDecl(declaration, exp, exp option, statement) // initial declaration, condition, post-expression, body
+          | For(exp option, exp option, exp option, statement) // initial expression, condition, post-expression, body
+          | ForDecl(declaration, exp option, exp option, statement) // initial declaration, condition, post-expression, body
           | While(expression, statement) // condition, body
           | Do(statement, expression) // body, condition
           | Break
