@@ -489,7 +489,7 @@ a=3;
 <function> ::= "int" Identifier "(" ")" "{" { <statement> } "}"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
-              | "int" Identifier [ = <exp>] ";"
+              | "int" Identifier [ "=" <exp>] ";"
 <exp> ::= Identifier "=" <exp> | <logical-or-exp>
 <logical-or-exp> ::= <logical-and-exp> { "||" <logical-and-exp> }
 <logical-and-exp> ::= <equality-exp> { "&&" <equality-exp> }
@@ -565,7 +565,7 @@ if (flag) {
 <program> ::= <function>
 <function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" Identifier [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ "=" <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -672,7 +672,7 @@ int main() {
 <program> ::= <function>
 <function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" Identifier [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ "=" <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp> ";"
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -769,7 +769,7 @@ while (i < 10) {
 <program> ::= <function>
 <function> ::= "int" Identifier "(" ")" "{" { <block-item> } "}"
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" Identifier [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ "=" <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -885,7 +885,7 @@ int main() {
 <program> ::= { <function> }
 <function> ::= "int" Identifier "(" [ "int" Identifier { "," "int" Identifier } ] ")" ( "{" { <block-item> } "}" | ";" )
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" Identifier [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ "=" <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
@@ -1011,7 +1011,7 @@ int main() {
 <program> ::= { <function> | <declaration> }
 <function> ::= "int" Identifier "(" [ "int" Identifier { "," "int" Identifier } ] ")" ( "{" { <block-item> } "}" | ";" )
 <block-item> ::= <statement> | <declaration>
-<declaration> ::= "int" Identifier [ = <exp> ] ";"
+<declaration> ::= "int" Identifier [ "=" <exp> ] ";"
 <statement> ::= "return" <exp> ";"
               | <exp-option-semicolon> // null statement
               | "if" "(" <exp> ")" <statement> [ "else" <statement> ]
