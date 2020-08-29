@@ -1,4 +1,4 @@
-use crate::ast::{*, UnaryOp::*};
+use crate::ast::{*, UnaryOp::*, BinaryOp::*};
 
 pub struct Parser {}
 
@@ -13,7 +13,11 @@ impl<'p> Token<'p> {
 // 详细用法参见 https://mashplant.online/2020/08/17/lalr1-introduction/
 #[parser_macros::lalr1(Prog)]
 #[lex = r#"
-priority = []
+priority = [
+  { assoc = 'left', terms = ['Add', 'Sub'] },
+  { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
+  { assoc = 'left', terms = ['BNot', 'LNot'] },
+]
 
 [lexical]
 'int' = 'Int'
@@ -23,7 +27,11 @@ priority = []
 '\)' = 'RPar'
 '\{' = 'LBrc' # Brc是Brace的简称
 '\}' = 'RBrc'
+'\+' = 'Add'
 '-' = 'Sub'
+'\*' = 'Mul'
+'/' = 'Div'
+'%' = 'Mod'
 '~' = 'BNot'
 '!' = 'LNot'
 '\s+' = '_Eps'
@@ -42,12 +50,25 @@ impl<'p> Parser {
   #[rule = "Stmt -> Return Expr Semi"]
   fn stmt_ret(_r: Token, e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Ret(e) }
 
+  #[rule = "Expr -> LPar Expr RPar"] // AST中直接忽略括号结构
+  fn expr_par(_l: Token, e: Expr<'p>, _r: Token) -> Expr<'p> { e }
   #[rule = "Expr -> IntConst"]
   fn expr_int(i: Token) -> Expr<'p> { Expr::Int(i.parse(), std::marker::PhantomData) }
   #[rule = "Expr -> Sub Expr"]
+  #[prec = "LNot"] // 本条产生式的优先级不是与Sub相同，而是与LNot相同，比二元运算符高
   fn expr_neg(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(Neg, Box::new(e)) }
   #[rule = "Expr -> BNot Expr"]
   fn expr_bnot(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(BNot, Box::new(e)) }
   #[rule = "Expr -> LNot Expr"]
   fn expr_lnot(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(LNot, Box::new(e)) }
+  #[rule = "Expr -> Expr Add Expr"]
+  fn expr_add(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Add, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Sub Expr"]
+  fn expr_sub(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Sub, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Mul Expr"]
+  fn expr_mul(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Mul, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Div Expr"]
+  fn expr_div(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Div, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Mod Expr"]
+  fn expr_mod(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Mod, Box::new(l), Box::new(r)) }
 }

@@ -1,5 +1,5 @@
 use std::io::{Result, Write};
-use crate::{ast::UnaryOp::*, ir::*};
+use crate::{ast::{UnaryOp::*, BinaryOp::*}, ir::*};
 
 pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
   let f = &p.func;
@@ -19,6 +19,15 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
         writeln!(w, "  lw t0, 0(sp)")?; // 从栈顶读出运算数
         let op = match op { Neg => "neg", BNot => "not", LNot => "seqz" };
         writeln!(w, "  {} t0, t0", op)?; // 对运算数进行一元运算，用neg计算负，not计算按位非，seqz计算逻辑非
+        writeln!(w, "  sw t0, 0(sp)")?; // 保存回栈顶的位置
+      }
+      IrStmt::Binary(op) => {
+        // 与Unary类似，这里的翻译过程可以做一点简化，不用修改三次栈指针，只用修改一次：最终栈大小-1
+        writeln!(w, "  lw t0, 0(sp)")?; // 从栈顶读出右操作数
+        writeln!(w, "  lw t1, 4(sp)")?; // 从栈顶"下面一个"读出左操作数，注意栈往下走地址实际上是变高的
+        writeln!(w, "  add sp, sp, 4")?; // 栈大小-1
+        let op = match op { Add => "add", Sub => "sub", Mul => "mul", Div => "div", Mod => "rem" };
+        writeln!(w, "  {} t0, t1, t0", op)?; // 对两个操作数进行二元运算
         writeln!(w, "  sw t0, 0(sp)")?; // 保存回栈顶的位置
       }
       IrStmt::Ret => {

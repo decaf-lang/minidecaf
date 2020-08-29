@@ -17,6 +17,8 @@ pub enum IrStmt {
   Const(i32),
   // 弹出栈顶元素，对其进行相应的UnaryOp后把结果压入栈顶
   Unary(UnaryOp),
+  // 依次弹出栈顶的两个元素，分别作为右操作数和左操作数(右操作数在栈顶，左操作数是下面一个)，对其进行相应的BinaryOp后把结果压入栈顶
+  Binary(BinaryOp),
   // 弹出栈顶元素，将其作为返回值返回当前函数
   Ret,
 }
@@ -45,6 +47,13 @@ fn expr(stmts: &mut Vec<IrStmt>, e: &Expr) {
       // 为了翻译一个unary表达式，先翻译它的操作数，这样栈顶就是操作数的值，再生成一条Unary指令基于栈顶的值进行计算
       expr(stmts, x);
       stmts.push(IrStmt::Unary(*op));
+    }
+    Expr::Binary(op, l, r) => {
+      // 为了翻译一个binary表达式，先翻译它的左操作数，再翻译它的右操作数
+      // 这样栈顶就是右操作数的值，栈顶下面一个就是左操作数的值，再生成一条Binary指令基于这两个值进行计算
+      expr(stmts, l);
+      expr(stmts, r);
+      stmts.push(IrStmt::Binary(*op));
     }
   }
 }

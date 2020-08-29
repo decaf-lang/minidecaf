@@ -19,9 +19,13 @@ pub enum Stmt<'a> {
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub enum UnaryOp { Neg, BNot, LNot }
 
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum BinaryOp { Add, Sub, Mul, Div, Mod }
+
 // 之后的表达式中会用上这个生命周期参数，这里提前加上以免后面大量改动。由于Rust不允许未使用的生命周期参数，这里使用PhantomData
 #[derive(Debug)]
 pub enum Expr<'a> {
   Int(i32, std::marker::PhantomData<&'a ()>),
   Unary(UnaryOp, Box<Expr<'a>>),
+  Binary(BinaryOp, Box<Expr<'a>>, Box<Expr<'a>>),
 }
