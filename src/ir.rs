@@ -15,6 +15,8 @@ pub struct IrFunc<'a> {
 pub enum IrStmt {
   // 把一个常数压入栈中
   Const(i32),
+  // 弹出栈顶元素，对其进行相应的UnaryOp后把结果压入栈顶
+  Unary(UnaryOp),
   // 弹出栈顶元素，将其作为返回值返回当前函数
   Ret,
 }
@@ -39,5 +41,10 @@ fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
 fn expr(stmts: &mut Vec<IrStmt>, e: &Expr) {
   match e {
     Expr::Int(x, _) => stmts.push(IrStmt::Const(*x)),
+    Expr::Unary(op, x) => {
+      // 为了翻译一个unary表达式，先翻译它的操作数，这样栈顶就是操作数的值，再生成一条Unary指令基于栈顶的值进行计算
+      expr(stmts, x);
+      stmts.push(IrStmt::Unary(*op));
+    }
   }
 }

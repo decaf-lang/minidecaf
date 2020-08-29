@@ -1,4 +1,4 @@
-use crate::ast::*;
+use crate::ast::{*, UnaryOp::*};
 
 pub struct Parser {}
 
@@ -23,6 +23,9 @@ priority = []
 '\)' = 'RPar'
 '\{' = 'LBrc' # Brc是Brace的简称
 '\}' = 'RBrc'
+'-' = 'Sub'
+'~' = 'BNot'
+'!' = 'LNot'
 '\s+' = '_Eps'
 '\d+' = 'IntConst'
 '[a-zA-Z_]\w*' = 'Id' # 以字母或_开头，后面跟0或多个数字，字母或_
@@ -41,4 +44,10 @@ impl<'p> Parser {
 
   #[rule = "Expr -> IntConst"]
   fn expr_int(i: Token) -> Expr<'p> { Expr::Int(i.parse(), std::marker::PhantomData) }
+  #[rule = "Expr -> Sub Expr"]
+  fn expr_neg(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(Neg, Box::new(e)) }
+  #[rule = "Expr -> BNot Expr"]
+  fn expr_bnot(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(BNot, Box::new(e)) }
+  #[rule = "Expr -> LNot Expr"]
+  fn expr_lnot(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(LNot, Box::new(e)) }
 }
