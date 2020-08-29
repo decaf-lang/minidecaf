@@ -20,7 +20,7 @@ pub enum Stmt<'a> {
 pub enum UnaryOp { Neg, BNot, LNot }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub enum BinaryOp { Add, Sub, Mul, Div, Mod }
+pub enum BinaryOp { Add, Sub, Mul, Div, Mod, Lt, Le, Ge, Gt, Eq, Ne, And, Or }
 
 // 之后的表达式中会用上这个生命周期参数，这里提前加上以免后面大量改动。由于Rust不允许未使用的生命周期参数，这里使用PhantomData
 #[derive(Debug)]

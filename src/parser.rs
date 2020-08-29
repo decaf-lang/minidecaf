@@ -14,6 +14,10 @@ impl<'p> Token<'p> {
 #[parser_macros::lalr1(Prog)]
 #[lex = r#"
 priority = [
+  { assoc = 'left', terms = ['Or'] },
+  { assoc = 'left', terms = ['And'] },
+  { assoc = 'left', terms = ['Eq', 'Ne'] },
+  { assoc = 'left', terms = ['Lt', 'Le', 'Ge', 'Gt'] },
   { assoc = 'left', terms = ['Add', 'Sub'] },
   { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
   { assoc = 'left', terms = ['BNot', 'LNot'] },
@@ -31,6 +35,14 @@ priority = [
 '-' = 'Sub'
 '\*' = 'Mul'
 '/' = 'Div'
+'<' = 'Lt'
+'<=' = 'Le'
+'>=' = 'Ge'
+'>' = 'Gt'
+'==' = 'Eq'
+'!=' = 'Ne'
+'&&' = 'And'
+'\|\|' = 'Or'
 '%' = 'Mod'
 '~' = 'BNot'
 '!' = 'LNot'
@@ -71,4 +83,20 @@ impl<'p> Parser {
   fn expr_div(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Div, Box::new(l), Box::new(r)) }
   #[rule = "Expr -> Expr Mod Expr"]
   fn expr_mod(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Mod, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Lt Expr"]
+  fn expr_lt(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Lt, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Le Expr"]
+  fn expr_le(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Le, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Ge Expr"]
+  fn expr_ge(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Ge, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Gt Expr"]
+  fn expr_gt(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Gt, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Eq Expr"]
+  fn expr_eq(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Eq, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Ne Expr"]
+  fn expr_ne(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Ne, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr And Expr"]
+  fn expr_and(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(And, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Or Expr"]
+  fn expr_or(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Or, Box::new(l), Box::new(r)) }
 }

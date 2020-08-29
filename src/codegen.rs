@@ -26,8 +26,42 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
         writeln!(w, "  lw t0, 0(sp)")?; // 从栈顶读出右操作数
         writeln!(w, "  lw t1, 4(sp)")?; // 从栈顶"下面一个"读出左操作数，注意栈往下走地址实际上是变高的
         writeln!(w, "  add sp, sp, 4")?; // 栈大小-1
-        let op = match op { Add => "add", Sub => "sub", Mul => "mul", Div => "div", Mod => "rem" };
-        writeln!(w, "  {} t0, t1, t0", op)?; // 对两个操作数进行二元运算
+        // 这个match根据op来执行运算，结果保存到t0中，有些运算可以用一条指令完成，有些复杂一点，具体细节可以查阅RISC-V的资料
+        match op {
+          Add => writeln!(w, "  add t0, t1, t0")?,
+          Sub => writeln!(w, "  sub t0, t1, t0")?,
+          Mul => writeln!(w, "  mul t0, t1, t0")?,
+          Div => writeln!(w, "  div t0, t1, t0")?,
+          Mod => writeln!(w, "  rem t0, t1, t0")?,
+          Lt => writeln!(w, "  slt t0, t1, t0")?,
+          Le => {
+            writeln!(w, "  slt t0, t0, t1")?;
+            writeln!(w, "  xor t0, t0, 1")?;
+          }
+          Ge => {
+            writeln!(w, "  slt t0, t1, t0")?;
+            writeln!(w, "  xor t0, t0, 1")?;
+          }
+          Gt => writeln!(w, "  slt t0, t0, t1")?,
+          Eq => {
+            writeln!(w, "  xor t0, t0, t1")?;
+            writeln!(w, "  seqz t0, t0")?;
+          }
+          Ne => {
+            writeln!(w, "  xor t0, t0, t1")?;
+            writeln!(w, "  snez t0, t0")?;
+          }
+          // And/Or不能直接用and/or指令完成，因为这两条指令执行的是按位运算，但是语言要求进行逻辑运算
+          And => {
+            writeln!(w, "  snez t0, t0")?;
+            writeln!(w, "  snez t1, t1")?;
+            writeln!(w, "  and t0, t0, t1")?;
+          }
+          Or => {
+            writeln!(w, "  or t0, t0, t1")?;
+            writeln!(w, "  snez t0, t0")?;
+          }
+        };
         writeln!(w, "  sw t0, 0(sp)")?; // 保存回栈顶的位置
       }
       IrStmt::Ret => {
