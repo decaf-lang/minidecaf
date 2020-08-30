@@ -14,6 +14,7 @@ impl<'p> Token<'p> {
 #[parser_macros::lalr1(Prog)]
 #[lex = r#"
 priority = [
+  { assoc = 'right', terms = ['Assign'] },
   { assoc = 'left', terms = ['Or'] },
   { assoc = 'left', terms = ['And'] },
   { assoc = 'left', terms = ['Eq', 'Ne'] },
@@ -31,6 +32,7 @@ priority = [
 '\)' = 'RPar'
 '\{' = 'LBrc' # Brc是Brace的简称
 '\}' = 'RBrc'
+'=' = 'Assign'
 '\+' = 'Add'
 '-' = 'Sub'
 '\*' = 'Mul'
@@ -54,18 +56,38 @@ impl<'p> Parser {
   #[rule = "Prog -> Func"]
   fn prog(func: Func<'p>) -> Prog<'p> { Prog { func } }
 
-  #[rule = "Func -> Int Id LPar RPar LBrc Stmt RBrc"]
-  fn func(_i: Token, name: Token, _lp: Token, _rp: Token, _lb: Token, stmt: Stmt<'p>, _rb: Token) -> Func<'p> {
-    Func { name: name.str(), stmt }
+  #[rule = "Decl -> Int Id"]
+  fn decl0(_i: Token, name: Token) -> Decl<'p> { Decl { name: name.str(), init: None } }
+  #[rule = "Decl -> Int Id Assign Expr"]
+  fn decl1(_i: Token, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { name: name.str(), init: Some(init) } }
+
+  #[rule = "Func -> Int Id LPar RPar LBrc Stmts RBrc"]
+  fn func(_i: Token, name: Token, _lp: Token, _rp: Token, _lb: Token, stmts: Vec<Stmt<'p>>, _rb: Token) -> Func<'p> {
+    Func { name: name.str(), stmts }
   }
 
+  #[rule = "Stmts ->"]
+  fn stmts0() -> Vec<Stmt<'p>> { Vec::new() }
+  #[rule = "Stmts -> Stmts Stmt"]
+  fn stmts1(mut l: Vec<Stmt<'p>>, r: Stmt<'p>) -> Vec<Stmt<'p>> { (l.push(r), l).1 }
+
+  #[rule = "Stmt -> Semi"]
+  fn stmt_empty(_s: Token) -> Stmt<'p> { Stmt::Empty }
   #[rule = "Stmt -> Return Expr Semi"]
   fn stmt_ret(_r: Token, e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Ret(e) }
+  #[rule = "Stmt -> Decl Semi"]
+  fn stmt_decl(d: Decl<'p>, _s: Token) -> Stmt<'p> { Stmt::Decl(d) }
+  #[rule = "Stmt -> Expr Semi"]
+  fn stmt_expr(e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Expr(e) }
 
   #[rule = "Expr -> LPar Expr RPar"] // AST中直接忽略括号结构
   fn expr_par(_l: Token, e: Expr<'p>, _r: Token) -> Expr<'p> { e }
   #[rule = "Expr -> IntConst"]
-  fn expr_int(i: Token) -> Expr<'p> { Expr::Int(i.parse(), std::marker::PhantomData) }
+  fn expr_int(i: Token) -> Expr<'p> { Expr::Int(i.parse()) }
+  #[rule = "Expr -> Id"]
+  fn expr_var(name: Token) -> Expr<'p> { Expr::Var(name.str()) }
+  #[rule = "Expr -> Id Assign Expr"]
+  fn expr_assign(name: Token, _a: Token, r: Expr<'p>) -> Expr<'p> { Expr::Assign(name.str(), Box::new(r)) }
   #[rule = "Expr -> Sub Expr"]
   #[prec = "LNot"] // 本条产生式的优先级不是与Sub相同，而是与LNot相同，比二元运算符高
   fn expr_neg(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(Neg, Box::new(e)) }

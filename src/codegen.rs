@@ -5,6 +5,23 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
   let f = &p.func;
   writeln!(w, ".global {}", f.name)?;
   writeln!(w, "{}:", f.name)?;
+  // 函数的prologue部分，保存s0和ra寄存器的值，为局部变量开辟空间
+  // 当前阶段s0和ra寄存器的值确实没有保存的必要，不过之后总是要用得上的
+  writeln!(w, "  sw s0, -{}(sp)", (f.var_cnt + 1) * 4)?;
+  writeln!(w, "  sw ra, -{}(sp)", (f.var_cnt + 2) * 4)?;
+  writeln!(w, "  mv s0, sp")?;
+  writeln!(w, "  add sp, sp, -{}", (f.var_cnt + 2) * 4)?;
+  // prologue结束后，栈的布局是这样的：
+  //          <-- s0，访问局部变量0用-4(s0)
+  // 局部变量0
+  // 局部变量1
+  // ...
+  // 局部变量n
+  // 保存的s0
+  // 保存的ra <-- sp
+  // <运算栈>
+  //
+  // 运算栈上可能会进行各种弹栈，压栈操作，但是栈指针始终不会越过prologue结束时的栈指针的位置，上面这些内容与运算栈互不干扰
   for s in &f.stmts {
     writeln!(w, "  # {:?}", s)?; // 输出一条注释，表示下面的汇编对应IR中的什么指令，方便调试
     match s {
@@ -64,9 +81,31 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
         };
         writeln!(w, "  sw t0, 0(sp)")?; // 保存回栈顶的位置
       }
+      IrStmt::LocalAddr(x) => {
+        writeln!(w, "  add t0, s0, -{}", (x + 1) * 4)?; // 计算变量x的地址，保存到t0中
+        writeln!(w, "  sw t0, -4(sp)")?; // 以下两句将t0的值压入栈中
+        writeln!(w, "  add sp, sp, -4")?;
+      }
+      IrStmt::Load => {
+        // 与Unary类似，这里的翻译过程可以做一点简化，不用修改栈指针
+        writeln!(w, "  lw t0, 0(sp)")?; // 从栈顶读出load的地址
+        writeln!(w, "  lw t0, 0(t0)")?; // 执行load操作
+        writeln!(w, "  sw t0, 0(sp)")?; // 保存回栈顶的位置
+      }
+      IrStmt::Store => {
+        // 与Unary类似，这里的翻译过程可以做一点简化，不用修改三次栈指针，只用修改一次：最终栈大小-1
+        writeln!(w, "  lw t0, 0(sp)")?; // 从栈顶读出store的值
+        writeln!(w, "  lw t1, 4(sp)")?; // 从栈顶"下面一个"读出store的地址
+        writeln!(w, "  sw t1, 0(t0)")?; // 执行store操作
+        writeln!(w, "  add sp, sp, 4")?; // 栈大小-1
+      }
+      IrStmt::Pop => writeln!(w, "  add sp, sp, 4")?,
       IrStmt::Ret => {
-        writeln!(w, "  lw a0, 0(sp)")?;
-        writeln!(w, "  add sp, sp, 4")?; // 以上两句将栈顶的值弹出，存入a0
+        writeln!(w, "  lw a0, 0(sp)")?; // 从栈顶读出返回值，不用修改栈指针，因为下面会恢复栈指针到函数开始时的值
+        // 函数的epilogue部分，恢复栈指针，s0，ra
+        writeln!(w, "  mv sp, s0")?;
+        writeln!(w, "  lw s0, -{}(sp)", (f.var_cnt + 1) * 4)?;
+        writeln!(w, "  lw ra, -{}(sp)", (f.var_cnt + 2) * 4)?;
         writeln!(w, "  ret")?; // a0保存了函数的返回值
       }
     }
