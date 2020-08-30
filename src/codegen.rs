@@ -99,6 +99,18 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
         writeln!(w, "  sw t1, 0(t0)")?; // 执行store操作
         writeln!(w, "  add sp, sp, 4")?; // 栈大小-1
       }
+      IrStmt::Label(x) => writeln!(w, ".L.{}.{}:", f.name, x)?, // label名字的格式是.L.{函数名}.{label编号}
+      IrStmt::Bz(x) => {
+        writeln!(w, "  lw t0, 0(sp)")?;
+        writeln!(w, "  add sp, sp, 4")?; // 以上两句将栈顶的值弹出，存入t0
+        writeln!(w, "  beqz t0, .L.{}.{}", f.name, x)?; // 若t0为0，则跳转到对应label，否则继续执行下一句
+      }
+      IrStmt::Bnz(x) => { // 与IrStmt::Bz完全类似
+        writeln!(w, "  lw t0, 0(sp)")?;
+        writeln!(w, "  add sp, sp, 4")?;
+        writeln!(w, "  bnez t0, .L.{}.{}", f.name, x)?;
+      }
+      IrStmt::Jump(x) => writeln!(w, "  j .L.{}.{}", f.name, x)?,
       IrStmt::Pop => writeln!(w, "  add sp, sp, 4")?,
       IrStmt::Ret => {
         writeln!(w, "  lw a0, 0(sp)")?; // 从栈顶读出返回值，不用修改栈指针，因为下面会恢复栈指针到函数开始时的值

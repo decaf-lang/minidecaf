@@ -29,6 +29,14 @@ pub enum IrStmt {
   // 依次弹出栈顶的两个元素，分别作为store的地址和store的值(地址在栈顶，值是下面一个)，把值store到地址中，然后再把值重新压回栈中
   // (之所以有这个"压回"的操作，是为了实现表达式a = b的结果为b的值的语义)
   Store,
+  // 定义一个标号，不涉及任何操作
+  Label(u32),
+  // 弹出栈顶的值，如果它等于0，则跳转到对应标号，否则继续执行下一条语句
+  Bz(u32),
+  // 弹出栈顶的值，如果它不等于0，则跳转到对应标号，否则继续执行下一条语句
+  Bnz(u32),
+  // 跳转到对应标号
+  Jump(u32),
   // 弹出栈顶元素
   Pop,
   // 弹出栈顶元素，将其作为返回值返回当前函数
@@ -49,9 +57,13 @@ struct FuncCtx<'a> {
   stmts: Vec<IrStmt>,
   // 当前局部变量的数目
   var_cnt: u32,
+  // 当前标号的数目
+  label_cnt: u32,
 }
 
 impl<'a> FuncCtx<'a> {
+  fn new_label(&mut self) -> u32 { (self.label_cnt, self.label_cnt += 1).0 }
+
   // 在当前环境中查找对应名称的变量，如果找到了就返回它的id，否则就panic
   fn lookup(&self, name: &str) -> u32 {
     if let Some(x) = self.names.get(name) { return x.0; }
@@ -60,7 +72,7 @@ impl<'a> FuncCtx<'a> {
 }
 
 fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
-  let mut ctx = FuncCtx { names: HashMap::new(), stmts: Vec::new(), var_cnt: 0 };
+  let mut ctx = FuncCtx { names: HashMap::new(), stmts: Vec::new(), var_cnt: 0, label_cnt: 0 };
   for s in &f.stmts { stmt(&mut ctx, s); }
   // 如果函数的指令序列不以Ret结尾，则生成一条return 0
   match ctx.stmts.last() {
@@ -103,6 +115,16 @@ fn stmt<'a>(ctx: &mut FuncCtx<'a>, s: &'a Stmt<'a>) {
       // 上面生成的代码执行完后运算栈的大小会+1，但是Stmt不应该改变栈的大小，所以生成一条Pop来恢复运算栈
       ctx.stmts.push(IrStmt::Pop);
     }
+    Stmt::If(cond, t, f) => {
+      expr(ctx, cond);
+      let (before_f, after_f) = (ctx.new_label(), ctx.new_label());
+      ctx.stmts.push(IrStmt::Bz(before_f)); // 依据cond的结果进行跳转，如果为cond为0，则跳到else分支，否则进入then分支
+      stmt(ctx, t);
+      ctx.stmts.push(IrStmt::Jump(after_f)); // then分支结束后需要跳过else分支
+      ctx.stmts.push(IrStmt::Label(before_f)); // else分支的开始位置
+      if let Some(f) = f { stmt(ctx, f); }
+      ctx.stmts.push(IrStmt::Label(after_f)); // else分支的结束位置
+    }
   }
 }
 
@@ -134,6 +156,17 @@ fn expr<'a>(ctx: &mut FuncCtx<'a>, e: &Expr) {
       let id = ctx.lookup(name);
       ctx.stmts.push(IrStmt::LocalAddr(id));
       ctx.stmts.push(IrStmt::Store);
+    }
+    Expr::Condition(cond, t, f) => {
+      // 依据cond的结果进行跳转，如果为cond为0，则计算表达式f，否则计算表达式t；整体的实现方式与Stmt::If是完全类似的
+      expr(ctx, cond);
+      let (before_f, after_f) = (ctx.new_label(), ctx.new_label());
+      ctx.stmts.push(IrStmt::Bz(before_f));
+      expr(ctx, t);
+      ctx.stmts.push(IrStmt::Jump(after_f));
+      ctx.stmts.push(IrStmt::Label(before_f));
+      expr(ctx, f);
+      ctx.stmts.push(IrStmt::Label(after_f));
     }
   }
 }

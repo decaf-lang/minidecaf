@@ -22,6 +22,8 @@ pub enum Stmt<'a> {
   Ret(Expr<'a>),
   Decl(Decl<'a>),
   Expr(Expr<'a>),
+  // 这里的Stmt实际不可能是Stmt::Decl，parser不会生成这样的结构
+  If(Expr<'a>, Box<Stmt<'a>>, Option<Box<Stmt<'a>>>),
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -37,4 +39,6 @@ pub enum Expr<'a> {
   Binary(BinaryOp, Box<Expr<'a>>, Box<Expr<'a>>),
   Var(&'a str),
   Assign(&'a str, Box<Expr<'a>>),
+  // 三个Box<Expr<'a>>分别是a ? b : c中的a，b，c
+  Condition(Box<Expr<'a>>, Box<Expr<'a>>, Box<Expr<'a>>),
 }

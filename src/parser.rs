@@ -15,6 +15,7 @@ impl<'p> Token<'p> {
 #[lex = r#"
 priority = [
   { assoc = 'right', terms = ['Assign'] },
+  { assoc = 'right', terms = ['Question', 'Colon'] },
   { assoc = 'left', terms = ['Or'] },
   { assoc = 'left', terms = ['And'] },
   { assoc = 'left', terms = ['Eq', 'Ne'] },
@@ -22,11 +23,14 @@ priority = [
   { assoc = 'left', terms = ['Add', 'Sub'] },
   { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
   { assoc = 'left', terms = ['BNot', 'LNot'] },
+  { assoc = 'left', terms = ['Else'] },
 ]
 
 [lexical]
 'int' = 'Int'
 'return' = 'Return'
+'if' = 'If'
+'else' = 'Else'
 ';' = 'Semi' # Semi是Semicolon的简称
 '\(' = 'LPar' # Par是Parenthesis的简称
 '\)' = 'RPar'
@@ -48,6 +52,8 @@ priority = [
 '%' = 'Mod'
 '~' = 'BNot'
 '!' = 'LNot'
+'\?' = 'Question'
+':' = 'Colon'
 '\s+' = '_Eps'
 '\d+' = 'IntConst'
 '[a-zA-Z_]\w*' = 'Id' # 以字母或_开头，后面跟0或多个数字，字母或_
@@ -70,15 +76,23 @@ impl<'p> Parser {
   fn stmts0() -> Vec<Stmt<'p>> { Vec::new() }
   #[rule = "Stmts -> Stmts Stmt"]
   fn stmts1(mut l: Vec<Stmt<'p>>, r: Stmt<'p>) -> Vec<Stmt<'p>> { (l.push(r), l).1 }
+  #[rule = "Stmts -> Stmts Decl Semi"] // 只有Stmt序列中允许出现Decl，一般的Stmt则不允许，这样就拒绝了if (1) int x;这样的程序
+  fn stmts2(mut l: Vec<Stmt<'p>>, d: Decl<'p>, _s: Token) -> Vec<Stmt<'p>> { (l.push(Stmt::Decl(d)), l).1 }
 
   #[rule = "Stmt -> Semi"]
   fn stmt_empty(_s: Token) -> Stmt<'p> { Stmt::Empty }
   #[rule = "Stmt -> Return Expr Semi"]
   fn stmt_ret(_r: Token, e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Ret(e) }
-  #[rule = "Stmt -> Decl Semi"]
-  fn stmt_decl(d: Decl<'p>, _s: Token) -> Stmt<'p> { Stmt::Decl(d) }
   #[rule = "Stmt -> Expr Semi"]
   fn stmt_expr(e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Expr(e) }
+  #[rule = "Stmt -> If LPar Expr RPar Stmt MaybeElse"]
+  fn stmt_if(_i: Token, _l: Token, cond: Expr<'p>, _r: Token, t: Stmt<'p>, f: Option<Box<Stmt<'p>>>) -> Stmt<'p> { Stmt::If(cond, Box::new(t), f) }
+
+  #[rule = "MaybeElse ->"]
+  #[prec = "LNot"] // 这个优先级比较随意，只要比MaybeElse -> Else Stmt产生式的优先级低就可以了，也就是比Else的优先级低
+  fn maybe_else0() -> Option<Box<Stmt<'p>>> { None }
+  #[rule = "MaybeElse -> Else Stmt"]
+  fn maybe_else1(_e: Token, s: Stmt<'p>) -> Option<Box<Stmt<'p>>> { Some(Box::new(s)) }
 
   #[rule = "Expr -> LPar Expr RPar"] // AST中直接忽略括号结构
   fn expr_par(_l: Token, e: Expr<'p>, _r: Token) -> Expr<'p> { e }
@@ -121,4 +135,6 @@ impl<'p> Parser {
   fn expr_and(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(And, Box::new(l), Box::new(r)) }
   #[rule = "Expr -> Expr Or Expr"]
   fn expr_or(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Or, Box::new(l), Box::new(r)) }
+  #[rule = "Expr -> Expr Question Expr Colon Expr"]
+  fn expr_condition(cond: Expr<'p>, _q: Token, t: Expr<'p>, _c: Token, f: Expr<'p>) -> Expr<'p> { Expr::Condition(Box::new(cond), Box::new(t), Box::new(f)) }
 }
