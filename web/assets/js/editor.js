@@ -5,6 +5,7 @@ int main() {
 `;
 
 var codeCM;
+var irCM;
 var asmCM;
 var outputCM;
 
@@ -30,16 +31,19 @@ function compileAndRun() {
 
   var input = codeCM.getValue();
   try {
-    var asm = MiniDecaf.compile(input, { target: "riscv32-asm" });
+    var ir = MiniDecaf.compile(input, { target: "ir" });
+    irCM.setValue(ir.toString());
+    var asm = MiniDecaf.compile(ir, { target: "riscv32-asm" });
     asmCM.setValue(asm);
   } catch (err) {
+    irCM.setValue("");
     asmCM.setValue("");
     setOutput(label, "error", err.message);
     return;
   }
   setTimeout(() => {
     try {
-      var output = MiniDecaf.compile(input, { target: "executed" });
+      var output = MiniDecaf.compile(ir, { target: "executed" });
       setOutput(label, "output", output);
     } catch (err) {
       setOutput(label, "error", err.message);
@@ -65,6 +69,14 @@ $(document).ready(function () {
     matchBrackets: true,
     styleActiveLine: true,
     mode: "text/x-csrc",
+    extraKeys,
+  });
+
+  irCM = CodeMirror(document.getElementById("minidecaf-ir"), {
+    lineNumbers: true,
+    indentUnit: 4,
+    styleActiveLine: true,
+    mode: { name: "gas", architecture: "ir" },
     extraKeys,
   });
 

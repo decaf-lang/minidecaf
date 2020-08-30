@@ -32,6 +32,7 @@
     @media (max-width: 575.98px) {
 
       #minidecaf-input .CodeMirror,
+      #minidecaf-ir .CodeMirror,
       #minidecaf-asm .CodeMirror {
         height: 25rem;
       }
@@ -57,10 +58,8 @@
       font-size: large;
     }
 
-    #minidecaf-input .CodeMirror {
-      border-top: 1px solid #ccc;
-    }
-
+    #minidecaf-input .CodeMirror,
+    #minidecaf-ir .CodeMirror,
     #minidecaf-asm .CodeMirror {
       border-top: 1px solid #ccc;
     }
@@ -97,7 +96,8 @@
         <div class="text-success" id="output-label" style="display: none;">Output:</div>
       </div>
       <div class="col-sm-5 p-0 h-100">
-        <div class="col-12 p-0 h-100" id="minidecaf-asm"></div>
+        <div class="col-12 p-0 h-50" id="minidecaf-ir"></div>
+        <div class="col-12 p-0 h-50" id="minidecaf-asm"></div>
       </div>
     </div>
 

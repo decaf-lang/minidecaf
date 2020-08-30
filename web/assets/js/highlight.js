@@ -261,6 +261,57 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
     }
   }
 
+  function ir(_parserConfig) {
+    lineCommentStartSymbol = "#";
+
+    var regs = ["r0", "r1"];
+    for (var r of regs) {
+      registers[r] = "variable-2";
+    }
+
+    var instrs = ["IMM", "UNARY", "BINARY", "LOAD", "STORE", "LOAD_VAR", "STORE_VAR", "ADDR_VAR", "PUSH", "POP", "JUMP", "BEQZ", "BNEZ", "CALL", "RET"];
+    for (var i of instrs) {
+      instructions[i.toLowerCase()] = "keyword";
+    }
+
+    custom = [
+      function (ch, stream, state) {
+        var metas = ["size", "paramCount", "localVarSize"];
+        var directives = ["FUNC", "LABEL", 'GLOBAL'];
+        var ops = ["!", "~", "+", "-", "*", "/", "%", "<", ">", ">=", "<=", "==", "!=", "&&", "||", "<<", ">>"];
+
+        var opReg = /[!~\+\-\*/%<>=&|]/;
+        if (opReg.test(ch)) {
+          stream.eatWhile(opReg);
+          var cur = stream.current();
+          if (ops.includes(cur)) {
+            return "operator";
+          }
+        }
+
+        if (/\w/.test(ch)) {
+          stream.eatWhile(/\w/);
+          var cur = stream.current();
+          if (stream.peek() == "=" && metas.includes(cur)) {
+            return "meta";
+          } else if (stream.peek() == "(") {
+            return "def";
+          } else if (directives.includes(cur)) {
+            return "builtin";
+          } else if (cur == "undefined") {
+            return "atom";
+          } else if (state.inInstruction) {
+            if (["p", "l", "g"].includes(cur.toLowerCase())) {
+              return "keyword";
+            } else {
+              return "variable";
+            }
+          }
+        }
+      }
+    ]
+  }
+
   var arch = (parserConfig.architecture || "x86").toLowerCase();
   if (arch === "x86") {
     x86(parserConfig);
@@ -268,6 +319,8 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
     armv6(parserConfig);
   } else if (arch === "riscv") {
     riscv(parserConfig);
+  } else if (arch === "ir") {
+    ir(parserConfig);
   }
 
   function nextUntilUnescaped(stream, end) {
@@ -296,13 +349,20 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
   return {
     startState: function() {
       return {
-        tokenize: null
+        tokenize: null,
+        inInstruction: false,
+        currentLine: -1,
       };
     },
 
     token: function(stream, state) {
       if (state.tokenize) {
         return state.tokenize(stream, state);
+      }
+
+      if (stream.lineOracle.line !== state.currentLine) {
+        state.inInstruction = false;
+        state.currentLine = stream.lineOracle.line;
       }
 
       if (stream.eatSpace()) {
@@ -338,11 +398,6 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         return style || null;
       }
 
-      if (ch === '=') {
-        stream.eatWhile(/\w/);
-        return "tag";
-      }
-
       if (/\d/.test(ch)) {
         if (ch === "0" && stream.eat("x")) {
           stream.eatWhile(/[0-9a-fA-F]/);
@@ -358,8 +413,13 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
           return 'tag';
         }
         cur = stream.current().toLowerCase();
-        style = registers[cur];
-        return style || instructions[cur];
+        style = registers[cur] || instructions[cur];
+        if (instructions[cur]) {
+          state.inInstruction = true;
+        }
+        if (style) {
+          return style;
+        }
       }
 
       for (var i = 0; i < custom.length; i++) {

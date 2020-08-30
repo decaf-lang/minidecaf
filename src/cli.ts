@@ -13,6 +13,7 @@ program
         program.input = file;
     })
     .option("-s, --asm", "generate the RISC-V assembly code instead of executing")
+    .option("-r, --ir", "generate the intermediate representation (IR)")
     .option("-o, --output <output_file>", "save the output to file")
     .option("-d, --debug", "debug mode");
 
@@ -20,11 +21,15 @@ program.parse(process.argv);
 
 let input = fs.readFileSync(program.input).toString();
 let option: MiniDecaf.CompilerOption = {
-    target: program.asm ? MiniDecaf.CompilerTarget.Riscv32Asm : MiniDecaf.CompilerTarget.Executed,
+    target: program.asm
+        ? MiniDecaf.CompilerTarget.Riscv32Asm
+        : program.ir
+        ? MiniDecaf.CompilerTarget.Ir
+        : MiniDecaf.CompilerTarget.Executed,
 };
 
 try {
-    let output = MiniDecaf.compile(input, option);
+    let output = MiniDecaf.compile(input, option).toString();
     if (program.output) {
         fs.writeFileSync(program.output, output);
     } else {

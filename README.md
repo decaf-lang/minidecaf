@@ -22,6 +22,7 @@ npm run cli <input_file> -- [options]
 Options:
   -V, --version               output the version number
   -s, --asm                   generate the RISC-V assembly code instead of executing
+  -r, --ir                    generate the intermediate representation (IR)
   -o, --output <output_file>  save the output to file
   -d, --debug                 debug mode
   -h, --help                  display help for command
