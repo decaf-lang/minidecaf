@@ -18,6 +18,14 @@ Div: '/';
 Mod: '%';
 Not: '!';
 BitNot: '~';
+And: '&&';
+Or: '||';
+Equal: '==';
+NotEqual: '!=';
+Less: '<';
+LessEqual: '<=';
+Greater: '>';
+GreaterEqual: '>=';
 
 Integer: [0-9]+;
 

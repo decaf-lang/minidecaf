@@ -4,6 +4,16 @@ import { RuntimeError, OtherError } from "../error";
 /** 为了模拟 32 位计算机，所有运算结果都要按位与上该数，以截取低 32 位 */
 const MAX_UINT = 0xffff_ffff;
 
+/** 整数转布尔 */
+function num2bool(val: number): boolean {
+    return val !== 0;
+}
+
+/** 布尔转整数 */
+function bool2num(val: boolean): number {
+    return val ? 1 : 0;
+}
+
 /** 计算一元运算 */
 function unaryOp(op: string, factor: number): number {
     switch (op) {
@@ -21,6 +31,22 @@ function unaryOp(op: string, factor: number): number {
 /** 计算二元运算 */
 function binaryOp(op: string, lhs: number, rhs: number): number {
     switch (op) {
+        case "||":
+            return bool2num(num2bool(lhs) || num2bool(rhs));
+        case "&&":
+            return bool2num(num2bool(lhs) && num2bool(rhs));
+        case "==":
+            return bool2num(lhs === rhs);
+        case "!=":
+            return bool2num(lhs !== rhs);
+        case "<":
+            return bool2num(lhs < rhs);
+        case ">":
+            return bool2num(lhs > rhs);
+        case "<=":
+            return bool2num(lhs <= rhs);
+        case ">=":
+            return bool2num(lhs >= rhs);
         case "+":
             return (lhs + rhs) & MAX_UINT;
         case "-":

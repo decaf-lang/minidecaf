@@ -37,8 +37,24 @@ function unaryOp(op: string, rd: string, rs: string): string {
  * @param rs1 源寄存器 1，左操作数
  * @param rs2 源寄存器 2，右操作数
  */
-function binaryOp(op: string, rd: string, rs1: string, rs2: string): string {
+function binaryOp(op: string, rd: string, rs1: string, rs2: string): string | string[] {
     switch (op) {
+        case "||":
+            return [`or ${rd}, ${rs1}, ${rs2}`, `snez ${rd}, ${rd}`];
+        case "&&":
+            return [`snez ${rs1}, ${rs1}`, `snez ${rs2}, ${rs2}`, `and ${rd}, ${rs1}, ${rs2}`];
+        case "==":
+            return [`sub ${rd}, ${rs1}, ${rs2}`, `seqz ${rd}, ${rd}`];
+        case "!=":
+            return [`sub ${rd}, ${rs1}, ${rs2}`, `snez ${rd}, ${rd}`];
+        case "<":
+            return `slt ${rd}, ${rs1}, ${rs2}`;
+        case ">":
+            return `slt ${rd}, ${rs2}, ${rs1}`;
+        case "<=":
+            return [`slt ${rd}, ${rs2}, ${rs1}`, `xori ${rd}, ${rd}, 1`];
+        case ">=":
+            return [`slt ${rd}, ${rs1}, ${rs2}`, `xori ${rd}, ${rd}, 1`];
         case "+":
             return `add ${rd}, ${rs1}, ${rs2}`;
         case "-":

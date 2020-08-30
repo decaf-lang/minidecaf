@@ -15,7 +15,27 @@ stmt
     ;
 
 expr
+    : orExpr
+    ;
+
+orExpr
+    : andExpr
+    | orExpr '||' andExpr
+    ;
+
+andExpr
+    : equalExpr
+    | andExpr '&&' equalExpr
+    ;
+
+equalExpr
+    : relExpr
+    | equalExpr ('==' | '!=') relExpr
+    ;
+
+relExpr
     : addExpr
+    | relExpr ('<' | '>' | '<=' | '>=') addExpr
     ;
 
 addExpr
