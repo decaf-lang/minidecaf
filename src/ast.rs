@@ -4,8 +4,12 @@ pub struct Prog<'a> {
   pub globs: Vec<Decl<'a>>,
 }
 
+// 因为类型只可能是int或者int的若干重指针，所以只用记录指针的重数即可(即int **...*中*的个数)
+pub type Ty = u32;
+
 #[derive(Debug)]
 pub struct Decl<'a> {
+  pub ty: Ty,
   pub name: &'a str,
   // 一个可选的初始值
   pub init: Option<Expr<'a>>,
@@ -13,6 +17,7 @@ pub struct Decl<'a> {
 
 #[derive(Debug)]
 pub struct Func<'a> {
+  pub ret: Ty,
   pub name: &'a str,
   pub params: Vec<Decl<'a>>,
   // 函数定义中stmts为Some，函数声明中stmts为None
@@ -50,8 +55,11 @@ pub enum Expr<'a> {
   Unary(UnaryOp, Box<Expr<'a>>),
   Binary(BinaryOp, Box<Expr<'a>>, Box<Expr<'a>>),
   Var(&'a str),
-  Assign(&'a str, Box<Expr<'a>>),
+  Assign(Box<Expr<'a>>, Box<Expr<'a>>),
   // 三个Box<Expr<'a>>分别是a ? b : c中的a，b，c
   Condition(Box<Expr<'a>>, Box<Expr<'a>>, Box<Expr<'a>>),
   Call(&'a str, Vec<Expr<'a>>),
+  Deref(Box<Expr<'a>>),
+  AddrOf(Box<Expr<'a>>),
+  Cast(Ty, Box<Expr<'a>>),
 }

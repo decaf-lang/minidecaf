@@ -22,7 +22,7 @@ priority = [
   { assoc = 'left', terms = ['Lt', 'Le', 'Ge', 'Gt'] },
   { assoc = 'left', terms = ['Add', 'Sub'] },
   { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
-  { assoc = 'left', terms = ['BNot', 'LNot'] },
+  { assoc = 'left', terms = ['BNot', 'LNot', 'AddrOf', 'RPar'] },
   { assoc = 'left', terms = ['Else'] },
 ]
 
@@ -60,6 +60,7 @@ priority = [
 '!' = 'LNot'
 '\?' = 'Question'
 ':' = 'Colon'
+'&' = 'AddrOf'
 '\s+' = '_Eps'
 '\d+' = 'IntConst'
 '[a-zA-Z_]\w*' = 'Id' # 以字母或_开头，后面跟0或多个数字，字母或_
@@ -72,18 +73,23 @@ impl<'p> Parser {
   #[rule = "Prog -> Prog Decl Semi"]
   fn prog_glob(mut p: Prog<'p>, d: Decl<'p>, _s: Token) -> Prog<'p> { (p.globs.push(d), p).1 }
 
-  #[rule = "Decl -> Int Id"]
-  fn decl0(_i: Token, name: Token) -> Decl<'p> { Decl { name: name.str(), init: None } }
-  #[rule = "Decl -> Int Id Assign Expr"]
-  fn decl1(_i: Token, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { name: name.str(), init: Some(init) } }
+  #[rule = "Ty -> Int"]
+  fn ty_int(_: Token) -> Ty { 0 }
+  #[rule = "Ty -> Ty Mul"]
+  fn ty_ptr(ty: Ty, _: Token) -> Ty { ty + 1 }
 
-  #[rule = "Func -> Int Id LPar Params RPar Semi"]
-  fn func0(_i: Token, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _s: Token) -> Func<'p> {
-    Func { name: name.str(), params, stmts: None }
+  #[rule = "Decl -> Ty Id"]
+  fn decl0(ty: Ty, name: Token) -> Decl<'p> { Decl { ty, name: name.str(), init: None } }
+  #[rule = "Decl -> Ty Id Assign Expr"]
+  fn decl1(ty: Ty, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { ty, name: name.str(), init: Some(init) } }
+
+  #[rule = "Func -> Ty Id LPar Params RPar Semi"]
+  fn func0(ret: Ty, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _s: Token) -> Func<'p> {
+    Func { ret, name: name.str(), params, stmts: None }
   }
-  #[rule = "Func -> Int Id LPar Params RPar LBrc Stmts RBrc"]
-  fn func1(_i: Token, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _lb: Token, stmts: Vec<Stmt<'p>>, _rb: Token) -> Func<'p> {
-    Func { name: name.str(), params, stmts: Some(stmts) }
+  #[rule = "Func -> Ty Id LPar Params RPar LBrc Stmts RBrc"]
+  fn func1(ret: Ty, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _lb: Token, stmts: Vec<Stmt<'p>>, _rb: Token) -> Func<'p> {
+    Func { ret, name: name.str(), params, stmts: Some(stmts) }
   }
 
   #[rule = "Params ->"]
@@ -146,8 +152,8 @@ impl<'p> Parser {
   fn expr_int(i: Token) -> Expr<'p> { Expr::Int(i.parse()) }
   #[rule = "Expr -> Id"]
   fn expr_var(name: Token) -> Expr<'p> { Expr::Var(name.str()) }
-  #[rule = "Expr -> Id Assign Expr"]
-  fn expr_assign(name: Token, _a: Token, r: Expr<'p>) -> Expr<'p> { Expr::Assign(name.str(), Box::new(r)) }
+  #[rule = "Expr -> Expr Assign Expr"]
+  fn expr_assign(l: Expr<'p>, _a: Token, r: Expr<'p>) -> Expr<'p> { Expr::Assign(Box::new(l), Box::new(r)) }
   #[rule = "Expr -> Sub Expr"]
   #[prec = "LNot"] // 本条产生式的优先级不是与Sub相同，而是与LNot相同，比二元运算符高
   fn expr_neg(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Unary(Neg, Box::new(e)) }
@@ -185,6 +191,13 @@ impl<'p> Parser {
   fn expr_condition(cond: Expr<'p>, _q: Token, t: Expr<'p>, _c: Token, f: Expr<'p>) -> Expr<'p> { Expr::Condition(Box::new(cond), Box::new(t), Box::new(f)) }
   #[rule = "Expr -> Id LPar Args RPar"]
   fn expr_call(name: Token, _l: Token, args: Vec<Expr<'p>>, _r: Token) -> Expr<'p> { Expr::Call(name.str(), args) }
+  #[rule = "Expr -> Mul Expr"]
+  #[prec = "AddrOf"]
+  fn expr_deref(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::Deref(Box::new(e)) }
+  #[rule = "Expr -> AddrOf Expr"]
+  fn expr_addrof(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::AddrOf(Box::new(e)) }
+  #[rule = "Expr -> LPar Ty RPar Expr"]
+  fn expr_cast(_l: Token, ty: Ty, _r: Token, e: Expr<'p>) -> Expr<'p> { Expr::Cast(ty, Box::new(e)) }
 
   #[rule = "Args ->"]
   fn args0() -> Vec<Expr<'p>> { Vec::new() }
