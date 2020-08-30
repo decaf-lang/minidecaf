@@ -1,7 +1,11 @@
+import { OtherError } from "./error";
+
 /** IR 指令名称 */
 export enum IrInstrName {
     /** 加载一个立即数到 `r0` */
     IMM = "IMM",
+    /** 对 `r0` 进行一元运算，结果存到 `r0` */
+    UNARY = "UNARY",
     /** 返回指令，返回值为 `r0` */
     RET = "RET",
 }
@@ -47,6 +51,11 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.IMM, value));
     }
 
+    /** 对 `r0` 进行一元运算，结果存到 `r0` */
+    emitUnary(op: string) {
+        this.emit(new IrInstr(IrInstrName.UNARY, op));
+    }
+
     /** 返回指令，返回值为 `r0` */
     emitReturn() {
         this.emit(new IrInstr(IrInstrName.RET));
@@ -62,6 +71,8 @@ export abstract class IrVisitor<Result> {
 
     /** 处理立即数指令 `IMM` */
     abstract visitImmediate(instr: IrInstr): any;
+    /** 处理一元运算指令 `UNARY` */
+    abstract visitUnary(instr: IrInstr): any;
     /** 处理返回指令 `RET` */
     abstract visitReturn(instr: IrInstr): any;
 
@@ -73,8 +84,12 @@ export abstract class IrVisitor<Result> {
         switch (i.name) {
             case IrInstrName.IMM:
                 return this.visitImmediate(i);
+            case IrInstrName.UNARY:
+                return this.visitUnary(i);
             case IrInstrName.RET:
                 return this.visitReturn(i);
+            default:
+                throw new OtherError(`unknown IR instruction '${i}'`);
         }
     }
 }

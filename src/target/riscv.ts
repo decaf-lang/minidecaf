@@ -1,4 +1,25 @@
 import { IrInstr, IrVisitor } from "../ir";
+import { OtherError } from "../error";
+
+/**
+ * 一元运算指令。
+ *
+ * @param op 运算符
+ * @param rd 目标寄存器
+ * @param rs 源寄存器
+ */
+function unaryOp(op: string, rd: string, rs: string): string {
+    switch (op) {
+        case "-":
+            return `neg ${rd}, ${rs}`;
+        case "~":
+            return `not ${rd}, ${rs}`;
+        case "!":
+            return `seqz ${rd}, ${rs}`;
+        default:
+            throw new OtherError(`unknown unary operator '${op}'`);
+    }
+}
 
 /** IR 到 RV32 的代码生成器 */
 export class Riscv32CodeGen extends IrVisitor<string> {
@@ -19,6 +40,10 @@ export class Riscv32CodeGen extends IrVisitor<string> {
 
     visitImmediate(instr: IrInstr) {
         this.emitInstr(`li t0, ${instr.op}`);
+    }
+
+    visitUnary(instr: IrInstr) {
+        this.emitInstr(unaryOp(instr.op, "t0", "t0"));
     }
 
     visitReturn(_instr: IrInstr) {

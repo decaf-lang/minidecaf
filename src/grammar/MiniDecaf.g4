@@ -15,5 +15,6 @@ stmt
     ;
 
 expr
-    : Integer
+    : Integer                   # IntExpr
+    | ('-' | '~' | '!') expr    # UnaryExpr
     ;

@@ -15,3 +15,9 @@ export class SemanticError extends Error {
         super(errorMessage(token.line, token.charPositionInLine, msg));
     }
 }
+
+export class OtherError extends Error {
+    constructor(msg: string) {
+        super(`OtherError: ${msg}`);
+    }
+}

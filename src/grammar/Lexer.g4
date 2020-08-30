@@ -11,6 +11,10 @@ RightBrace: '}';
 
 Semi: ';';
 
+Minus: '-';
+Not: '!';
+BitNot: '~';
+
 Integer: [0-9]+;
 
 Whitespace: [ \t]+ -> skip;

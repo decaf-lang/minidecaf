@@ -1,4 +1,22 @@
 import { IrInstrName, IrInstr, IrVisitor } from "../ir";
+import { OtherError } from "../error";
+
+/** 为了模拟 32 位计算机，所有运算结果都要按位与上该数，以截取低 32 位 */
+const MAX_UINT = 0xffff_ffff;
+
+/** 计算一元运算 */
+function unaryOp(op: string, factor: number): number {
+    switch (op) {
+        case "-":
+            return -factor & MAX_UINT;
+        case "~":
+            return ~factor & MAX_UINT;
+        case "!":
+            return factor === 0 ? 1 : 0;
+        default:
+            throw new OtherError(`unknown unary operator '${op}'`);
+    }
+}
 
 /** IR 解释执行器 */
 export class IrExecutor extends IrVisitor<number> {
@@ -14,6 +32,11 @@ export class IrExecutor extends IrVisitor<number> {
     visitImmediate(instr: IrInstr) {
         this.pc++;
         this.r0 = instr.op;
+    }
+
+    visitUnary(instr: IrInstr) {
+        this.pc++;
+        this.r0 = unaryOp(instr.op, this.r0);
     }
 
     visitReturn(_instr: IrInstr) {}
