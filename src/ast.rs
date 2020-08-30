@@ -22,9 +22,17 @@ pub enum Stmt<'a> {
   Ret(Expr<'a>),
   Decl(Decl<'a>),
   Expr(Expr<'a>),
-  // 这里的Stmt实际不可能是Stmt::Decl，parser不会生成这样的结构
+  // 这里的Stmt实际不可能是Stmt::Decl，parser不会生成这样的结构，While/DoWhile/For中的Stmt也是一样的
   If(Expr<'a>, Box<Stmt<'a>>, Option<Box<Stmt<'a>>>),
   Block(Vec<Stmt<'a>>),
+  // AST中没有While的结构，while语句直接用update为None的For来表示
+  DoWhile(Box<Stmt<'a>>, Expr<'a>),
+  // for的init语句不在这里，一条for (init; cond; update) body在AST中表示为：
+  // Block(vec![init, For { cond, update, body }])
+  // 而且init语句只能是三种：Empty/Decl/Expr，这也是parser决定的
+  For { cond: Option<Expr<'a>>, update: Option<Expr<'a>>, body: Box<Stmt<'a>> },
+  Continue,
+  Break,
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

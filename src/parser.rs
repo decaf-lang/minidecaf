@@ -31,6 +31,11 @@ priority = [
 'return' = 'Return'
 'if' = 'If'
 'else' = 'Else'
+'while' = 'While'
+'do' = 'Do'
+'for' = 'For'
+'break' = 'Break'
+'continue' = 'Continue'
 ';' = 'Semi' # Semi是Semicolon的简称
 '\(' = 'LPar' # Par是Parenthesis的简称
 '\)' = 'RPar'
@@ -89,12 +94,33 @@ impl<'p> Parser {
   fn stmt_if(_i: Token, _l: Token, cond: Expr<'p>, _r: Token, t: Stmt<'p>, f: Option<Box<Stmt<'p>>>) -> Stmt<'p> { Stmt::If(cond, Box::new(t), f) }
   #[rule = "Stmt -> LBrc Stmts RBrc"]
   fn stmt_block(_l: Token, stmts: Vec<Stmt<'p>>, _r: Token) -> Stmt<'p> { Stmt::Block(stmts) }
+  #[rule = "Stmt -> While LPar Expr RPar Stmt"]
+  fn stmt_while(_w: Token, _l: Token, cond: Expr<'p>, _r: Token, body: Stmt<'p>) -> Stmt<'p> { Stmt::For { cond: Some(cond), update: None, body: Box::new(body) } }
+  #[rule = "Stmt -> Do Stmt While LPar Expr RPar Semi"]
+  fn stmt_do_while(_d: Token, body: Stmt<'p>, _w: Token, _l: Token, cond: Expr<'p>, _r: Token, _s: Token) -> Stmt<'p> { Stmt::DoWhile(Box::new(body), cond) }
+  #[rule = "Stmt -> For LPar MaybeExpr Semi MaybeExpr Semi MaybeExpr RPar Stmt"]
+  fn stmt_for0(_f: Token, _l: Token, init: Option<Expr<'p>>, _s1: Token, cond: Option<Expr<'p>>, _s2: Token, update: Option<Expr<'p>>, _r: Token, body: Stmt<'p>) -> Stmt<'p> {
+    Stmt::Block(vec![init.map_or(Stmt::Empty, |x| Stmt::Expr(x)), Stmt::For { cond, update, body: Box::new(body) }])
+  }
+  #[rule = "Stmt -> For LPar Decl Semi MaybeExpr Semi MaybeExpr RPar Stmt"]
+  fn stmt_for1(_f: Token, _l: Token, d: Decl<'p>, _s1: Token, cond: Option<Expr<'p>>, _s2: Token, update: Option<Expr<'p>>, _r: Token, body: Stmt<'p>) -> Stmt<'p> {
+    Stmt::Block(vec![Stmt::Decl(d), Stmt::For { cond, update, body: Box::new(body) }])
+  }
+  #[rule = "Stmt -> Break Semi"]
+  fn stmt_break(_b: Token, _s: Token) -> Stmt<'p> { Stmt::Break }
+  #[rule = "Stmt -> Continue Semi"]
+  fn stmt_continue(_c: Token, _s: Token) -> Stmt<'p> { Stmt::Continue }
 
   #[rule = "MaybeElse ->"]
   #[prec = "LNot"] // 这个优先级比较随意，只要比MaybeElse -> Else Stmt产生式的优先级低就可以了，也就是比Else的优先级低
   fn maybe_else0() -> Option<Box<Stmt<'p>>> { None }
   #[rule = "MaybeElse -> Else Stmt"]
   fn maybe_else1(_e: Token, s: Stmt<'p>) -> Option<Box<Stmt<'p>>> { Some(Box::new(s)) }
+
+  #[rule = "MaybeExpr ->"]
+  fn maybe_expr0() -> Option<Expr<'p>> { None }
+  #[rule = "MaybeExpr -> Expr"]
+  fn maybe_expr1(e: Expr<'p>) -> Option<Expr<'p>> { Some(e) }
 
   #[rule = "Expr -> LPar Expr RPar"] // AST中直接忽略括号结构
   fn expr_par(_l: Token, e: Expr<'p>, _r: Token) -> Expr<'p> { e }

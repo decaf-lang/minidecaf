@@ -56,6 +56,9 @@ struct FuncCtx<'a> {
   // 每个语句块对应一个SymbolMap，进入一个语句块时往其中压入一个新的SymbolMap，离开一个语句块时弹出最后的SymbolMap
   names: Vec<SymbolMap<'a>>,
   stmts: Vec<IrStmt>,
+  // 遇到一个循环时往其中压入一对值，分别是(这个循环中break要跳转的位置，这个循环中continue要跳转的位置)，离开循环时就弹出这个值
+  // 处理break/continue时总会访问最后一个元素，如果最后一个元素不存在，就意味着break/continue在循环外
+  loops: Vec<(u32, u32)>,
   // 当前局部变量的数目
   var_cnt: u32,
   // 当前标号的数目
@@ -76,7 +79,7 @@ impl<'a> FuncCtx<'a> {
 }
 
 fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
-  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), var_cnt: 0, label_cnt: 0 };
+  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), var_cnt: 0, label_cnt: 0 };
   for s in &f.stmts { stmt(&mut ctx, s); }
   // 如果函数的指令序列不以Ret结尾，则生成一条return 0
   match ctx.stmts.last() {
@@ -135,6 +138,38 @@ fn stmt<'a>(ctx: &mut FuncCtx<'a>, s: &'a Stmt<'a>) {
       for s in stmts { stmt(ctx, s); }
       ctx.names.pop();
     }
+    Stmt::DoWhile(body, cond) => {
+      let (before_body, before_cond, after_cond) = (ctx.new_label(), ctx.new_label(), ctx.new_label());
+      ctx.loops.push((after_cond, before_cond));
+      ctx.stmts.push(IrStmt::Label(before_body)); // 循环体的开头
+      stmt(ctx, body); // 循环体一开始先执行循环中的语句
+      ctx.stmts.push(IrStmt::Label(before_cond)); // continue的位置
+      expr(ctx, cond);
+      ctx.stmts.push(IrStmt::Bnz(before_body)); // 如果cond非0则跳转到循环体的开头，否则离开循环
+      ctx.stmts.push(IrStmt::Label(after_cond)); // break的位置
+      ctx.loops.pop();
+    }
+    // init语句不在这里处理
+    Stmt::For { cond, update, body } => {
+      let (before_cond, before_update, after_body) = (ctx.new_label(), ctx.new_label(), ctx.new_label());
+      ctx.loops.push((after_body, before_update));
+      ctx.stmts.push(IrStmt::Label(before_cond)); // 循环体的开头
+      if let Some(cond) = cond { // 如果没有cond，也就是for (init;;update)这样的代码，语义就是不检查，直接执行循环中的语句
+        expr(ctx, cond);
+        ctx.stmts.push(IrStmt::Bz(after_body)); // 如果cond为0则跳出循环，否则执行循环中的语句
+      }
+      stmt(ctx, body);
+      ctx.stmts.push(IrStmt::Label(before_update)); // continue的位置，continue后仍要执行本次循环的update语句
+      if let Some(update) = update {
+        expr(ctx, update);
+        ctx.stmts.push(IrStmt::Pop); // 这里和Stmt::Expr一样需要一个Pop
+      }
+      ctx.stmts.push(IrStmt::Jump(before_cond)); // 跳转回到循环体的开头
+      ctx.stmts.push(IrStmt::Label(after_body)); // break的位置
+      ctx.loops.pop();
+    }
+    Stmt::Break => ctx.stmts.push(IrStmt::Jump(ctx.loops.last().expect("break out of loop").0)),
+    Stmt::Continue => ctx.stmts.push(IrStmt::Jump(ctx.loops.last().expect("continue out of loop").1)),
   }
 }
 
