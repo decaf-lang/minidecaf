@@ -2,4 +2,6 @@
 node_modules/
 build/
 dist/
+gen/
+.antlr/
 .DS_Store

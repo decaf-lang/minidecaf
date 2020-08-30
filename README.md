@@ -13,6 +13,7 @@ npm install
 ### Run on Command Line
 
 ```sh
+npm run grammar     # generate ANTLR4 grammar parser
 npm run build
 npm run cli <input_file> -- [options]
 ```

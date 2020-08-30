@@ -4,14 +4,15 @@
   "private": true,
   "description": "A simple C-like-language compiler can run in browser",
   "scripts": {
+    "grammar": "antlr4ts -visitor src/grammar/MiniDecaf.g4 -o src/gen -Xexact-output-dir",
     "check": "tsc --noEmit",
     "build": "tsc",
     "cli": "node build/src/cli.js",
     "cli-dev": "ts-node src/cli.ts",
-    "build-web": "webpack --mode production",
-    "build-web-dev": "webpack --mode development --watch",
+    "build-web": "npm run grammar && webpack --mode production",
+    "build-web-dev": "npm run grammar && webpack --mode development --watch",
     "serve": "http-server -c-1 web/",
-    "clean": "rm -rf web/dist/ build/",
+    "clean": "rm -rf web/dist/ build/ src/gen/",
     "fmt": "prettier src/ --write",
     "test": "npm run build && node build/src/cli.js test/test.c",
     "test-codegen": "npm run build && test/run.sh test/test.c codegen",
@@ -33,6 +34,7 @@
   },
   "homepage": "https://github.com/equation314/minidecaf",
   "devDependencies": {
+    "antlr4ts-cli": "^0.5.0-alpha.3",
     "http-server": "^0.12.3",
     "prettier": "^2.0.5",
     "ts-loader": "^8.0.1",
@@ -43,6 +45,7 @@
   },
   "dependencies": {
     "@types/node": "^14.0.27",
+    "antlr4ts": "^0.5.0-alpha.3",
     "commander": "^6.0.0"
   }
 }

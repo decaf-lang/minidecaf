@@ -32,6 +32,7 @@ jobs:
       - name: Install dependencies and Build
         run: |
           npm install
+          npm run grammar
           npm run build
 
       - name: Test ${{ matrix.target }}
