@@ -1,3 +1,4 @@
+import { ParserRuleContext } from "antlr4ts";
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
@@ -18,6 +19,14 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         this.ir.emitReturn();
     }
 
+    visitAddExpr(ctx: MiniDecafParser.AddExprContext) {
+        this.visitBinary(ctx);
+    }
+
+    visitMulExpr(ctx: MiniDecafParser.MulExprContext) {
+        this.visitBinary(ctx);
+    }
+
     visitIntExpr(ctx: MiniDecafParser.IntExprContext) {
         let int = parseInt(ctx.Integer().text);
         if (int > MAX_INT_LITERAL) {
@@ -27,7 +36,20 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
-        ctx.expr().accept(this);
+        ctx.factor().accept(this);
         this.ir.emitUnary(ctx.getChild(0).text);
+    }
+
+    private visitBinary(ctx: ParserRuleContext) {
+        if (ctx.childCount == 1) {
+            ctx.getChild(0).accept(this);
+        } else {
+            let op = ctx.getChild(1);
+            ctx.getChild(0).accept(this); // 计算左操作数，结果存在 `r0`
+            this.ir.emitPush("r0"); // 将结果 `r0` 保存到栈顶
+            ctx.getChild(2).accept(this); // 计算右操作数，结果存在 `r0`
+            this.ir.emitPop("r1"); // 从栈顶弹出左操作数的结果到 `r1`
+            this.ir.emitBinary(op.text); // 生成运算 `r1` op `r0`
+        }
     }
 }

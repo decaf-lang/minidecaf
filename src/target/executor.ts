@@ -1,5 +1,5 @@
 import { IrInstrName, IrInstr, IrVisitor } from "../ir";
-import { OtherError } from "../error";
+import { RuntimeError, OtherError } from "../error";
 
 /** 为了模拟 32 位计算机，所有运算结果都要按位与上该数，以截取低 32 位 */
 const MAX_UINT = 0xffff_ffff;
@@ -15,6 +15,30 @@ function unaryOp(op: string, factor: number): number {
             return factor === 0 ? 1 : 0;
         default:
             throw new OtherError(`unknown unary operator '${op}'`);
+    }
+}
+
+/** 计算二元运算 */
+function binaryOp(op: string, lhs: number, rhs: number): number {
+    switch (op) {
+        case "+":
+            return (lhs + rhs) & MAX_UINT;
+        case "-":
+            return (lhs - rhs) & MAX_UINT;
+        case "*":
+            return (lhs * rhs) & MAX_UINT;
+        case "/":
+            if (rhs === 0) {
+                throw new RuntimeError("divide by zero");
+            }
+            return Math.trunc(lhs / rhs); // 截断取整
+        case "%":
+            if (rhs === 0) {
+                throw new RuntimeError("divide by zero");
+            }
+            return lhs % rhs;
+        default:
+            throw new OtherError(`unknown binary operator '${op}'`);
     }
 }
 
@@ -37,6 +61,21 @@ export class IrExecutor extends IrVisitor<number> {
     visitUnary(instr: IrInstr) {
         this.pc++;
         this.r0 = unaryOp(instr.op, this.r0);
+    }
+
+    visitBinary(instr: IrInstr) {
+        this.pc++;
+        this.r0 = binaryOp(instr.op, this.r1, this.r0);
+    }
+
+    visitPush(instr: IrInstr) {
+        this.pc++;
+        this.stack.push(this[instr.op]);
+    }
+
+    visitPop(instr: IrInstr) {
+        this.pc++;
+        this[instr.op] = this.stack.pop();
     }
 
     visitReturn(_instr: IrInstr) {}

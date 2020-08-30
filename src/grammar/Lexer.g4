@@ -11,7 +11,11 @@ RightBrace: '}';
 
 Semi: ';';
 
+Plus: '+';
 Minus: '-';
+Mul: '*';
+Div: '/';
+Mod: '%';
 Not: '!';
 BitNot: '~';
 
