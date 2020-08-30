@@ -66,9 +66,11 @@ priority = [
 "#]
 impl<'p> Parser {
   #[rule = "Prog ->"]
-  fn prog0() -> Prog<'p> { Prog { funcs: Vec::new() } }
+  fn prog0() -> Prog<'p> { Prog { funcs: Vec::new(), globs: Vec::new() } }
   #[rule = "Prog -> Prog Func"]
   fn prog_func(mut p: Prog<'p>, f: Func<'p>) -> Prog<'p> { (p.funcs.push(f), p).1 }
+  #[rule = "Prog -> Prog Decl Semi"]
+  fn prog_glob(mut p: Prog<'p>, d: Decl<'p>, _s: Token) -> Prog<'p> { (p.globs.push(d), p).1 }
 
   #[rule = "Decl -> Int Id"]
   fn decl0(_i: Token, name: Token) -> Decl<'p> { Decl { name: name.str(), init: None } }

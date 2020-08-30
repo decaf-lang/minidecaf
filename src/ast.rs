@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct Prog<'a> {
   pub funcs: Vec<Func<'a>>,
+  pub globs: Vec<Decl<'a>>,
 }
 
 #[derive(Debug)]

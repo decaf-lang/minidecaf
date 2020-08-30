@@ -2,6 +2,12 @@ use std::io::{Result, Write};
 use crate::{ast::{UnaryOp::*, BinaryOp::*}, ir::*};
 
 pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
+  for g in &p.globs {
+    writeln!(w, ".data")?;
+    writeln!(w, "{}:", g.0)?;
+    writeln!(w, "  .word {}", g.1)?;
+    writeln!(w)?;
+  }
   for f in &p.funcs {
     writeln!(w, ".global {}", f.name)?;
     writeln!(w, "{}:", f.name)?;
@@ -88,6 +94,11 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
         }
         IrStmt::LocalAddr(x) => {
           writeln!(w, "  add t0, s0, -{}", (x + 1) * 4)?; // 计算变量x的地址，保存到t0中
+          writeln!(w, "  sw t0, -4(sp)")?; // 以下两句将t0的值压入栈中
+          writeln!(w, "  add sp, sp, -4")?;
+        }
+        IrStmt::GlobAddr(x) => {
+          writeln!(w, "  la t0, {}", p.globs[*x as usize].0)?; // 计算变量x的地址，保存到t0中
           writeln!(w, "  sw t0, -4(sp)")?; // 以下两句将t0的值压入栈中
           writeln!(w, "  add sp, sp, -4")?;
         }

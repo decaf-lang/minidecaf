@@ -4,6 +4,8 @@ use crate::ast::*;
 #[derive(Debug)]
 pub struct IrProg<'a> {
   pub funcs: Vec<IrFunc<'a>>,
+  // 每一项是(名字，初始值)
+  pub globs: Vec<(&'a str, i32)>,
 }
 
 #[derive(Debug)]
@@ -26,6 +28,8 @@ pub enum IrStmt {
   Binary(BinaryOp),
   // 将对应id的局部变量的实际地址压入栈顶
   LocalAddr(u32),
+  // 将对应id的全局变量的实际地址压入栈顶
+  GlobAddr(u32),
   // 弹出栈顶元素，把它作为一个地址，从这个地址中load出结果，把结果压入栈顶
   Load,
   // 依次弹出栈顶的两个元素，分别作为store的地址和store的值(地址在栈顶，值是下面一个)，把值store到地址中，然后再把值重新压回栈中
@@ -50,15 +54,32 @@ pub enum IrStmt {
 }
 
 pub fn ast2ir<'a>(p: &'a Prog<'a>) -> IrProg<'a> {
+  // globs用来表示函数名到全局变量的映射，globs1用来保存全局变量的初始值
+  // 先访问一遍所有全局变量，所以每个函数都可以使用每个全局变量，不管它们的定义的相对位置是什么样的
+  let (mut globs, mut globs1) = (HashMap::new(), Vec::new());
+  for d in &p.globs {
+    // 全局变量要么不初始化(与用整数常量0初始化等价)，要么用整数常量初始化，不能用其他表达式初始化
+    let init = match d.init {
+      Some(Expr::Int(x)) => x,
+      None => 0, _ => panic!("global variable not initialized by int const"),
+    };
+    if globs.insert(d.name, (globs.len() as u32, d)).is_some() {
+      panic!("global variable `{}` redefined in current context", d.name);
+    }
+    globs1.push((d.name, init));
+  }
   // funcs用来表示函数名到符号的映射，funcs1用来保存所有函数定义的ir
   // funcs的V类型是(u32, &Func)，这个u32表示本函数的ir在funcs1中的下标
   let (mut funcs, mut funcs1) = (HashMap::new(), Vec::new());
   for f in &p.funcs {
+    if globs.contains_key(f.name) {
+      panic!("conflict global variable and function `{}`", f.name);
+    }
     match funcs.entry(f.name) {
       Entry::Vacant(v) => {
         v.insert((funcs1.len() as u32, f));
         // 这个f可能只是一个函数声明，这样构造出来的ir只有空架子，后续遇到同名的函数定义时会更新
-        funcs1.push(func(f, &funcs));
+        funcs1.push(func(f, &funcs, &globs));
       }
       Entry::Occupied(o) => {
         let (old_id, old_f) = *o.get();
@@ -68,11 +89,11 @@ pub fn ast2ir<'a>(p: &'a Prog<'a>) -> IrProg<'a> {
           panic!("conflict function definition `{}` in current context", f.name)
         }
         // 如果老函数是函数声明，新函数是函数定义，则更新ir中对应下标的函数
-        if f.stmts.is_some() { funcs1[old_id as usize] = func(f, &funcs); }
+        if f.stmts.is_some() { funcs1[old_id as usize] = func(f, &funcs, &globs); }
       }
     }
   }
-  IrProg { funcs: funcs1 }
+  IrProg { funcs: funcs1, globs: globs1 }
 }
 
 // 将变量的名字映射到(变量的id，变量的定义)，这个Decl中目前还没有保存有用的信息，之后会用到它的
@@ -89,6 +110,7 @@ struct FuncCtx<'a, 'b> {
   // 处理break/continue时总会访问最后一个元素，如果最后一个元素不存在，就意味着break/continue在循环外
   loops: Vec<(u32, u32)>,
   funcs: &'b FuncMap<'a>,
+  globs: &'b SymbolMap<'a>,
   // 当前局部变量的数目
   var_cnt: u32,
   // 当前标号的数目
@@ -98,18 +120,20 @@ struct FuncCtx<'a, 'b> {
 impl<'a> FuncCtx<'a, '_> {
   fn new_label(&mut self) -> u32 { (self.label_cnt, self.label_cnt += 1).0 }
 
-  // 在当前环境中查找对应名称的变量，如果找到了就返回它的id，否则就panic
-  fn lookup(&self, name: &str) -> u32 {
+  // 在当前环境中查找对应名称的变量，如果找到了就返回(它是全局变量吗，它的id)，否则就panic
+  fn lookup(&self, name: &str) -> (bool, u32) {
     // 在所有SymbolMap中逆序查找，这样就会优先找到本条语句所在的语句块中定义的变量，越往外优先级越低
     for map in self.names.iter().rev() {
-      if let Some(x) = map.get(name) { return x.0; }
+      if let Some(x) = map.get(name) { return (false, x.0); }
     }
+    // 全局变量是最后参与查找的
+    if let Some(x) = self.globs.get(name) { return (true, x.0); }
     panic!("variable `{}` not defined in current context", name)
   }
 }
 
-fn func<'a>(f: &Func<'a>, funcs: &FuncMap<'a>) -> IrFunc<'a> {
-  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), funcs, var_cnt: 0, label_cnt: 0 };
+fn func<'a>(f: &Func<'a>, funcs: &FuncMap<'a>, globs: &SymbolMap<'a>) -> IrFunc<'a> {
+  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), funcs, globs, var_cnt: 0, label_cnt: 0 };
   // 参数和局部变量一起参与id的分配，参数0的id是0，第一个局部变量的id是参数的数目。后面生成汇编代码的时候，也会设法保证这个排布肾虚
   for p in &f.params {
     assert!(p.init.is_none(), "function param has init");
@@ -227,16 +251,17 @@ fn expr<'a>(ctx: &mut FuncCtx<'a, '_>, e: &Expr) {
       ctx.stmts.push(IrStmt::Binary(*op));
     }
     Expr::Var(name) => {
-      let id = ctx.lookup(name);
-      ctx.stmts.push(IrStmt::LocalAddr(id));
+      let (is_glob, id) = ctx.lookup(name);
+      // 根据它是不是全局变量，用不同的指令来计算地址，id的含义也不一样
+      ctx.stmts.push(if is_glob { IrStmt::GlobAddr(id) } else { IrStmt::LocalAddr(id) });
       ctx.stmts.push(IrStmt::Load);
     }
     Expr::Assign(name, rhs) => {
       // 为了翻译一个assign表达式，先翻译它的右操作数，即赋值的值，再往栈中压入赋值的目标地址
       // 执行Store后就会完成这个assign的操作，同时在栈中留下右操作数的值
       expr(ctx, rhs);
-      let id = ctx.lookup(name);
-      ctx.stmts.push(IrStmt::LocalAddr(id));
+      let (is_glob, id) = ctx.lookup(name);
+      ctx.stmts.push(if is_glob { IrStmt::GlobAddr(id) } else { IrStmt::LocalAddr(id) });
       ctx.stmts.push(IrStmt::Store);
     }
     Expr::Condition(cond, t, f) => {
