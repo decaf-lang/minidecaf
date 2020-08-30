@@ -24,6 +24,7 @@ pub enum Stmt<'a> {
   Expr(Expr<'a>),
   // 这里的Stmt实际不可能是Stmt::Decl，parser不会生成这样的结构
   If(Expr<'a>, Box<Stmt<'a>>, Option<Box<Stmt<'a>>>),
+  Block(Vec<Stmt<'a>>),
 }
 
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

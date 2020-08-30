@@ -53,7 +53,8 @@ type SymbolMap<'a> = HashMap<&'a str, (u32, &'a Decl<'a>)>;
 
 // 为一个函数生成IR的过程中维护的一些信息
 struct FuncCtx<'a> {
-  names: SymbolMap<'a>,
+  // 每个语句块对应一个SymbolMap，进入一个语句块时往其中压入一个新的SymbolMap，离开一个语句块时弹出最后的SymbolMap
+  names: Vec<SymbolMap<'a>>,
   stmts: Vec<IrStmt>,
   // 当前局部变量的数目
   var_cnt: u32,
@@ -66,13 +67,16 @@ impl<'a> FuncCtx<'a> {
 
   // 在当前环境中查找对应名称的变量，如果找到了就返回它的id，否则就panic
   fn lookup(&self, name: &str) -> u32 {
-    if let Some(x) = self.names.get(name) { return x.0; }
+    // 在所有SymbolMap中逆序查找，这样就会优先找到本条语句所在的语句块中定义的变量，越往外优先级越低
+    for map in self.names.iter().rev() {
+      if let Some(x) = map.get(name) { return x.0; }
+    }
     panic!("variable `{}` not defined in current context", name)
   }
 }
 
 fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
-  let mut ctx = FuncCtx { names: HashMap::new(), stmts: Vec::new(), var_cnt: 0, label_cnt: 0 };
+  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), var_cnt: 0, label_cnt: 0 };
   for s in &f.stmts { stmt(&mut ctx, s); }
   // 如果函数的指令序列不以Ret结尾，则生成一条return 0
   match ctx.stmts.last() {
@@ -88,7 +92,8 @@ fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
 // 在当前环境中定义一个变量
 fn decl<'a>(ctx: &mut FuncCtx<'a>, d: &'a Decl<'a>) {
   let id = ctx.var_cnt;
-  if ctx.names.insert(d.name, (id, d)).is_some() {
+  // 只在最后一个SymbolMap，也就是当前语句所在的语句块的SymbolMap中定义这个变量
+  if ctx.names.last_mut().unwrap().insert(d.name, (id, d)).is_some() {
     panic!("variable `{}` redefined in current context", d.name)
   }
   ctx.var_cnt = id + 1;
@@ -124,6 +129,11 @@ fn stmt<'a>(ctx: &mut FuncCtx<'a>, s: &'a Stmt<'a>) {
       ctx.stmts.push(IrStmt::Label(before_f)); // else分支的开始位置
       if let Some(f) = f { stmt(ctx, f); }
       ctx.stmts.push(IrStmt::Label(after_f)); // else分支的结束位置
+    }
+    Stmt::Block(stmts) => {
+      ctx.names.push(HashMap::new());
+      for s in stmts { stmt(ctx, s); }
+      ctx.names.pop();
     }
   }
 }

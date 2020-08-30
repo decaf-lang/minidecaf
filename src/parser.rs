@@ -87,6 +87,8 @@ impl<'p> Parser {
   fn stmt_expr(e: Expr<'p>, _s: Token) -> Stmt<'p> { Stmt::Expr(e) }
   #[rule = "Stmt -> If LPar Expr RPar Stmt MaybeElse"]
   fn stmt_if(_i: Token, _l: Token, cond: Expr<'p>, _r: Token, t: Stmt<'p>, f: Option<Box<Stmt<'p>>>) -> Stmt<'p> { Stmt::If(cond, Box::new(t), f) }
+  #[rule = "Stmt -> LBrc Stmts RBrc"]
+  fn stmt_block(_l: Token, stmts: Vec<Stmt<'p>>, _r: Token) -> Stmt<'p> { Stmt::Block(stmts) }
 
   #[rule = "MaybeElse ->"]
   #[prec = "LNot"] // 这个优先级比较随意，只要比MaybeElse -> Else Stmt产生式的优先级低就可以了，也就是比Else的优先级低
