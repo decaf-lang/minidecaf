@@ -1,3 +1,5 @@
+import { Token } from "antlr4ts";
+
 function errorMessage(line: number, charPositionInLine: number, msg: string): string {
     return `line ${line}, col ${charPositionInLine + 1}: ${msg}`;
 }
@@ -5,5 +7,11 @@ function errorMessage(line: number, charPositionInLine: number, msg: string): st
 export class SyntaxError extends Error {
     constructor(line: number, charPositionInLine: number, msg: string) {
         super(errorMessage(line, charPositionInLine, msg));
+    }
+}
+
+export class SemanticError extends Error {
+    constructor(token: Token, msg: string) {
+        super(errorMessage(token.line, token.charPositionInLine, msg));
     }
 }
