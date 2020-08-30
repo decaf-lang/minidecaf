@@ -1,15 +1,17 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 use crate::ast::*;
 
 #[derive(Debug)]
 pub struct IrProg<'a> {
-  pub func: IrFunc<'a>,
+  pub funcs: Vec<IrFunc<'a>>,
 }
 
 #[derive(Debug)]
 pub struct IrFunc<'a> {
   pub name: &'a str,
-  // 本函数局部变量的数目
+  // 本函数接受参数的数目
+  pub param_cnt: u32,
+  // 本函数局部变量的数目(参数不属于局部变量)
   pub var_cnt: u32,
   pub stmts: Vec<IrStmt>,
 }
@@ -37,35 +39,63 @@ pub enum IrStmt {
   Bnz(u32),
   // 跳转到对应标号
   Jump(u32),
+  // 调用IrProg.funcs对应下标的函数，调用前运算栈中需要从左到右依次压入参数(最右边的参数在栈顶
+  // 调用后这些参数都被弹出，且运算栈中压入函数的返回值
+  // 注意这里并不涉及调用约定的细节，比如到底是caller还是callee把参数弹出运算栈，把返回值压入运算栈的，只是说整个调用结束后结果应该是这样
+  Call(u32),
   // 弹出栈顶元素
   Pop,
   // 弹出栈顶元素，将其作为返回值返回当前函数
   Ret,
 }
 
-pub fn ast2ir<'a>(p: &Prog<'a>) -> IrProg<'a> {
-  IrProg { func: func(&p.func) }
+pub fn ast2ir<'a>(p: &'a Prog<'a>) -> IrProg<'a> {
+  // funcs用来表示函数名到符号的映射，funcs1用来保存所有函数定义的ir
+  // funcs的V类型是(u32, &Func)，这个u32表示本函数的ir在funcs1中的下标
+  let (mut funcs, mut funcs1) = (HashMap::new(), Vec::new());
+  for f in &p.funcs {
+    match funcs.entry(f.name) {
+      Entry::Vacant(v) => {
+        v.insert((funcs1.len() as u32, f));
+        // 这个f可能只是一个函数声明，这样构造出来的ir只有空架子，后续遇到同名的函数定义时会更新
+        funcs1.push(func(f, &funcs));
+      }
+      Entry::Occupied(o) => {
+        let (old_id, old_f) = *o.get();
+        // stmts.is_some()为true则是函数定义，为false则是函数声明
+        // 如果两个重名的函数都是函数定义，或者它们的参数不匹配，则不合法
+        if (old_f.stmts.is_some() && f.stmts.is_some()) || old_f.params.len() != f.params.len() {
+          panic!("conflict function definition `{}` in current context", f.name)
+        }
+        // 如果老函数是函数声明，新函数是函数定义，则更新ir中对应下标的函数
+        if f.stmts.is_some() { funcs1[old_id as usize] = func(f, &funcs); }
+      }
+    }
+  }
+  IrProg { funcs: funcs1 }
 }
 
 // 将变量的名字映射到(变量的id，变量的定义)，这个Decl中目前还没有保存有用的信息，之后会用到它的
 // 这个id基本可以理解成变量在栈上的offset
 type SymbolMap<'a> = HashMap<&'a str, (u32, &'a Decl<'a>)>;
+type FuncMap<'a> = HashMap<&'a str, (u32, &'a Func<'a>)>;
 
 // 为一个函数生成IR的过程中维护的一些信息
-struct FuncCtx<'a> {
+struct FuncCtx<'a, 'b> {
   // 每个语句块对应一个SymbolMap，进入一个语句块时往其中压入一个新的SymbolMap，离开一个语句块时弹出最后的SymbolMap
   names: Vec<SymbolMap<'a>>,
   stmts: Vec<IrStmt>,
   // 遇到一个循环时往其中压入一对值，分别是(这个循环中break要跳转的位置，这个循环中continue要跳转的位置)，离开循环时就弹出这个值
   // 处理break/continue时总会访问最后一个元素，如果最后一个元素不存在，就意味着break/continue在循环外
   loops: Vec<(u32, u32)>,
+  funcs: &'b FuncMap<'a>,
   // 当前局部变量的数目
   var_cnt: u32,
   // 当前标号的数目
   label_cnt: u32,
 }
 
-impl<'a> FuncCtx<'a> {
+impl<'a> FuncCtx<'a, '_> {
   fn new_label(&mut self) -> u32 { (self.label_cnt, self.label_cnt += 1).0 }
 
   // 在当前环境中查找对应名称的变量，如果找到了就返回它的id，否则就panic
@@ -78,9 +108,14 @@ impl<'a> FuncCtx<'a> {
   }
 }
 
-fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
-  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), var_cnt: 0, label_cnt: 0 };
-  for s in &f.stmts { stmt(&mut ctx, s); }
+fn func<'a>(f: &Func<'a>, funcs: &FuncMap<'a>) -> IrFunc<'a> {
+  let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), funcs, var_cnt: 0, label_cnt: 0 };
+  // 参数和局部变量一起参与id的分配，参数0的id是0，第一个局部变量的id是参数的数目。后面生成汇编代码的时候，也会设法保证这个排布肾虚
+  for p in &f.params {
+    assert!(p.init.is_none(), "function param has init");
+    decl(&mut ctx, p);
+  }
+  for s in f.stmts.as_deref().unwrap_or(&[]) { stmt(&mut ctx, s); }
   // 如果函数的指令序列不以Ret结尾，则生成一条return 0
   match ctx.stmts.last() {
     Some(IrStmt::Ret) => {}
@@ -89,11 +124,13 @@ fn func<'a>(f: &Func<'a>) -> IrFunc<'a> {
       ctx.stmts.push(IrStmt::Ret);
     }
   }
-  IrFunc { name: f.name, var_cnt: ctx.var_cnt, stmts: ctx.stmts }
+  // 现在的ctx.var_cnt是包含了参数数目在内的，要得到真正的局部变量的数目需要减去参数数目
+  let param_cnt = f.params.len() as u32;
+  IrFunc { name: f.name, param_cnt, var_cnt: ctx.var_cnt - param_cnt, stmts: ctx.stmts }
 }
 
 // 在当前环境中定义一个变量
-fn decl<'a>(ctx: &mut FuncCtx<'a>, d: &'a Decl<'a>) {
+fn decl<'a>(ctx: &mut FuncCtx<'a, '_>, d: &'a Decl<'a>) {
   let id = ctx.var_cnt;
   // 只在最后一个SymbolMap，也就是当前语句所在的语句块的SymbolMap中定义这个变量
   if ctx.names.last_mut().unwrap().insert(d.name, (id, d)).is_some() {
@@ -109,7 +146,7 @@ fn decl<'a>(ctx: &mut FuncCtx<'a>, d: &'a Decl<'a>) {
   }
 }
 
-fn stmt<'a>(ctx: &mut FuncCtx<'a>, s: &'a Stmt<'a>) {
+fn stmt<'a>(ctx: &mut FuncCtx<'a, '_>, s: &'a Stmt<'a>) {
   match s {
     Stmt::Empty => {}
     Stmt::Ret(e) => {
@@ -174,7 +211,7 @@ fn stmt<'a>(ctx: &mut FuncCtx<'a>, s: &'a Stmt<'a>) {
 }
 
 // 一条表达式执行完后最终总会往栈中压入一个元素，即这个表达式的值
-fn expr<'a>(ctx: &mut FuncCtx<'a>, e: &Expr) {
+fn expr<'a>(ctx: &mut FuncCtx<'a, '_>, e: &Expr) {
   match e {
     Expr::Int(x) => ctx.stmts.push(IrStmt::Const(*x)),
     Expr::Unary(op, x) => {
@@ -212,6 +249,12 @@ fn expr<'a>(ctx: &mut FuncCtx<'a>, e: &Expr) {
       ctx.stmts.push(IrStmt::Label(before_f));
       expr(ctx, f);
       ctx.stmts.push(IrStmt::Label(after_f));
+    }
+    Expr::Call(func, args) => {
+      let (id, f) = *ctx.funcs.get(func).expect("function not defined in current context");
+      assert_eq!(args.len(), f.params.len(), "function call args params mismatch");
+      for a in args { expr(ctx, a); } // 从左到右依次计算参数，也依次压入运算栈中
+      ctx.stmts.push(IrStmt::Call(id)); // 执行调用，结束后参数被清除，栈顶是函数的返回值
     }
   }
 }

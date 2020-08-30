@@ -41,6 +41,7 @@ priority = [
 '\)' = 'RPar'
 '\{' = 'LBrc' # Brc是Brace的简称
 '\}' = 'RBrc'
+',' = 'Comma'
 '=' = 'Assign'
 '\+' = 'Add'
 '-' = 'Sub'
@@ -64,18 +65,33 @@ priority = [
 '[a-zA-Z_]\w*' = 'Id' # 以字母或_开头，后面跟0或多个数字，字母或_
 "#]
 impl<'p> Parser {
-  #[rule = "Prog -> Func"]
-  fn prog(func: Func<'p>) -> Prog<'p> { Prog { func } }
+  #[rule = "Prog ->"]
+  fn prog0() -> Prog<'p> { Prog { funcs: Vec::new() } }
+  #[rule = "Prog -> Prog Func"]
+  fn prog_func(mut p: Prog<'p>, f: Func<'p>) -> Prog<'p> { (p.funcs.push(f), p).1 }
 
   #[rule = "Decl -> Int Id"]
   fn decl0(_i: Token, name: Token) -> Decl<'p> { Decl { name: name.str(), init: None } }
   #[rule = "Decl -> Int Id Assign Expr"]
   fn decl1(_i: Token, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { name: name.str(), init: Some(init) } }
 
-  #[rule = "Func -> Int Id LPar RPar LBrc Stmts RBrc"]
-  fn func(_i: Token, name: Token, _lp: Token, _rp: Token, _lb: Token, stmts: Vec<Stmt<'p>>, _rb: Token) -> Func<'p> {
-    Func { name: name.str(), stmts }
+  #[rule = "Func -> Int Id LPar Params RPar Semi"]
+  fn func0(_i: Token, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _s: Token) -> Func<'p> {
+    Func { name: name.str(), params, stmts: None }
   }
+  #[rule = "Func -> Int Id LPar Params RPar LBrc Stmts RBrc"]
+  fn func1(_i: Token, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _lb: Token, stmts: Vec<Stmt<'p>>, _rb: Token) -> Func<'p> {
+    Func { name: name.str(), params, stmts: Some(stmts) }
+  }
+
+  #[rule = "Params ->"]
+  fn params0() -> Vec<Decl<'p>> { Vec::new() }
+  #[rule = "Params -> Params1"]
+  fn params1(x: Vec<Decl<'p>>) -> Vec<Decl<'p>> { x }
+  #[rule = "Params1 -> Decl"]
+  fn params10(d: Decl<'p>) -> Vec<Decl<'p>> { vec![d] }
+  #[rule = "Params1 -> Params1 Comma Decl"]
+  fn params11(mut l: Vec<Decl<'p>>, _c: Token, r: Decl<'p>) -> Vec<Decl<'p>> { (l.push(r), l).1 }
 
   #[rule = "Stmts ->"]
   fn stmts0() -> Vec<Stmt<'p>> { Vec::new() }
@@ -165,4 +181,15 @@ impl<'p> Parser {
   fn expr_or(l: Expr<'p>, _: Token, r: Expr<'p>) -> Expr<'p> { Expr::Binary(Or, Box::new(l), Box::new(r)) }
   #[rule = "Expr -> Expr Question Expr Colon Expr"]
   fn expr_condition(cond: Expr<'p>, _q: Token, t: Expr<'p>, _c: Token, f: Expr<'p>) -> Expr<'p> { Expr::Condition(Box::new(cond), Box::new(t), Box::new(f)) }
+  #[rule = "Expr -> Id LPar Args RPar"]
+  fn expr_call(name: Token, _l: Token, args: Vec<Expr<'p>>, _r: Token) -> Expr<'p> { Expr::Call(name.str(), args) }
+
+  #[rule = "Args ->"]
+  fn args0() -> Vec<Expr<'p>> { Vec::new() }
+  #[rule = "Args -> Args1"]
+  fn args1(x: Vec<Expr<'p>>) -> Vec<Expr<'p>> { x }
+  #[rule = "Args1 -> Expr"]
+  fn args10(e: Expr<'p>) -> Vec<Expr<'p>> { vec![e] }
+  #[rule = "Args1 -> Args1 Comma Expr"]
+  fn args11(mut l: Vec<Expr<'p>>, _c: Token, r: Expr<'p>) -> Vec<Expr<'p>> { (l.push(r), l).1 }
 }
