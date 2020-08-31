@@ -149,6 +149,33 @@ public:
 	}
 };
 
+class RelationalAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+	string str;
+public:
+	RelationalAst(int row, int column, string s) : ExprAst(row, column), str(s){}
+	void additem(ExprAst* item1, ExprAst* item2){
+		expr1 = item1;
+		expr2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr1->printto(fout);
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+		expr2->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+		if (str == "!="){
+			printstream(fout, "xor a5, a4, a5");
+			printstream(fout, "snez a5, a5");
+		}else{
+			printstream(fout, "xor a5, a4, a5");
+			printstream(fout, "seqz a5, a5");
+		}
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}

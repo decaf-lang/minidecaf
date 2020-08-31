@@ -79,6 +79,10 @@ public:
 				ans.push_back(input[column]);
 			else
 				break;
+			if (ans == "="){
+				column++;
+				continue;
+			}
 			if (Token::tokenid.count(ans) == 0){
 				ans.pop_back();
 				break;
