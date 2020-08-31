@@ -65,21 +65,25 @@ public:
 	}
 
 	ExprAst* parserExpr(){
+		ExprAst* expr_ast = parserAdditiveExpr();
+		while (lookForward("<") || lookForward(">") || lookForward("<=") || lookForward(">=")){
+			AdditiveAst* additive_ast = new AdditiveAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());
+			matchToken(tokenlist[pos].label());
+			ExprAst* expr_ast2 = parserAdditiveExpr();
+			additive_ast->additem(expr_ast, expr_ast2);
+			expr_ast = additive_ast;
+		}
+		return expr_ast;
+	}
+
+	ExprAst* parserAdditiveExpr(){
 		ExprAst* expr_ast = parserTerm();
 		while (lookForward("+") || lookForward("-")){
-			if (lookForward("+")){
-				TermAst* factor_ast = new TermAst(tokenlist[pos].row(), tokenlist[pos].column(),'+');
-				matchToken("+");
-				ExprAst* expr_ast2 = parserTerm();
-				factor_ast->additem(expr_ast, expr_ast2);
-				expr_ast = factor_ast;
-			}else if(lookForward("-")){
-				TermAst* factor_ast = new TermAst(tokenlist[pos].row(), tokenlist[pos].column(),'-');
-				matchToken("-");
-				ExprAst* expr_ast2 = parserTerm();
-				factor_ast->additem(expr_ast, expr_ast2);
-				expr_ast = factor_ast;
-			}
+			TermAst* term_ast = new TermAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());
+			matchToken(tokenlist[pos].label());
+			ExprAst* expr_ast2 = parserTerm();
+			term_ast->additem(expr_ast, expr_ast2);
+			expr_ast = term_ast;
 		}
 		return expr_ast;
 	}
@@ -87,25 +91,11 @@ public:
 	ExprAst* parserTerm(){
 		ExprAst* expr_ast = parserFactor();
 		while (lookForward("*") || lookForward("/") || lookForward("%")){
-			if (lookForward("*")){
-				FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'*');
-				matchToken("*");
-				ExprAst* expr_ast2 = parserFactor();
-				factor_ast->additem(expr_ast, expr_ast2);
-				expr_ast = factor_ast;
-			}else if(lookForward("/")){
-				FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'/');
-				matchToken("/");
-				ExprAst* expr_ast2 = parserFactor();
-				factor_ast->additem(expr_ast, expr_ast2);
-				expr_ast = factor_ast;
-			}else if(lookForward("%")){
-				FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'%');
-				matchToken("%");
-				ExprAst* expr_ast2 = parserFactor();
-				factor_ast->additem(expr_ast, expr_ast2);
-				expr_ast = factor_ast;
-			}
+			FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());
+			matchToken(tokenlist[pos].label());
+			ExprAst* expr_ast2 = parserTerm();
+			factor_ast->additem(expr_ast, expr_ast2);
+			expr_ast = factor_ast;
 		}
 		return expr_ast;
 	}
@@ -131,20 +121,8 @@ public:
 	}
 
 	ExprAst* parserUnary(){
-		UnaryAst* unary_ast;
-		if (lookForward("!")){
-			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '!');
-			matchToken("!");
-		}else if (lookForward("~")){
-			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '~');
-			matchToken("~");
-		}else if (lookForward("-")){
-			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '-');
-			matchToken("-");
-		}else{
-			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '+');
-			matchToken("+"); 
-		}
+		UnaryAst* unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());
+		matchToken(tokenlist[pos].label());
 		ExprAst* expr_ast = parserFactor();
 		unary_ast->additem(expr_ast);
 		return unary_ast;

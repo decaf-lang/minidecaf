@@ -47,19 +47,19 @@ public:
 
 class UnaryAst: public ExprAst{
 	ExprAst* expr;
-	char ch;
+	string str;
 public:
-	UnaryAst(int row, int column, char c) : ExprAst(row, column), ch(c){}
+	UnaryAst(int row, int column, string s) : ExprAst(row, column), str(s){}
 	void additem(ExprAst* item){
 		expr = item;
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
-		if (ch == '!')
+		if (str == "!")
 			printstream(fout, "seqz a5,a5");
-		else if (ch == '~')
+		else if (str == "~")
 			printstream(fout, "not a5,a5");
-		else if (ch == '-')
+		else if (str == "-")
 			printstream(fout, "neg a5,a5");
 		else
 			{}
@@ -69,9 +69,9 @@ public:
 class FactorAst: public ExprAst{
 	ExprAst* expr1;
 	ExprAst* expr2;
-	char ch;
+	string str;
 public:
-	FactorAst(int row, int column, char c) : ExprAst(row, column), ch(c){}
+	FactorAst(int row, int column, string s) : ExprAst(row, column), str(s){}
 	void additem(ExprAst* item1, ExprAst* item2){
 		expr1 = item1;
 		expr2 = item2;
@@ -83,11 +83,11 @@ public:
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
-		if (ch == '*')
+		if (str == "*")
 			printstream(fout, "mul a5, a4, a5");
-		else if (ch == '/')
+		else if (str == "/")
 			printstream(fout, "div a5, a4, a5");
-		else if (ch == '%')
+		else if (str == "%")
 			printstream(fout, "rem  a5, a4, a5");
 
 	}
@@ -96,9 +96,9 @@ public:
 class TermAst: public ExprAst{
 	ExprAst* expr1;
 	ExprAst* expr2;
-	char ch;
+	string str;
 public:
-	TermAst(int row, int column, char c) : ExprAst(row, column), ch(c){}
+	TermAst(int row, int column, string s) : ExprAst(row, column), str(s){}
 	void additem(ExprAst* item1, ExprAst* item2){
 		expr1 = item1;
 		expr2 = item2;
@@ -110,11 +110,42 @@ public:
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
-		if (ch == '+')
+		if (str == "+")
 			printstream(fout, "add a5, a4, a5");
-		else if (ch == '-')
+		else if (str == "-")
 			printstream(fout, "sub a5, a4, a5");
 
+	}
+};
+
+class AdditiveAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+	string str;
+public:
+	AdditiveAst(int row, int column, string s) : ExprAst(row, column), str(s){}
+	void additem(ExprAst* item1, ExprAst* item2){
+		expr1 = item1;
+		expr2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr1->printto(fout);
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+		expr2->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+		if (str == "<")
+			printstream(fout, "slt a5, a4, a5");
+		else if (str == ">")
+			printstream(fout, "sgt a5, a4, a5");
+		else if (str == "<="){
+			printstream(fout, "sgt a5, a4, a5");
+			printstream(fout, "xor a5, a5, 1");
+		}else {
+			printstream(fout, "slt a5, a4, a5");
+			printstream(fout, "xor a5, a5, 1");
+		}
 	}
 };
 

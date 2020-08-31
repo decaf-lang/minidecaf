@@ -66,12 +66,26 @@ public:
 	bool isChar(char ch){
         return (ch == '(' || ch == ')' || ch == '{' || ch == '}' || ch == ';' || ch == '!' 
         	 || ch == '~' || ch == '-' || ch == '+' || ch == '*' || ch == '/' || ch == '%' 
+        	 || ch == '>' || ch == '<' || ch == '=' 
          	);
 	}
 
 	string getChar(string &input, int &column, int length){
 		string ans = "";
 		ans.push_back(input[column]);
+		column++;
+		while (column < length){
+			if (isChar(input[column]))
+				ans.push_back(input[column]);
+			else
+				break;
+			if (Token::tokenid.count(ans) == 0){
+				ans.pop_back();
+				break;
+			}
+			column++;
+		}
+		column--;
 		return ans;
 	}
 
