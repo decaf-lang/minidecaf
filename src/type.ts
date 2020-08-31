@@ -41,6 +41,11 @@ export class Variable {
     /** 是否是参数 */
     isParam: boolean = false;
 
+    /** 变量的种类。"l" 表示局部变量，"p" 表示参数 */
+    get kind(): string {
+        return this.isParam ? "p" : "l";
+    }
+
     constructor(name: string, type: Type, offset: number, isParam?: boolean) {
         this.name = name;
         this.type = type;

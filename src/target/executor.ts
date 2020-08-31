@@ -1,4 +1,4 @@
-import { IrInstr, IrFunc, IrVisitor, Ir } from "../ir";
+import { VariableOp, IrInstr, IrFunc, IrVisitor, Ir } from "../ir";
 import { RuntimeError, OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
@@ -81,7 +81,7 @@ export class IrExecutor extends IrVisitor<number> {
     /** 模拟栈帧指针，即刚进入函数时的栈顶位置，用于计算局部变量的地址 */
     private fp: number = 0;
     /** 栈。每个整数占据栈的一个位置 */
-    private stack: number[] = [];
+    private stack: any[] = [];
     /** 当前函数 */
     private currentFunc: IrFunc;
     /** 程序是否已终止，即 main 函数已返回 */
@@ -100,18 +100,26 @@ export class IrExecutor extends IrVisitor<number> {
 
     /** 函数调用开始 */
     private callBegin(func: IrFunc) {
+        this.stack.push(this.currentFunc?.name); // 保存各种状态到栈
+        this.stack.push(this.pc);
+        this.stack.push(this.fp);
+        this.currentFunc = func; // 更新当前函数
         this.pc = 0; // 函数的第一条指令位置是 0
         this.fp = this.stack.length; // 保存当前栈顶位置
-        this.currentFunc = func; // 更新当前函数
         this.stack.length += func.localVarSize / WORD_SIZE; // 分配局部变量空间
     }
 
     /** 函数调用结束 */
     private callEnd() {
         this.stack.length = this.fp; // 恢复栈大小，释放栈空间
+        this.fp = this.stack.pop(); // 从栈顶依次弹出各种保存的状态
+        this.pc = this.stack.pop() + 1;
+        let oldFn = this.stack.pop();
+        this.stack.length -= this.currentFunc.paramCount; // 释放参数空间
         if (this.currentFunc.name == "main") {
             this.halt = true;
         }
+        this.currentFunc = this.ir.funcs.get(oldFn);
     }
 
     /** 检查是否超时 */
@@ -120,6 +128,34 @@ export class IrExecutor extends IrVisitor<number> {
             return Date.now() - this.startTime > this.timeoutSecond * 1000;
         } else {
             return false;
+        }
+    }
+
+    /** 处理对变量的操作，操作类型见 {@link VariableOp} */
+    variableOp(op: VariableOp, instr: IrInstr) {
+        this.pc++;
+        let offset: number; // 相对于栈帧指针的偏移量
+        switch (instr.op2) {
+            case "p": // 参数
+                offset = -instr.op - 4;
+                break;
+            case "l": // 局部变量
+                offset = instr.op / WORD_SIZE;
+                break;
+            default:
+                throw new OtherError(`invalid operand '${instr.op2}' of IR insruction '${instr}'`);
+        }
+        switch (op) {
+            case VariableOp.Load:
+                this.r0 = this.stack[this.fp + offset];
+                break;
+            case VariableOp.Store:
+                this.stack[this.fp + offset] = this.r0;
+                break;
+            default:
+                throw new OtherError(
+                    `invalid variable operation '${op}' of IR insruction '${instr}'`,
+                );
         }
     }
 
@@ -143,13 +179,11 @@ export class IrExecutor extends IrVisitor<number> {
     }
 
     visitLoadVar(instr: IrInstr) {
-        this.pc++;
-        this.r0 = this.stack[this.fp + instr.op / WORD_SIZE];
+        this.variableOp(VariableOp.Load, instr);
     }
 
     visitStoreVar(instr: IrInstr) {
-        this.pc++;
-        this.stack[this.fp + instr.op / WORD_SIZE] = this.r0;
+        this.variableOp(VariableOp.Store, instr);
     }
 
     visitPush(instr: IrInstr) {
@@ -180,6 +214,14 @@ export class IrExecutor extends IrVisitor<number> {
         } else {
             this.pc++;
         }
+    }
+
+    visitCall(instr: IrInstr) {
+        let func = this.ir.funcs.get(instr.op);
+        if (!func) {
+            throw new RuntimeError(`call undefined function '${instr.op}'`);
+        }
+        this.callBegin(func);
     }
 
     visitReturn(_instr: IrInstr) {

@@ -22,6 +22,14 @@ export class Label {
     }
 }
 
+/** 对变量的操作 */
+export enum VariableOp {
+    /** 读变量的值到寄存器 */
+    Load = "load",
+    /** 将寄存器的值保存到变量 */
+    Store = "store",
+}
+
 /** IR 指令名称 */
 export enum IrInstrName {
     /** 标签 */
@@ -46,24 +54,33 @@ export enum IrInstrName {
     BEQZ = "BEQZ",
     /** 如果 `r0` 不为 0，跳转到给定的标签 */
     BNEZ = "BNEZ",
+    /** 函数调用指令 */
+    CALL = "CALL",
     /** 返回指令，返回值为 `r0` */
     RET = "RET",
 }
 
-/** 一条 IR 指令。可拥有 1 个操作数 */
+/** 一条 IR 指令。可拥有最多 2 个操作数 */
 export class IrInstr {
     /** 指令名称 */
     readonly name: IrInstrName;
     /** 第一个操作数 */
     readonly op: any;
+    /** 第二个操作数 */
+    readonly op2: any;
 
-    constructor(name: IrInstrName, op: any = undefined) {
+    constructor(name: IrInstrName, op: any = undefined, op2: any = undefined) {
         this.name = name;
         this.op = op;
+        this.op2 = op2;
     }
 
     toString = (): string => {
-        return this.name + (this.op !== undefined ? ` ${this.op}` : "");
+        return (
+            this.name +
+            (this.op !== undefined ? ` ${this.op}` : "") +
+            (this.op2 !== undefined ? `, ${this.op2}` : "")
+        );
     };
 }
 
@@ -71,6 +88,8 @@ export class IrInstr {
 export class IrFunc {
     /** 函数名 */
     name: string;
+    /** 参数个数 */
+    paramCount: number;
     /** 局部变量所占的内存大小，用于计算栈帧大小 */
     localVarSize: number;
     /** 指令列表 */
@@ -78,12 +97,21 @@ export class IrFunc {
     /** 标签号到指令位置的映射表 */
     labelIndices: Map<number, number>;
 
-    constructor(name: string, localVarSize: number) {
+    constructor(name: string, paramCount: number, localVarSize: number) {
         this.name = name;
+        this.paramCount = paramCount;
         this.localVarSize = localVarSize;
         this.instrs = [];
         this.labelIndices = new Map();
     }
+
+    toString = (): string => {
+        let str = `FUNC ${this.name}(paramCount=${this.paramCount}, localVarSize=${this.localVarSize}):\n`;
+        this.instrs.forEach((i) => {
+            str += i.name == IrInstrName.LABEL ? `${i}:\n` : `    ${i}\n`;
+        });
+        return str;
+    };
 }
 
 /** 中间表示。该 IR 拥有一个栈和两个寄存器 `r0`, `r1` */
@@ -106,12 +134,8 @@ export class Ir {
     /** 格式化输出 */
     toString = (): string => {
         let str = "";
-        this._funcs.forEach((func, name) => {
-            str += `FUNC ${name}(${func.localVarSize}):\n`;
-            func.instrs.forEach((i) => {
-                str += i.name == IrInstrName.LABEL ? `${i}:\n` : `    ${i}\n`;
-            });
-            str += "\n";
+        this._funcs.forEach((func) => {
+            str += func.toString() + "\n";
         });
         return str;
     };
@@ -120,10 +144,11 @@ export class Ir {
      * 新建一个函数。
      *
      * @param name 函数名
+     * @param paramCount 参数个数
      * @param localVarSize 局部变量所占的内存大小
      */
-    newFunc(name: string, localVarSize: number) {
-        let f = new IrFunc(name, localVarSize);
+    newFunc(name: string, paramCount: number, localVarSize: number) {
+        let f = new IrFunc(name, paramCount, localVarSize);
         this._funcs.set(name, f);
         this.currentFunc = f;
     }
@@ -157,14 +182,22 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.BINARY, op));
     }
 
-    /** 从 `offset` 处读出变量的值，保存到 `r0` */
-    emitLoadVar(offset: number) {
-        this.emit(new IrInstr(IrInstrName.LOAD_VAR, offset));
+    /** 从 `offset` 处读出变量的值，保存到 `r0`。
+     *
+     * @param offset 变量在栈帧中的偏移量
+     * @param varKind 变量种类，"l" 表示局部变量，"p" 表示参数
+     */
+    emitLoadVar(offset: number, varKind: string) {
+        this.emit(new IrInstr(IrInstrName.LOAD_VAR, offset, varKind));
     }
 
-    /** 将 `r0` 保存到位于 `offset` 的变量 */
-    emitStoreVar(offset: number) {
-        this.emit(new IrInstr(IrInstrName.STORE_VAR, offset));
+    /** 将 `r0` 保存到位于 `offset` 的变量。
+     *
+     * @param offset 变量在栈帧中的偏移量
+     * @param varKind 变量种类，"l" 表示局部变量，"p" 表示参数
+     */
+    emitStoreVar(offset: number, varKind: string) {
+        this.emit(new IrInstr(IrInstrName.STORE_VAR, offset, varKind));
     }
 
     /** 将给定的寄存器 `reg` 压入栈顶 */
@@ -190,6 +223,15 @@ export class Ir {
     /** 如果 `r0` 不为 0，跳转到 `label` */
     emitBnez(label: Label) {
         this.emit(new IrInstr(IrInstrName.BNEZ, label));
+    }
+
+    /** 函数调用指令。调用之前所有参数已被从右到左依次压入栈中。
+     *
+     * @param fnName 函数名
+     * @param argCount 参数个数
+     */
+    emitCall(fnName: string, argCount: number) {
+        this.emit(new IrInstr(IrInstrName.CALL, fnName, argCount));
     }
 
     /** 返回指令，返回值为 `r0` */
@@ -227,6 +269,8 @@ export abstract class IrVisitor<Result> {
     abstract visitBeqz(instr: IrInstr): any;
     /** 处理条件跳转指令 `BNEZ` */
     abstract visitBnez(instr: IrInstr): any;
+    /** 处理函数调用指令 `CALL` */
+    abstract visitCall(instr: IrInstr): any;
     /** 处理返回指令 `RET` */
     abstract visitReturn(instr: IrInstr): any;
 
@@ -258,6 +302,8 @@ export abstract class IrVisitor<Result> {
                 return this.visitBeqz(i);
             case IrInstrName.BNEZ:
                 return this.visitBnez(i);
+            case IrInstrName.CALL:
+                return this.visitCall(i);
             case IrInstrName.RET:
                 return this.visitReturn(i);
             default:

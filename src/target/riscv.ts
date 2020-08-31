@@ -1,4 +1,4 @@
-import { Label, IrInstr, IrFunc, IrVisitor } from "../ir";
+import { Label, VariableOp, IrInstr, IrFunc, IrVisitor } from "../ir";
 import { OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
@@ -147,6 +147,31 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr("ret");
     }
 
+    /** 生成对变量的操作指令，操作类型见 {@link VariableOp} */
+    private emitVariableOp(op: VariableOp, instr: IrInstr): string {
+        let offset: number; // 相对于 `fp` 的偏移量
+        switch (instr.op2) {
+            case "p": // 参数
+                offset = instr.op * WORD_SIZE;
+                break;
+            case "l": // 局部变量
+                offset = -instr.op - 3 * WORD_SIZE;
+                break;
+            default:
+                throw new OtherError(`invalid operand '${instr.op2}' of IR insruction '${instr}'`);
+        }
+        switch (op) {
+            case VariableOp.Load:
+                return load("t0", "fp", offset);
+            case VariableOp.Store:
+                return store("t0", "fp", offset);
+            default:
+                throw new OtherError(
+                    `invalid variable operation '${op}' of IR insruction '${instr}'`,
+                );
+        }
+    }
+
     visitLabel(instr: IrInstr) {
         this.emitLabel(instr.op);
     }
@@ -164,11 +189,11 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
 
     visitLoadVar(instr: IrInstr) {
-        this.emitInstr(load("t0", "fp", -instr.op - 3 * WORD_SIZE));
+        this.emitInstr(this.emitVariableOp(VariableOp.Load, instr));
     }
 
     visitStoreVar(instr: IrInstr) {
-        this.emitInstr(store("t0", "fp", -instr.op - 3 * WORD_SIZE));
+        this.emitInstr(this.emitVariableOp(VariableOp.Store, instr));
     }
 
     visitPush(instr: IrInstr) {
@@ -191,6 +216,12 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr(`bnez t0, ${instr.op}`);
     }
 
+    visitCall(instr: IrInstr) {
+        this.emitInstr(`call ${instr.op}`);
+        this.emitInstr("mv t0, a0");
+        this.emitInstr(adjustStack(instr.op2 * WORD_SIZE)); // 释放参数空间
+    }
+
     visitReturn(_instr: IrInstr) {
         this.emitInstr("mv a0, t0");
         this.emitInstr(`j ${this.currentFunc.name}_exit`); // `RET` 指令修改为跳到函数收尾
@@ -204,6 +235,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
                 this.visitInstr(i);
             }
             this.emitEpilogue(func);
+            this.asm += "\n";
         });
         return this.asm;
     }

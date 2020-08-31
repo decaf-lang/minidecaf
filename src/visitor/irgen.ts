@@ -2,7 +2,8 @@ import { ParserRuleContext } from "antlr4ts";
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
-import { Label, Ir } from "../ir";
+import { Label, VariableOp, Ir } from "../ir";
+import { Variable } from "../type";
 
 /** 语法树到 IR 的生成器 */
 export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVisitor<void> {
@@ -17,7 +18,11 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     defaultResult() {}
 
     visitFunc(ctx: MiniDecafParser.FuncContext) {
-        this.ir.newFunc(ctx.Ident().text, ctx["localVarSize"]);
+        if (ctx.Semi()) {
+            // 不对函数声明生成代码
+            return;
+        }
+        this.ir.newFunc(ctx.Ident().text, ctx["paramCount"], ctx["localVarSize"]);
         ctx.blockItem().forEach((item) => item.accept(this));
         // 如果函数没有返回语句，默认返回 0
         if (this.ir.missReturn()) {
@@ -29,7 +34,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     visitDecl(ctx: MiniDecafParser.DeclContext) {
         if (ctx.expr()) {
             ctx.expr().accept(this);
-            this.ir.emitStoreVar(ctx["variable"].offset);
+            this.emitVariable(VariableOp.Store, ctx["variable"]);
         }
     }
 
@@ -114,7 +119,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
         ctx.expr().accept(this);
-        this.ir.emitStoreVar(ctx["variable"].offset);
+        this.emitVariable(VariableOp.Store, ctx["variable"]);
     }
 
     visitCondExpr(ctx: MiniDecafParser.CondExprContext) {
@@ -160,12 +165,35 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitIdentExpr(ctx: MiniDecafParser.IdentExprContext) {
-        this.ir.emitLoadVar(ctx["variable"].offset);
+        this.emitVariable(VariableOp.Load, ctx["variable"]);
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
         ctx.factor().accept(this);
         this.ir.emitUnary(ctx.getChild(0).text);
+    }
+
+    visitFuncCall(ctx: MiniDecafParser.FuncCallContext) {
+        let fnName = ctx.Ident().text;
+        let args = ctx.expr();
+        // 从右到左向栈中压入参数
+        for (let i = args.length - 1; i >= 0; i--) {
+            args[i].accept(this);
+            this.ir.emitPush("r0");
+        }
+        this.ir.emitCall(fnName, args.length);
+    }
+
+    /** 生成对变量的操作，操作类型见 {@link VariableOp} */
+    private emitVariable(varOp: VariableOp, v: Variable) {
+        switch (varOp) {
+            case VariableOp.Load:
+                this.ir.emitLoadVar(v.offset, v.kind);
+                break;
+            case VariableOp.Store:
+                this.ir.emitStoreVar(v.offset, v.kind);
+                break;
+        }
     }
 
     /**
