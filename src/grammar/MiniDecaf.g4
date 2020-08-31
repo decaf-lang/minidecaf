@@ -3,11 +3,15 @@ grammar MiniDecaf;
 import Lexer;
 
 program
-    : func EOF
+    : func* EOF
+    ;
+
+paramList
+    : (Int Ident (',' Int Ident)*)?
     ;
 
 func
-    : Int Ident '(' ')' '{' blockItem* '}'
+    : Int Ident '(' paramList ')' ('{' blockItem* '}' | ';')
     ;
 
 blockItem
@@ -75,8 +79,9 @@ mulExpr
     ;
 
 factor
-    : Integer                   # IntExpr
-    | Ident                     # IdentExpr
-    | '(' expr ')'              # NestedExpr
-    | ('-' | '~' | '!') factor  # UnaryExpr
+    : Integer                           # IntExpr
+    | Ident                             # IdentExpr
+    | '(' expr ')'                      # NestedExpr
+    | ('-' | '~' | '!') factor          # UnaryExpr
+    | Ident '(' (expr (',' expr)*)? ')' # FuncCall
     ;

@@ -1,4 +1,4 @@
-import { Type, Variable } from "./type";
+import { Type, FuncType, Variable, Function } from "./type";
 
 /** 作用域种类 */
 enum ScopeType {
@@ -17,7 +17,7 @@ export class Scope {
     /** 作用域种类，见 {@link ScopeType} */
     private readonly type: ScopeType;
     /** 符号表 */
-    private symbols: Map<string, Variable>;
+    private symbols: Map<string, Variable | Function>;
     /** 下一个变量在栈帧中的偏移量 */
     nextOffset: number = 0;
     /** 局部变量所占的内存大小 */
@@ -37,8 +37,22 @@ export class Scope {
         return v;
     }
 
-    /** 在该作用域中查找名为 `name` 的变量 */
-    find(name: string): Variable {
+    /** 在该作用域中定义一个参数 */
+    declareParam(name: string, type: Type, index: number): Variable {
+        let v = new Variable(name, type, index, true);
+        this.symbols.set(name, v);
+        return v;
+    }
+
+    /** 在该作用域中定义一个函数 */
+    declareFunc(name: string, type: FuncType): Function {
+        let f = new Function(name, type);
+        this.symbols.set(name, f);
+        return f;
+    }
+
+    /** 在该作用域中查找名为 `name` 的符号 */
+    find(name: string): Variable | Function {
         return this.symbols.get(name);
     }
 
@@ -105,7 +119,17 @@ export class ScopeStack {
 
     /** 当前作用域是否可以定义名为 `name` 的符号 */
     canDeclare(name: string): boolean {
-        return !this.current().find(name);
+        if (this.current().find(name)) {
+            return false;
+        }
+        // 如果上层作用域是函数作用域，且与其中的符号同名（参数），不允许定义
+        if (this.scopes.length > 1) {
+            let funcScope = this.scopes[this.scopes.length - 2];
+            if (funcScope.isFunc() && funcScope.find(name)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /** 在当前作用域中定义一个变量 */
@@ -113,8 +137,25 @@ export class ScopeStack {
         return this.current().declareVar(name, type);
     }
 
+    /** 在当前作用域中定义一个参数。
+     *
+     * @param name 参数名
+     * @param type 参数类型
+     * @param index 第几个参数
+     */
+    declareParam(name: string, type: Type, index: number): Variable {
+        return this.current().declareParam(name, type, index);
+    }
+
+    /** 在当前作用域中定义一个函数 */
+    declareFunc(name: string, type: FuncType, defined?: boolean): Function {
+        let f = this.current().declareFunc(name, type);
+        if (defined) f.defined = true;
+        return f;
+    }
+
     /** 从里到外依次在各作用域中查找名为 `name` 的变量 */
-    find(name: string): Variable {
+    find(name: string): Variable | Function {
         for (let i = this.scopes.length - 1; i >= 0; i--) {
             let v = this.scopes[i].find(name);
             if (v) return v;

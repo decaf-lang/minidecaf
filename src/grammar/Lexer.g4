@@ -18,6 +18,7 @@ RightBrace: '}';
 Semi: ';';
 Question: '?';
 Colon: ':';
+Comma: ',';
 
 Plus: '+';
 Minus: '-';
