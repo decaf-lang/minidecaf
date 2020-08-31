@@ -2,17 +2,23 @@ import { ParserRuleContext } from "antlr4ts";
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
-import { Ir } from "../ir";
+import { Label, Ir } from "../ir";
 
 /** 语法树到 IR 的生成器 */
 export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVisitor<void> {
-    ir: Ir = new Ir();
+    ir: Ir;
+
+    constructor() {
+        super();
+        this.ir = new Ir();
+        Label.initAllocation();
+    }
 
     defaultResult() {}
 
     visitFunc(ctx: MiniDecafParser.FuncContext) {
         this.ir.newFunc(ctx.Ident().text, ctx["localVarSize"]);
-        ctx.stmt().forEach((stmt) => stmt.accept(this));
+        ctx.blockItem().forEach((item) => item.accept(this));
         // 如果函数没有返回语句，默认返回 0
         if (this.ir.missReturn()) {
             this.ir.emitImmediate(0);
@@ -32,9 +38,39 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         this.ir.emitReturn();
     }
 
+    visitIfStmt(ctx: MiniDecafParser.IfStmtContext) {
+        ctx.expr().accept(this);
+        let labelFalse = Label.alloc();
+        this.ir.emitBeqz(labelFalse);
+        ctx.stmt(0).accept(this);
+        if (ctx.Else()) {
+            let labelNext = Label.alloc();
+            this.ir.emitJump(labelNext);
+            this.ir.emitLabel(labelFalse);
+            ctx.stmt(1).accept(this);
+            this.ir.emitLabel(labelNext);
+        } else {
+            this.ir.emitLabel(labelFalse);
+        }
+    }
+
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
         ctx.expr().accept(this);
         this.ir.emitStoreVar(ctx["variable"].offset);
+    }
+
+    visitCondExpr(ctx: MiniDecafParser.CondExprContext) {
+        ctx.orExpr().accept(this);
+        if (ctx.Question()) {
+            let labelFalse = Label.alloc();
+            let labelNext = Label.alloc();
+            this.ir.emitBeqz(labelFalse);
+            ctx.expr().accept(this);
+            this.ir.emitJump(labelNext);
+            this.ir.emitLabel(labelFalse);
+            ctx.condExpr().accept(this);
+            this.ir.emitLabel(labelNext);
+        }
     }
 
     visitOrExpr(ctx: MiniDecafParser.OrExprContext) {

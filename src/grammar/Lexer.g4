@@ -2,6 +2,8 @@ lexer grammar Lexer;
 
 Return: 'return';
 Int: 'int';
+If: 'if';
+Else: 'else';
 
 LeftParen: '(';
 RightParen: ')';
@@ -9,6 +11,8 @@ LeftBrace: '{';
 RightBrace: '}';
 
 Semi: ';';
+Question: '?';
+Colon: ':';
 
 Plus: '+';
 Minus: '-';

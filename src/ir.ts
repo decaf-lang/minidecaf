@@ -1,7 +1,31 @@
 import { OtherError } from "./error";
 
+/** 标签 */
+export class Label {
+    /** 标签编号 */
+    readonly id: number;
+    private constructor(id: number) {
+        this.id = id;
+    }
+    toString = (): string => {
+        return `.L${this.id}`;
+    };
+
+    private static labelCount: number = 1;
+    /** 初始化标签分配器 */
+    static initAllocation() {
+        this.labelCount = 1;
+    }
+    /** 新分配一个标签 */
+    static alloc(): Label {
+        return new Label(this.labelCount++);
+    }
+}
+
 /** IR 指令名称 */
 export enum IrInstrName {
+    /** 标签 */
+    LABEL = "LABEL",
     /** 加载一个立即数到 `r0` */
     IMM = "IMM",
     /** 对 `r0` 进行一元运算，结果存到 `r0` */
@@ -16,6 +40,10 @@ export enum IrInstrName {
     PUSH = "PUSH",
     /** 从栈顶弹出一个数，存到给定的寄存器 */
     POP = "POP",
+    /** 无条件跳转到给定的标签 */
+    JUMP = "JUMP",
+    /** 如果 `r0` 为 0，跳转到给定的标签 */
+    BEQZ = "BEQZ",
     /** 返回指令，返回值为 `r0` */
     RET = "RET",
 }
@@ -45,11 +73,14 @@ export class IrFunc {
     localVarSize: number;
     /** 指令列表 */
     instrs: IrInstr[];
+    /** 标签号到指令位置的映射表 */
+    labelIndices: Map<number, number>;
 
     constructor(name: string, localVarSize: number) {
         this.name = name;
         this.localVarSize = localVarSize;
         this.instrs = [];
+        this.labelIndices = new Map();
     }
 }
 
@@ -76,7 +107,7 @@ export class Ir {
         this._funcs.forEach((func, name) => {
             str += `FUNC ${name}(${func.localVarSize}):\n`;
             func.instrs.forEach((i) => {
-                str += `    ${i}\n`;
+                str += i.name == IrInstrName.LABEL ? `${i}:\n` : `    ${i}\n`;
             });
             str += "\n";
         });
@@ -101,6 +132,12 @@ export class Ir {
             this.currentFunc &&
             this.currentFunc.instrs[this.currentFunc.instrs.length - 1]?.name !== IrInstrName.RET
         );
+    }
+
+    /** 新建一个标签 */
+    emitLabel(label: Label) {
+        this.currentFunc.labelIndices.set(label.id, this.currentFunc.instrs.length);
+        this.emit(new IrInstr(IrInstrName.LABEL, label));
     }
 
     /** 加载一个立即数 `value` 到 `r0` */
@@ -138,6 +175,16 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.POP, reg));
     }
 
+    /** 无条件跳转到 `label` */
+    emitJump(label: Label) {
+        this.emit(new IrInstr(IrInstrName.JUMP, label));
+    }
+
+    /** 如果 `r0` 为 0，跳转到 `label` */
+    emitBeqz(label: Label) {
+        this.emit(new IrInstr(IrInstrName.BEQZ, label));
+    }
+
     /** 返回指令，返回值为 `r0` */
     emitReturn() {
         this.emit(new IrInstr(IrInstrName.RET));
@@ -151,6 +198,8 @@ export abstract class IrVisitor<Result> {
         this.ir = ir;
     }
 
+    /** 处理标签指令 `LABEL` */
+    abstract visitLabel(instr: IrInstr): any;
     /** 处理立即数指令 `IMM` */
     abstract visitImmediate(instr: IrInstr): any;
     /** 处理一元运算指令 `UNARY` */
@@ -165,6 +214,10 @@ export abstract class IrVisitor<Result> {
     abstract visitPush(instr: IrInstr): any;
     /** 处理弹栈指令 `POP` */
     abstract visitPop(instr: IrInstr): any;
+    /** 处理无条件跳转指令 `JUMP` */
+    abstract visitJump(instr: IrInstr): any;
+    /** 处理条件跳转指令 `BEQZ` */
+    abstract visitBeqz(instr: IrInstr): any;
     /** 处理返回指令 `RET` */
     abstract visitReturn(instr: IrInstr): any;
 
@@ -174,6 +227,8 @@ export abstract class IrVisitor<Result> {
     /** 根据指令名称自动调用对应的 visit 函数 */
     protected visitInstr(i: IrInstr): any {
         switch (i.name) {
+            case IrInstrName.LABEL:
+                return this.visitLabel(i);
             case IrInstrName.IMM:
                 return this.visitImmediate(i);
             case IrInstrName.UNARY:
@@ -188,6 +243,10 @@ export abstract class IrVisitor<Result> {
                 return this.visitPush(i);
             case IrInstrName.POP:
                 return this.visitPop(i);
+            case IrInstrName.JUMP:
+                return this.visitJump(i);
+            case IrInstrName.BEQZ:
+                return this.visitBeqz(i);
             case IrInstrName.RET:
                 return this.visitReturn(i);
             default:

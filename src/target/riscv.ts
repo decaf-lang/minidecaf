@@ -1,4 +1,4 @@
-import { IrInstr, IrFunc, IrVisitor } from "../ir";
+import { Label, IrInstr, IrFunc, IrVisitor } from "../ir";
 import { OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
@@ -107,7 +107,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     private currentFunc: IrFunc;
 
     /** 生成一个标签 */
-    private emitLabel(label: string) {
+    private emitLabel(label: string | Label) {
         this.asm += `${label}:\n`;
     }
     /** 生成一个指示符，如 .globl, .data, .word 等 */
@@ -147,6 +147,10 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr("ret");
     }
 
+    visitLabel(instr: IrInstr) {
+        this.emitLabel(instr.op);
+    }
+
     visitImmediate(instr: IrInstr) {
         this.emitInstr(`li t0, ${instr.op}`);
     }
@@ -173,6 +177,14 @@ export class Riscv32CodeGen extends IrVisitor<string> {
 
     visitPop(instr: IrInstr) {
         this.emitInstr([load(irReg2rvReg(instr.op), "sp"), adjustStack(WORD_SIZE)]);
+    }
+
+    visitJump(instr: IrInstr) {
+        this.emitInstr(`j ${instr.op}`);
+    }
+
+    visitBeqz(instr: IrInstr) {
+        this.emitInstr(`beqz t0, ${instr.op}`);
     }
 
     visitReturn(_instr: IrInstr) {

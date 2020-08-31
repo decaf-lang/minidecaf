@@ -7,22 +7,35 @@ program
     ;
 
 func
-    : Int Ident '(' ')' '{' stmt* '}'
+    : Int Ident '(' ')' '{' blockItem* '}'
+    ;
+
+blockItem
+    : stmt
+    | decl
+    ;
+
+decl
+    : Int Ident ('=' expr)? ';'
     ;
 
 stmt
-    : Return expr ';'               # ReturnStmt
-    | expr ';'                      # ExprStmt
-    | Int Ident ('=' expr)? ';'     # Decl
+    : Return expr ';'                       # ReturnStmt
+    | expr ';'                              # ExprStmt
+    | If '(' expr ')' stmt ('else' stmt)?   # IfStmt
     ;
 
 expr
-    : orExpr
+    : condExpr
     | assignExpr
     ;
 
 assignExpr
     : Ident '=' expr
+    ;
+
+condExpr
+    : orExpr ('?' expr ':' condExpr)?
     ;
 
 orExpr

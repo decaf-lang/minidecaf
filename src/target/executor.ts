@@ -103,6 +103,10 @@ export class IrExecutor extends IrVisitor<number> {
         }
     }
 
+    visitLabel(_instr: IrInstr) {
+        this.pc++;
+    }
+
     visitImmediate(instr: IrInstr) {
         this.pc++;
         this.r0 = instr.op;
@@ -136,6 +140,18 @@ export class IrExecutor extends IrVisitor<number> {
     visitPop(instr: IrInstr) {
         this.pc++;
         this[instr.op] = this.stack.pop();
+    }
+
+    visitJump(instr: IrInstr) {
+        this.pc = this.currentFunc.labelIndices.get(instr.op.id) + 1;
+    }
+
+    visitBeqz(instr: IrInstr) {
+        if (this.r0 === 0) {
+            this.pc = this.currentFunc.labelIndices.get(instr.op.id) + 1;
+        } else {
+            this.pc++;
+        }
     }
 
     visitReturn(_instr: IrInstr) {
