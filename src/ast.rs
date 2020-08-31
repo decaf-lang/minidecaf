@@ -11,6 +11,8 @@ pub type Ty = u32;
 pub struct Decl<'a> {
   pub ty: Ty,
   pub name: &'a str,
+  // 这个变量的数组维度，例如int a[1][2]的dims就是vec![1, 2]，如果不是数组就是空Vec
+  pub dims: Vec<u32>,
   // 一个可选的初始值
   pub init: Option<Expr<'a>>,
 }
@@ -62,4 +64,6 @@ pub enum Expr<'a> {
   Deref(Box<Expr<'a>>),
   AddrOf(Box<Expr<'a>>),
   Cast(Ty, Box<Expr<'a>>),
+  // 两个Box<Expr<'a>>分别是a[b]中的a，b。类似a[b][c][d]这样的结构用多重的Index来表示
+  Index(Box<Expr<'a>>, Box<Expr<'a>>),
 }

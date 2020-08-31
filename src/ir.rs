@@ -4,8 +4,9 @@ use crate::ast::{*, BinaryOp::*};
 #[derive(Debug)]
 pub struct IrProg<'a> {
   pub funcs: Vec<IrFunc<'a>>,
-  // 每一项是(名字，初始值)
-  pub globs: Vec<(&'a str, i32)>,
+  // 每一项是(名字，初始值/数组大小)
+  // Result<i32, u32>为Ok时，表示int变量的初始值；为Err时，表示数组的大小(全局数组初始值只能是全0)
+  pub globs: Vec<(&'a str, Result<i32, u32>)>,
 }
 
 #[derive(Debug)]
@@ -47,6 +48,8 @@ pub enum IrStmt {
   // 调用后这些参数都被弹出，且运算栈中压入函数的返回值
   // 注意这里并不涉及调用约定的细节，比如到底是caller还是callee把参数弹出运算栈，把返回值压入运算栈的，只是说整个调用结束后结果应该是这样
   Call(u32),
+  // 交换栈顶和次栈顶的两个元素，这条指令目前只是为了实现整数+指针而存在的
+  Swap,
   // 弹出栈顶元素
   Pop,
   // 弹出栈顶元素，将其作为返回值返回当前函数
@@ -60,8 +63,9 @@ pub fn ast2ir<'a>(p: &'a Prog<'a>) -> IrProg<'a> {
   for d in &p.globs {
     // 全局变量要么不初始化(与用整数常量0初始化等价)，要么用整数常量初始化，不能用其他表达式初始化
     let init = match d.init {
-      Some(Expr::Int(x)) => x,
-      None => 0, _ => panic!("global variable not initialized by int const"),
+      Some(Expr::Int(x)) => Ok(x),
+      None => Err(d.dims.iter().product::<u32>()), // int a;也归入这种情形，在内存上它等价于int a[1];
+      _ => panic!("global variable not initialized by int const"),
     };
     if globs.insert(d.name, (globs.len() as u32, d)).is_some() {
       panic!("global variable `{}` redefined in current context", d.name);
@@ -139,6 +143,7 @@ fn func<'a>(f: &Func<'a>, funcs: &FuncMap<'a>, globs: &SymbolMap<'a>) -> IrFunc<
   let mut ctx = FuncCtx { names: vec![HashMap::new()], stmts: Vec::new(), loops: Vec::new(), funcs, globs, ret: f.ret, var_cnt: 0, label_cnt: 0 };
   // 参数和局部变量一起参与id的分配，参数0的id是0，第一个局部变量的id是参数的数目。后面生成汇编代码的时候，也会设法保证这个排布肾虚
   for p in &f.params {
+    assert!(p.dims.is_empty(), "function param is array");
     assert!(p.init.is_none(), "function param has init");
     decl(&mut ctx, p);
   }
@@ -158,7 +163,10 @@ fn func<'a>(f: &Func<'a>, funcs: &FuncMap<'a>, globs: &SymbolMap<'a>) -> IrFunc<
 
 // 在当前环境中定义一个变量
 fn decl<'a>(ctx: &mut FuncCtx<'a, '_>, d: &'a Decl<'a>) {
-  let id = ctx.var_cnt;
+  // 有数组之前每个变量只占据栈中的一个位置，现在有数组了，一个变量可以占据多个位置
+  // 为了让变量id能够容易地对应到变量在栈上的偏移量，这里也需要把id增加数组大小的数目
+  // 而且代码生成阶段栈是向下增长的，但数组地址必须是数组中地址最低的地址，所以用数组中最后一个元素的id来表示数组
+  let id = ctx.var_cnt + d.dims.iter().product::<u32>() - 1;
   // 只在最后一个SymbolMap，也就是当前语句所在的语句块的SymbolMap中定义这个变量
   if ctx.names.last_mut().unwrap().insert(d.name, (id, d)).is_some() {
     panic!("variable `{}` redefined in current context", d.name)
@@ -166,24 +174,24 @@ fn decl<'a>(ctx: &mut FuncCtx<'a, '_>, d: &'a Decl<'a>) {
   ctx.var_cnt = id + 1;
   if let Some(x) = &d.init {
     // 这一串操作其实就是执行一次Stmt::Expr(Expr::Assign)
-    let ty = expr(ctx, x, true);
-    assert_eq!(ty, d.ty, "incompatible init");
+    let (ty, dims) = expr(ctx, x, true);
+    assert!(ty == d.ty && dims.is_empty(), "incompatible init");
     ctx.stmts.push(IrStmt::LocalAddr(id));
     ctx.stmts.push(IrStmt::Store);
     ctx.stmts.push(IrStmt::Pop);
   }
 }
 
-// 要求这个Rust表达式值为0，也就是在MiniDecaf中类型是int
-fn ck_int(ty: u32) { assert_eq!(ty, 0, "expect int type"); }
+// 用(数组元素类型，数组维度)来表示表达式类型，这里要求整个类型是int，所以元素类型必须是零重指针，即0，维度必须为空
+fn ck_int((ty, dims): (Ty, &[u32])) { assert!(ty == 0 && dims.is_empty(), "expect int type"); }
 
 fn stmt<'a>(ctx: &mut FuncCtx<'a, '_>, s: &'a Stmt<'a>) {
   match s {
     Stmt::Empty => {}
     Stmt::Ret(e) => {
       // 为了翻译一条return语句，先翻译它return的表达式，这样栈顶就是这个表达式的值，再生成一条Ret指令弹出它作为返回值
-      let ty = expr(ctx, e, true);
-      assert_eq!(ty, ctx.ret, "incompatible return type");
+      let (ty, dims) = expr(ctx, e, true);
+      assert!(ty == ctx.ret && dims.is_empty(), "incompatible return type");
       ctx.stmts.push(IrStmt::Ret);
     }
     Stmt::Decl(d) => decl(ctx, d),
@@ -244,90 +252,135 @@ fn stmt<'a>(ctx: &mut FuncCtx<'a, '_>, s: &'a Stmt<'a>) {
 
 // 检查这个表达式是不是左值，不是就panic
 fn ck_lvalue(e: &Expr) {
-  match e { Expr::Var(..) | Expr::Deref(..) => {} _ => panic!("expect lvalue expr in current context") }
+  match e { Expr::Var(..) | Expr::Deref(..) | Expr::Index(..) => {} _ => panic!("expect lvalue expr in current context") }
 }
 
 // 一条表达式执行完后最终总会往栈中压入一个元素，即这个表达式的值
 // load参数表示对于一个左值，是否要计算出它的值。如果load为true，则计算结果应该是load得到的值，否则计算结果应该是这个左值的地址
-// 函数的返回值是表达式的类型
-fn expr<'a>(ctx: &mut FuncCtx<'a, '_>, e: &Expr, load: bool) -> Ty {
+// 函数的返回值是表达式的类型，用(数组元素类型，数组维度)来表示
+fn expr<'a>(ctx: &mut FuncCtx<'a, '_>, e: &Expr, load: bool) -> (Ty, &'a [u32]) {
+  // 数组只能用于Index和Cast操作，其他任何使用都是不合法的，所以很多地方都会assert dims.is_empty()，表示操作数不能是数组
   match e {
     Expr::Int(x) => {
       ctx.stmts.push(IrStmt::Const(*x));
-      0 // 0重指针，也就是int
+      (0, &[]) // 0重指针，也就是int
     }
     Expr::Unary(op, x) => {
       // 为了翻译一个unary表达式，先翻译它的操作数，这样栈顶就是操作数的值，再生成一条Unary指令基于栈顶的值进行计算
       ck_int(expr(ctx, x, true)); // 只能对整数进行unary操作
       ctx.stmts.push(IrStmt::Unary(*op));
-      0 // 整数的unary操作结果仍然是整数
+      (0, &[]) // 整数的unary操作结果仍然是整数
     }
     Expr::Binary(op, l, r) => {
       // 为了翻译一个binary表达式，先翻译它的左操作数，再翻译它的右操作数
       // 这样栈顶就是右操作数的值，栈顶下面一个就是左操作数的值，再生成一条Binary指令基于这两个值进行计算
-      let ty1 = expr(ctx, l, true);
-      let ty2 = expr(ctx, r, true);
-      // 本step下只允许指针间的相等性比较，而且要求是同种类型的指针之间的
-      // 不管是不是相等性比较，都要求左右操作数类型相同；只要不是相等性比较，都要求两个操作数都是整数
-      assert!(ty1 == ty2 && ((*op == Eq || *op == Ne) || ty1 == 0), "incompatible binary expr");
-      ctx.stmts.push(IrStmt::Binary(*op));
-      0 // 指针间的比较和整数间的所有运算，结果都是整数
+      let (ty1, dims1) = expr(ctx, l, true);
+      let (ty2, dims2) = expr(ctx, r, true);
+      assert!(dims1.is_empty() && dims2.is_empty(), "array operand in binary expr");
+      match op {
+        Add | Sub => match (ty1, ty2) { // 允许整数+-整数，指针+-整数，整数+指针，指针-指针
+          (0, 0) => { // 整数+-整数，不需要特殊处理，结果仍然是整数
+            ctx.stmts.push(IrStmt::Binary(*op));
+            (0, &[])
+          }
+          (x, 0) | (0, x) if ty2 == 0 || *op == Add => { // 指针+-整数，整数+指针(ty1 == 0 || op == Add排除了整数-指针)
+            // 指针+-整数，整数+指针中都需要把"整数"操作数乘上指针指向的元素大小，在这里只能是4
+            // 如果整数就在栈顶，那只需要压入4，执行乘法，栈顶的值就会变成原值乘4，再用下面的指针+-它即可
+            // 但是如果整数不在栈顶，即整数+指针的情形，需要特殊处理，因为没办法对次栈顶的整数进行运算
+            // 所以引入一条swap指令，交换栈顶和次栈顶，仍然对栈顶的值乘4后加上次栈顶的值
+            if ty1 == 0 { ctx.stmts.push(IrStmt::Swap); }
+            ctx.stmts.push(IrStmt::Const(4));
+            ctx.stmts.push(IrStmt::Binary(Mul));
+            ctx.stmts.push(IrStmt::Binary(*op));
+            (x, &[])
+          }
+          (x, y) if x == y && *op == Sub => { // 相同类型的指针-指针，执行减法后把结果除以元素大小
+            ctx.stmts.push(IrStmt::Binary(*op));
+            ctx.stmts.push(IrStmt::Const(4));
+            ctx.stmts.push(IrStmt::Binary(Div));
+            (0, &[])
+          }
+          _ => panic!("incompatible add/sub expr"),
+        }
+        _ => {
+          // 除了加减之外，只允许指针间的相等性比较，而且要求是同种类型的指针之间的
+          // 不管是不是相等性比较，都要求左右操作数类型相同；只要不是相等性比较，都要求两个操作数都是整数
+          assert!(ty1 == ty2 && ((*op == Eq || *op == Ne) || ty1 == 0), "incompatible binary expr");
+          ctx.stmts.push(IrStmt::Binary(*op));
+          (0, &[]) // 指针间的比较和整数间的所有运算，结果都是整数
+        }
+      }
     }
     Expr::Var(name) => {
       let (is_glob, id, decl) = ctx.lookup(name);
       // 根据它是不是全局变量，用不同的指令来计算地址，id的含义也不一样
       ctx.stmts.push(if is_glob { IrStmt::GlobAddr(id) } else { IrStmt::LocalAddr(id) });
-      if load { ctx.stmts.push(IrStmt::Load); } // Var是一个左值，如果调用者想要它的地址，就不能load
-      decl.ty
+      // Var是一个左值，如果调用者想要它的地址，就不能load
+      // 如果这个表达式的类型是一个数组，则不管load的值是什么都不能load，因为调用者本来就是需要一个地址，而不是数组元素
+      if load && decl.dims.is_empty() { ctx.stmts.push(IrStmt::Load); }
+      (decl.ty, &decl.dims)
     }
     Expr::Assign(l, r) => {
       // 为了翻译一个assign表达式，先翻译它的右操作数，即赋值的值，再翻译左操作数，但是要求左操作数必须是左值，而且只要它的地址，不要地址上的值
       // 执行Store后就会完成这个assign的操作，同时在栈中留下右操作数的值
       ck_lvalue(l);
-      let ty1 = expr(ctx, r, true);
-      let ty2 = expr(ctx, l, false); // 需要左操作数的地址，不能load
-      assert_eq!(ty1, ty2, "incompatible assign expr");
+      let (ty1, dims1) = expr(ctx, r, true);
+      let (ty2, dims2) = expr(ctx, l, false); // 需要左操作数的地址，不能load
+      assert!(ty1 == ty2 && dims1.is_empty() && dims2.is_empty(), "incompatible assign expr"); // 要求赋值的左右操作数类型相同
       ctx.stmts.push(IrStmt::Store);
-      ty1
+      (ty1, &[])
     }
     Expr::Condition(cond, t, f) => {
       // 依据cond的结果进行跳转，如果为cond为0，则计算表达式f，否则计算表达式t；整体的实现方式与Stmt::If是完全类似的
       ck_int(expr(ctx, cond, true));
       let (before_f, after_f) = (ctx.new_label(), ctx.new_label());
       ctx.stmts.push(IrStmt::Bz(before_f));
-      let ty1 = expr(ctx, t, true);
+      let (ty1, dims1) = expr(ctx, t, true);
       ctx.stmts.push(IrStmt::Jump(after_f));
       ctx.stmts.push(IrStmt::Label(before_f));
-      let ty2 = expr(ctx, f, true);
-      assert_eq!(ty1, ty2, "incompatible condition expr"); // 要求t和f的类型相同，表达式类型是它们的类型
+      let (ty2, dims2) = expr(ctx, f, true);
+      assert!(ty1 == ty2 && dims1.is_empty() && dims2.is_empty(), "incompatible condition expr"); // 要求t和f的类型相同，表达式类型是它们的类型
       ctx.stmts.push(IrStmt::Label(after_f));
-      ty1
+      (ty1, &[])
     }
     Expr::Call(func, args) => {
       let (id, f) = *ctx.funcs.get(func).expect("function not defined in current context");
       assert_eq!(args.len(), f.params.len(), "function call args params number mismatch");
       // 从左到右依次计算参数，也依次压入运算栈中
       for (a, p) in args.iter().zip(f.params.iter()) {
-        let ty = expr(ctx, a, true);
-        assert_eq!(ty, p.ty, "function call args params type mismatch")
+        let (ty, dims) = expr(ctx, a, true);
+        assert!(ty == p.ty && dims.is_empty(), "function call args params type mismatch")
       }
       ctx.stmts.push(IrStmt::Call(id)); // 执行调用，结束后参数被清除，栈顶是函数的返回值
-      f.ret
+      (f.ret, &[])
     }
     Expr::Deref(ptr) => {
-      let ty = expr(ctx, ptr, true);
-      assert!(ty > 0, "expect pointer type");
+      let (ty, dims) = expr(ctx, ptr, true);
+      assert!(ty > 0 && dims.is_empty(), "expect pointer type");
       if load { ctx.stmts.push(IrStmt::Load); }
-      ty - 1 // 解引用操作的结果的指针重数比操作数的少1
+      (ty - 1, &[]) // 解引用操作的结果的指针重数比操作数的少1
     }
     Expr::AddrOf(l) => {
       ck_lvalue(l);
-      let ty = expr(ctx, l, false); // 需要操作数的地址，不能load
-      ty + 1 // 取地址操作的结果的指针重数比操作数的多1
+      let (ty, dims) = expr(ctx, l, false); // 需要操作数的地址，不能load
+      // 不允许对数组取地址，例如int a[2][2]则&a[1][1]合法，&a和&a[1]不合法
+      assert!(dims.is_empty(), "cannot take addr of array type");
+      (ty + 1, &[]) // 取地址操作的结果的指针重数比操作数的多1
     }
     Expr::Cast(ty, e) => {
       expr(ctx, e, true);
-      *ty
+      (*ty, &[])
+    }
+    Expr::Index(ptr, idx) => {
+      let (ty, dims) = expr(ctx, ptr, true);
+      assert!(ty as usize + dims.len() > 0, "require array/pointer type");
+      ck_int(expr(ctx, idx, true));
+      // 在数组第一维上做下标操作，计算地址时偏移量要乘上剩余维度的大小的乘积
+      ctx.stmts.push(IrStmt::Const((4 * dims.iter().skip(1).product::<u32>()) as i32));
+      ctx.stmts.push(IrStmt::Binary(BinaryOp::Mul));
+      ctx.stmts.push(IrStmt::Binary(BinaryOp::Add));
+      if load && dims.len() <= 1 { ctx.stmts.push(IrStmt::Load); }
+      if let Some(d) = dims.get(1..) { (ty, d) } else { (ty - 1, dims) }
     }
   }
 }

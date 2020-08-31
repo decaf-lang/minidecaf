@@ -23,6 +23,7 @@ priority = [
   { assoc = 'left', terms = ['Add', 'Sub'] },
   { assoc = 'left', terms = ['Mul', 'Div', 'Mod'] },
   { assoc = 'left', terms = ['BNot', 'LNot', 'AddrOf', 'RPar'] },
+  { assoc = 'left', terms = ['LBrk', 'RBrk'] },
   { assoc = 'left', terms = ['Else'] },
 ]
 
@@ -41,6 +42,8 @@ priority = [
 '\)' = 'RPar'
 '\{' = 'LBrc' # Brc是Brace的简称
 '\}' = 'RBrc'
+'\[' = 'LBrk' # Brk是Bracket的简称
+'\]' = 'RBrk'
 ',' = 'Comma'
 '=' = 'Assign'
 '\+' = 'Add'
@@ -79,9 +82,16 @@ impl<'p> Parser {
   fn ty_ptr(ty: Ty, _: Token) -> Ty { ty + 1 }
 
   #[rule = "Decl -> Ty Id"]
-  fn decl0(ty: Ty, name: Token) -> Decl<'p> { Decl { ty, name: name.str(), init: None } }
+  fn decl0(ty: Ty, name: Token) -> Decl<'p> { Decl { ty, name: name.str(), dims: Vec::new(), init: None } }
   #[rule = "Decl -> Ty Id Assign Expr"]
-  fn decl1(ty: Ty, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { ty, name: name.str(), init: Some(init) } }
+  fn decl1(ty: Ty, name: Token, _a: Token, init: Expr<'p>) -> Decl<'p> { Decl { ty, name: name.str(), dims: Vec::new(), init: Some(init) } }
+  #[rule = "Decl -> Ty Id Dims"] // 语法上保证了带维度的定义语句没有初始值，后面也不会检查这个了
+  fn decl2(ty: Ty, name: Token, dims: Vec<u32>) -> Decl<'p> { Decl { ty, name: name.str(), dims, init: None } }
+
+  #[rule = "Dims -> LBrk IntConst RBrk"]
+  fn dims0(_l: Token, n: Token, _r: Token) -> Vec<u32> { vec![n.parse()] }
+  #[rule = "Dims -> Dims LBrk IntConst RBrk"]
+  fn dims1(mut l: Vec<u32>, _l: Token, n: Token, _r: Token) -> Vec<u32> { (l.push(n.parse()), l).1 }
 
   #[rule = "Func -> Ty Id LPar Params RPar Semi"]
   fn func0(ret: Ty, name: Token, _lp: Token, params: Vec<Decl<'p>>, _rp: Token, _s: Token) -> Func<'p> {
@@ -198,6 +208,8 @@ impl<'p> Parser {
   fn expr_addrof(_: Token, e: Expr<'p>) -> Expr<'p> { Expr::AddrOf(Box::new(e)) }
   #[rule = "Expr -> LPar Ty RPar Expr"]
   fn expr_cast(_l: Token, ty: Ty, _r: Token, e: Expr<'p>) -> Expr<'p> { Expr::Cast(ty, Box::new(e)) }
+  #[rule = "Expr -> Expr LBrk Expr RBrk"]
+  fn expr_index(e: Expr<'p>, _l: Token, idx: Expr<'p>, _r: Token) -> Expr<'p> { Expr::Index(Box::new(e), Box::new(idx)) }
 
   #[rule = "Args ->"]
   fn args0() -> Vec<Expr<'p>> { Vec::new() }

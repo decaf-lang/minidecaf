@@ -5,7 +5,10 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
   for g in &p.globs {
     writeln!(w, ".data")?;
     writeln!(w, "{}:", g.0)?;
-    writeln!(w, "  .word {}", g.1)?;
+    match g.1 {
+      Ok(init) => writeln!(w, "  .word {}", init)?,
+      Err(size) => writeln!(w, "  .zero {}", size * 4)?,
+    }
     writeln!(w)?;
   }
   for f in &p.funcs {
@@ -131,6 +134,12 @@ pub fn write_asm(p: &IrProg, w: &mut impl Write) -> Result<()> {
           writeln!(w, "  jal {}", p.funcs[*x as usize].name)?;
           writeln!(w, "  sw a0, -4(sp)")?; // a0保存了函数的返回值，但是还不在运算栈中，调用者负责把它压入栈中
           writeln!(w, "  add sp, sp, -4")?;
+        }
+        IrStmt::Swap => { // 交换栈顶和次栈顶的两个元素，先把它们从各自的位置读出来，再写入对方的位置
+          writeln!(w, "  lw t0, 0(sp)")?;
+          writeln!(w, "  lw t1, 4(sp)")?;
+          writeln!(w, "  sw t0, 4(sp)")?;
+          writeln!(w, "  sw t1, 0(sp)")?;
         }
         IrStmt::Pop => writeln!(w, "  add sp, sp, 4")?,
         IrStmt::Ret => {
