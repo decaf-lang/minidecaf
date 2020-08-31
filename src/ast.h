@@ -47,14 +47,18 @@ public:
 
 class UnaryAst: public ExprAst{
 	ExprAst* expr;
+	char ch;
 public:
-	UnaryAst(int row, int column) : ExprAst(row, column){}
+	UnaryAst(int row, int column, char c) : ExprAst(row, column), ch(c){}
 	void additem(ExprAst* item){
 		expr = item;
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
-		printstream(fout, "neg a5,a5");
+		if (ch == '!')
+			printstream(fout, "seqz a5,a5");
+		else if (ch == '~')
+			printstream(fout, "not a5,a5");
 	}
 };
 
