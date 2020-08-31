@@ -82,13 +82,38 @@ public:
 		printstream(fout, "addi sp, sp, -4");
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
-		printstream(fout, "addi sp, sp, 8");
+		printstream(fout, "addi sp, sp, 4");
 		if (ch == '*')
 			printstream(fout, "mul a5, a4, a5");
 		else if (ch == '/')
 			printstream(fout, "div a5, a4, a5");
 		else if (ch == '%')
 			printstream(fout, "rem  a5, a4, a5");
+
+	}
+};
+
+class TermAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+	char ch;
+public:
+	TermAst(int row, int column, char c) : ExprAst(row, column), ch(c){}
+	void additem(ExprAst* item1, ExprAst* item2){
+		expr1 = item1;
+		expr2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr1->printto(fout);
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+		expr2->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+		if (ch == '+')
+			printstream(fout, "add a5, a4, a5");
+		else if (ch == '-')
+			printstream(fout, "sub a5, a4, a5");
 
 	}
 };

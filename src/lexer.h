@@ -110,6 +110,9 @@ public:
 			}
 			row ++;
     	}
+    	// for (int i = 0; i < tokenlist.size(); ++i){
+    	// 	std::cout << tokenlist[i].label() << std::endl;
+    	// }
 		fin.close();
 		return tokenlist;
 	}
