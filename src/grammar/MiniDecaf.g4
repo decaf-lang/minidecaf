@@ -7,15 +7,22 @@ program
     ;
 
 func
-    : Int Main '(' ')' '{' stmt '}'
+    : Int Ident '(' ')' '{' stmt* '}'
     ;
 
 stmt
-    : Return expr ';'
+    : Return expr ';'               # ReturnStmt
+    | expr ';'                      # ExprStmt
+    | Int Ident ('=' expr)? ';'     # Decl
     ;
 
 expr
     : orExpr
+    | assignExpr
+    ;
+
+assignExpr
+    : Ident '=' expr
     ;
 
 orExpr
@@ -50,6 +57,7 @@ mulExpr
 
 factor
     : Integer                   # IntExpr
+    | Ident                     # IdentExpr
     | '(' expr ')'              # NestedExpr
     | ('-' | '~' | '!') factor  # UnaryExpr
     ;

@@ -2,11 +2,7 @@ import { ParserRuleContext } from "antlr4ts";
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
-import { SemanticError } from "../error";
 import { Ir } from "../ir";
-
-/** 支持的最大整数字面量 */
-const MAX_INT_LITERAL = 0x7fff_ffff;
 
 /** 语法树到 IR 的生成器 */
 export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVisitor<void> {
@@ -14,13 +10,21 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
 
     defaultResult() {}
 
-    visitStmt(ctx: MiniDecafParser.StmtContext) {
+    visitFunc(ctx: MiniDecafParser.FuncContext) {
+        ctx.stmt().forEach((stmt) => stmt.accept(this));
+    }
+
+    visitDecl(ctx: MiniDecafParser.DeclContext) {
+        ctx.expr()?.accept(this);
+    }
+
+    visitReturnStmt(ctx: MiniDecafParser.ReturnStmtContext) {
         ctx.expr().accept(this);
         this.ir.emitReturn();
     }
 
-    visitExpr(ctx: MiniDecafParser.ExprContext) {
-        ctx.orExpr().accept(this);
+    visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
+        ctx.expr().accept(this);
     }
 
     visitOrExpr(ctx: MiniDecafParser.OrExprContext) {
@@ -48,11 +52,11 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitIntExpr(ctx: MiniDecafParser.IntExprContext) {
-        let int = parseInt(ctx.Integer().text);
-        if (int > MAX_INT_LITERAL) {
-            throw new SemanticError(ctx.Integer().symbol, `integer '${int}' is too large`);
-        }
-        this.ir.emitImmediate(int);
+        this.ir.emitImmediate(ctx["integer"]);
+    }
+
+    visitIdentExpr(ctx: MiniDecafParser.IdentExprContext) {
+        let name = ctx.Ident().text;
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {

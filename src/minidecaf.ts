@@ -1,6 +1,7 @@
 import { ANTLRInputStream, ANTLRErrorListener, CommonTokenStream } from "antlr4ts";
 import { MiniDecafLexer } from "./gen/MiniDecafLexer";
 import { MiniDecafParser } from "./gen/MiniDecafParser";
+import { SemanticCheck } from "./visitor/semantic";
 import { IrGen } from "./visitor/irgen";
 import { Riscv32CodeGen } from "./target/riscv";
 import { IrExecutor } from "./target/executor";
@@ -66,6 +67,7 @@ export function compile(input: string | Ir, option: CompilerOption): string | Ir
         if (parser.numberOfSyntaxErrors > 0) {
             throw new Error(listener.toString());
         }
+        tree.accept(new SemanticCheck()); // 语义检查
 
         let irgen = new IrGen(); // 中间代码生成
         tree.accept(irgen);

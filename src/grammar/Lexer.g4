@@ -2,7 +2,6 @@ lexer grammar Lexer;
 
 Return: 'return';
 Int: 'int';
-Main: 'main';
 
 LeftParen: '(';
 RightParen: ')';
@@ -26,8 +25,10 @@ Less: '<';
 LessEqual: '<=';
 Greater: '>';
 GreaterEqual: '>=';
+Assign: '=';
 
 Integer: [0-9]+;
+Ident: [a-zA-Z_][0-9a-zA-Z_]*;
 
 Whitespace: [ \t]+ -> skip;
 Newline: ('\r' '\n'? | '\n') -> skip;
