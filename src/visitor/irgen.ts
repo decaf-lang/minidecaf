@@ -11,11 +11,20 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     defaultResult() {}
 
     visitFunc(ctx: MiniDecafParser.FuncContext) {
+        this.ir.newFunc(ctx.Ident().text, ctx["localVarSize"]);
         ctx.stmt().forEach((stmt) => stmt.accept(this));
+        // 如果函数没有返回语句，默认返回 0
+        if (this.ir.missReturn()) {
+            this.ir.emitImmediate(0);
+            this.ir.emitReturn();
+        }
     }
 
     visitDecl(ctx: MiniDecafParser.DeclContext) {
-        ctx.expr()?.accept(this);
+        if (ctx.expr()) {
+            ctx.expr().accept(this);
+            this.ir.emitStoreVar(ctx["variable"].offset);
+        }
     }
 
     visitReturnStmt(ctx: MiniDecafParser.ReturnStmtContext) {
@@ -25,6 +34,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
         ctx.expr().accept(this);
+        this.ir.emitStoreVar(ctx["variable"].offset);
     }
 
     visitOrExpr(ctx: MiniDecafParser.OrExprContext) {
@@ -56,7 +66,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitIdentExpr(ctx: MiniDecafParser.IdentExprContext) {
-        let name = ctx.Ident().text;
+        this.ir.emitLoadVar(ctx["variable"].offset);
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {

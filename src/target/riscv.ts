@@ -1,4 +1,4 @@
-import { IrInstr, IrVisitor } from "../ir";
+import { IrInstr, IrFunc, IrVisitor } from "../ir";
 import { OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
@@ -104,6 +104,7 @@ function adjustStack(offset: number): string {
 /** IR 到 RV32 的代码生成器 */
 export class Riscv32CodeGen extends IrVisitor<string> {
     private asm: string = "";
+    private currentFunc: IrFunc;
 
     /** 生成一个标签 */
     private emitLabel(label: string) {
@@ -124,6 +125,28 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         }
     }
 
+    /** 函数序言 */
+    private emitPrologue(func: IrFunc) {
+        // 栈帧大小为局部变量大小加 ra、fp 的大小
+        let frameSize = func.localVarSize + 2 * WORD_SIZE;
+        this.emitDirective(`.globl ${func.name}`);
+        this.emitLabel(func.name);
+        this.emitInstr(adjustStack(-frameSize));
+        this.emitInstr(store("ra", "sp", frameSize - WORD_SIZE));
+        this.emitInstr(store("fp", "sp", frameSize - WORD_SIZE * 2));
+        this.emitInstr(`addi fp, sp, ${frameSize}`);
+    }
+
+    /** 函数收尾 */
+    private emitEpilogue(func: IrFunc) {
+        let frameSize = func.localVarSize + 2 * WORD_SIZE;
+        this.emitLabel(`${func.name}_exit`);
+        this.emitInstr(load("ra", "sp", frameSize - WORD_SIZE));
+        this.emitInstr(load("fp", "sp", frameSize - WORD_SIZE * 2));
+        this.emitInstr(adjustStack(frameSize));
+        this.emitInstr("ret");
+    }
+
     visitImmediate(instr: IrInstr) {
         this.emitInstr(`li t0, ${instr.op}`);
     }
@@ -136,6 +159,14 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr(binaryOp(instr.op, "t0", "t1", "t0"));
     }
 
+    visitLoadVar(instr: IrInstr) {
+        this.emitInstr(load("t0", "fp", -instr.op - 3 * WORD_SIZE));
+    }
+
+    visitStoreVar(instr: IrInstr) {
+        this.emitInstr(store("t0", "fp", -instr.op - 3 * WORD_SIZE));
+    }
+
     visitPush(instr: IrInstr) {
         this.emitInstr([adjustStack(-WORD_SIZE), store(irReg2rvReg(instr.op), "sp")]);
     }
@@ -146,15 +177,18 @@ export class Riscv32CodeGen extends IrVisitor<string> {
 
     visitReturn(_instr: IrInstr) {
         this.emitInstr("mv a0, t0");
-        this.emitInstr("ret");
+        this.emitInstr(`j ${this.currentFunc.name}_exit`); // `RET` 指令修改为跳到函数收尾
     }
 
     visitAll(): string {
-        this.emitDirective(".globl main");
-        this.emitLabel("main");
-        for (let i of this.ir.instrs) {
-            this.visitInstr(i);
-        }
+        this.ir.funcs.forEach((func) => {
+            this.currentFunc = func;
+            this.emitPrologue(func);
+            for (let i of func.instrs) {
+                this.visitInstr(i);
+            }
+            this.emitEpilogue(func);
+        });
         return this.asm;
     }
 }
