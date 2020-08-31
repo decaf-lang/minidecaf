@@ -198,6 +198,27 @@ public:
 	}
 };
 
+class LogicAndAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+public:
+	LogicAndAst(int row, int column) : ExprAst(row, column){}
+	void additem(ExprAst* item1, ExprAst* item2){
+		expr1 = item1;
+		expr2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr1->printto(fout);
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+		expr2->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+		printstream(fout, "or a5, a5, a4");
+		printstream(fout, "snez a5, a5");
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}

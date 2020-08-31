@@ -59,3 +59,8 @@ assert 1 'int main() { return 1&&1; }'
 assert 0 'int main() { return 0&&1; }'
 assert 0 'int main() { return 1&&0; }'
 assert 0 'int main() { return 0&&0; }'
+
+assert 1 'int main() { return 1||1; }'
+assert 1 'int main() { return 0||1; }'
+assert 1 'int main() { return 1||0; }'
+assert 0 'int main() { return 0||0; }'
