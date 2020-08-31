@@ -65,6 +65,30 @@ public:
 	}
 
 	ExprAst* parserExpr(){
+		ExprAst* expr_ast = parserFactor();
+		if (lookForward("*")){
+			FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'*');
+			matchToken("*");
+			ExprAst* expr_ast2 = parserFactor();
+			factor_ast->additem(expr_ast, expr_ast2);
+			expr_ast = factor_ast;
+		}else if(lookForward("/")){
+			FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'/');
+			matchToken("/");
+			ExprAst* expr_ast2 = parserFactor();
+			factor_ast->additem(expr_ast, expr_ast2);
+			expr_ast = factor_ast;
+		}else if(lookForward("%")){
+			FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(),'%');
+			matchToken("%");
+			ExprAst* expr_ast2 = parserFactor();
+			factor_ast->additem(expr_ast, expr_ast2);
+			expr_ast = factor_ast;
+		}
+		return expr_ast;
+	}
+
+	ExprAst* parserFactor(){
 		ExprAst* expr_ast;
 		if (lookForward("!") || lookForward("~") || lookForward("-") || lookForward("+"))
 			expr_ast = parserUnary();
