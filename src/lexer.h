@@ -66,7 +66,7 @@ public:
 	bool isChar(char ch){
         return (ch == '(' || ch == ')' || ch == '{' || ch == '}' || ch == ';' || ch == '!' 
         	 || ch == '~' || ch == '-' || ch == '+' || ch == '*' || ch == '/' || ch == '%' 
-        	 || ch == '>' || ch == '<' || ch == '=' 
+        	 || ch == '>' || ch == '<' || ch == '=' || ch == '&' 
          	);
 	}
 
@@ -79,7 +79,7 @@ public:
 				ans.push_back(input[column]);
 			else
 				break;
-			if (ans == "="){
+			if (ans == "=" || ans == "&"){
 				column++;
 				continue;
 			}

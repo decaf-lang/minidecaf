@@ -65,6 +65,18 @@ public:
 	}
 
 	ExprAst* parserExpr(){
+		ExprAst* expr_ast = parserEqualityExpr();
+		while (lookForward("&&")){
+			EqualityAst* equality_ast = new EqualityAst(tokenlist[pos].row(), tokenlist[pos].column());
+			matchToken(tokenlist[pos].label());
+			ExprAst* expr_ast2 = parserEqualityExpr();
+			equality_ast->additem(expr_ast, expr_ast2);
+			expr_ast = equality_ast;
+		}
+		return expr_ast;
+	}
+
+	ExprAst* parserEqualityExpr(){
 		ExprAst* expr_ast = parserRelationalExpr();
 		while (lookForward("!=") || lookForward("==")){
 			RelationalAst* relational_ast = new RelationalAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());

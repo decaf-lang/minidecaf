@@ -1,1 +1,1 @@
-int main() { return 42!=42; }
+int main() { return 0&&0; }
