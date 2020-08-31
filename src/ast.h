@@ -45,6 +45,19 @@ public:
 	}
 };
 
+class UnaryAst: public ExprAst{
+	ExprAst* expr;
+public:
+	UnaryAst(int row, int column) : ExprAst(row, column){}
+	void additem(ExprAst* item){
+		expr = item;
+	}
+	void printto(ofstream &fout){
+		expr->printto(fout);
+		printstream(fout, "neg a5,a5");
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}

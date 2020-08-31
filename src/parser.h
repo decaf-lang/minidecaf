@@ -66,7 +66,10 @@ public:
 
 	ExprAst* parserExpr(){
 		ExprAst* expr_ast;
-		expr_ast = parserConstant();
+		if (lookForward("!"))
+			expr_ast = parserUnary();
+		else
+			expr_ast = parserConstant();
 		return expr_ast;
 	}
 
@@ -75,6 +78,14 @@ public:
 		matchToken("num");
 		constant_ast->additem(tokenlist[pos-1].intvalue());
 		return constant_ast;
+	}
+
+	ExprAst* parserUnary(){
+		UnaryAst* unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column());;
+		matchToken("!");
+		ExprAst* expr_ast = parserExpr();
+		unary_ast->additem(expr_ast);
+		return unary_ast;
 	}
 };
 
