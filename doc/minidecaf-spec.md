@@ -384,6 +384,7 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Modulo %
 Main keyword main
 ```
 
@@ -454,6 +455,7 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Modulo %
 AND &&
 OR ||
 Equal ==
@@ -524,6 +526,7 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Modulo %
 AND &&
 OR ||
 Equal ==
@@ -614,6 +617,7 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Modulo %
 AND &&
 OR ||
 Equal ==
@@ -710,6 +714,7 @@ Logical negation !
 Addition +
 Multiplication *
 Division /
+Modulo %
 AND &&
 OR ||
 Equal ==
@@ -817,6 +822,7 @@ Integer literal [0-9]+
 +
 *
 /
+%
 &&
 ||
 ==
@@ -932,6 +938,7 @@ Integer literal [0-9]+
 +
 *
 /
+%
 &&
 ||
 ==
@@ -1061,6 +1068,7 @@ Integer literal [0-9]+
 +
 *
 /
+%
 &&
 ||
 ==
