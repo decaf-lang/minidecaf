@@ -59,6 +59,8 @@ public:
 			printstream(fout, "seqz a5,a5");
 		else if (ch == '~')
 			printstream(fout, "not a5,a5");
+		else if (ch == '-')
+			printstream(fout, "neg a5,a5");
 	}
 };
 

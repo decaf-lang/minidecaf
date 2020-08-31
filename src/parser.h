@@ -66,7 +66,7 @@ public:
 
 	ExprAst* parserExpr(){
 		ExprAst* expr_ast;
-		if (lookForward("!") || lookForward("~"))
+		if (lookForward("!") || lookForward("~") || lookForward("-"))
 			expr_ast = parserUnary();
 		else
 			expr_ast = parserConstant();
@@ -88,7 +88,10 @@ public:
 		}else if (lookForward("~")){
 			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '~');
 			matchToken("~");
-		} 
+		}else if (lookForward("-")){
+			unary_ast = new UnaryAst(tokenlist[pos].row(), tokenlist[pos].column(), '-');
+			matchToken("-");
+		}  
 		ExprAst* expr_ast = parserExpr();
 		unary_ast->additem(expr_ast);
 		return unary_ast;
