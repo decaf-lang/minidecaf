@@ -187,6 +187,10 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr(`beqz t0, ${instr.op}`);
     }
 
+    visitBnez(instr: IrInstr) {
+        this.emitInstr(`bnez t0, ${instr.op}`);
+    }
+
     visitReturn(_instr: IrInstr) {
         this.emitInstr("mv a0, t0");
         this.emitInstr(`j ${this.currentFunc.name}_exit`); // `RET` 指令修改为跳到函数收尾

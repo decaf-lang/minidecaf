@@ -44,6 +44,8 @@ export enum IrInstrName {
     JUMP = "JUMP",
     /** 如果 `r0` 为 0，跳转到给定的标签 */
     BEQZ = "BEQZ",
+    /** 如果 `r0` 不为 0，跳转到给定的标签 */
+    BNEZ = "BNEZ",
     /** 返回指令，返回值为 `r0` */
     RET = "RET",
 }
@@ -185,6 +187,11 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.BEQZ, label));
     }
 
+    /** 如果 `r0` 不为 0，跳转到 `label` */
+    emitBnez(label: Label) {
+        this.emit(new IrInstr(IrInstrName.BNEZ, label));
+    }
+
     /** 返回指令，返回值为 `r0` */
     emitReturn() {
         this.emit(new IrInstr(IrInstrName.RET));
@@ -218,6 +225,8 @@ export abstract class IrVisitor<Result> {
     abstract visitJump(instr: IrInstr): any;
     /** 处理条件跳转指令 `BEQZ` */
     abstract visitBeqz(instr: IrInstr): any;
+    /** 处理条件跳转指令 `BNEZ` */
+    abstract visitBnez(instr: IrInstr): any;
     /** 处理返回指令 `RET` */
     abstract visitReturn(instr: IrInstr): any;
 
@@ -247,6 +256,8 @@ export abstract class IrVisitor<Result> {
                 return this.visitJump(i);
             case IrInstrName.BEQZ:
                 return this.visitBeqz(i);
+            case IrInstrName.BNEZ:
+                return this.visitBnez(i);
             case IrInstrName.RET:
                 return this.visitReturn(i);
             default:

@@ -4,6 +4,11 @@ Return: 'return';
 Int: 'int';
 If: 'if';
 Else: 'else';
+For: 'for';
+While: 'while';
+Do: 'do';
+Break: 'break';
+Continue: 'continue';
 
 LeftParen: '(';
 RightParen: ')';

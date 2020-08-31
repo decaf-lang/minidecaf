@@ -20,10 +20,15 @@ decl
     ;
 
 stmt
-    : Return expr ';'                       # ReturnStmt
-    | expr ';'                              # ExprStmt
-    | If '(' expr ')' stmt ('else' stmt)?   # IfStmt
-    | '{' blockItem* '}'                    # BlockStmt
+    : Return expr ';'                                                       # ReturnStmt
+    | If '(' expr ')' stmt ('else' stmt)?                                   # IfStmt
+    | For '(' (decl | init=expr? ';') cond=expr? ';' post=expr? ')' stmt    # ForStmt
+    | While '(' expr ')' stmt                                               # WhileStmt
+    | Do stmt While '(' expr ')' ';'                                        # DoStmt
+    | Break ';'                                                             # BreakStmt
+    | Continue ';'                                                          # ContinueStmt
+    | '{' blockItem* '}'                                                    # BlockStmt
+    | expr? ';'                                                             # ExprStmt
     ;
 
 expr

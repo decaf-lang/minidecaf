@@ -54,6 +54,64 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         }
     }
 
+    visitForStmt(ctx: MiniDecafParser.ForStmtContext) {
+        let labelLoop = Label.alloc();
+        let labelPost = Label.alloc();
+        let labelNext = Label.alloc();
+        ctx["breakLabel"] = labelNext; // 设置 `break` 语句跳转到哪个标签
+        ctx["continueLabel"] = labelPost; // 设置 `continue` 语句跳转到哪个标签
+        if (ctx.decl()) {
+            ctx.decl().accept(this);
+        } else {
+            ctx._init?.accept(this);
+        }
+        // 用 while 循环实现 for 循环
+        this.emitWhileLoop(
+            ctx._cond && (() => ctx._cond.accept(this)),
+            () => {
+                ctx.stmt().accept(this);
+                this.ir.emitLabel(labelPost);
+                ctx._post?.accept(this);
+            },
+            labelLoop,
+            labelNext,
+        );
+    }
+
+    visitWhileStmt(ctx: MiniDecafParser.WhileStmtContext) {
+        let labelLoop = Label.alloc();
+        let labelNext = Label.alloc();
+        ctx["breakLabel"] = labelNext;
+        ctx["continueLabel"] = labelLoop;
+        this.emitWhileLoop(
+            () => ctx.expr().accept(this),
+            () => ctx.stmt().accept(this),
+            labelLoop,
+            labelNext,
+        );
+    }
+
+    visitDoStmt(ctx: MiniDecafParser.DoStmtContext) {
+        let labelLoop = Label.alloc();
+        let labelNext = Label.alloc();
+        ctx["breakLabel"] = labelNext;
+        ctx["continueLabel"] = labelLoop;
+        this.emitDoLoop(
+            () => ctx.expr().accept(this),
+            () => ctx.stmt().accept(this),
+            labelLoop,
+            labelNext,
+        );
+    }
+
+    visitBreakStmt(ctx: MiniDecafParser.BreakStmtContext) {
+        this.ir.emitJump(ctx["loop"]["breakLabel"]);
+    }
+
+    visitContinueStmt(ctx: MiniDecafParser.ContinueStmtContext) {
+        this.ir.emitJump(ctx["loop"]["continueLabel"]);
+    }
+
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
         ctx.expr().accept(this);
         this.ir.emitStoreVar(ctx["variable"].offset);
@@ -108,6 +166,41 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
         ctx.factor().accept(this);
         this.ir.emitUnary(ctx.getChild(0).text);
+    }
+
+    /**
+     * 生成 while 循环。
+     *
+     * @param cond 生成条件表达式的函数
+     * @param body 生成循环体的函数
+     * @param labelLoop 循环开始标签
+     * @param labelNext 循环结束标签
+     */
+    private emitWhileLoop(cond: () => void, body: () => void, labelLoop: Label, labelNext: Label) {
+        this.ir.emitLabel(labelLoop);
+        if (cond) {
+            cond();
+            this.ir.emitBeqz(labelNext);
+        }
+        body();
+        this.ir.emitJump(labelLoop);
+        this.ir.emitLabel(labelNext);
+    }
+
+    /**
+     * 生成 do-while 循环。
+     *
+     * @param cond 生成条件表达式的函数
+     * @param body 生成循环体的函数
+     * @param labelLoop 循环开始标签
+     * @param labelNext 循环结束标签
+     */
+    private emitDoLoop(cond: () => void, body: () => void, labelLoop: Label, labelNext: Label) {
+        this.ir.emitLabel(labelLoop);
+        body();
+        cond();
+        this.ir.emitBnez(labelLoop);
+        this.ir.emitLabel(labelNext);
     }
 
     private visitBinary(ctx: ParserRuleContext) {

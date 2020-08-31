@@ -1,4 +1,5 @@
 import { AbstractParseTreeVisitor } from "antlr4ts/tree";
+import { ParserRuleContext } from "antlr4ts/ParserRuleContext";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { SemanticError } from "../error";
@@ -14,6 +15,8 @@ export class SemanticCheck
     implements MiniDecafVisitor<void> {
     /** 作用域栈 */
     private scopes: ScopeStack = new ScopeStack();
+    /** 嵌套的循环语句构成的栈 */
+    private loopStack: ParserRuleContext[] = [];
 
     defaultResult() {}
 
@@ -40,6 +43,46 @@ export class SemanticCheck
             ctx["variable"] = this.scopes.declareVar(name, type);
         } else {
             throw new SemanticError(ctx.Ident().symbol, `symbol '${name}' is already declared`);
+        }
+    }
+
+    visitForStmt(ctx: MiniDecafParser.ForStmtContext) {
+        this.loopStack.push(ctx);
+        this.scopes.open(Scope.newLocal()); // for 循环需要打开一个新的局部作用域
+        this.visitChildren(ctx);
+        this.scopes.close();
+        this.loopStack.pop();
+    }
+
+    visitWhileStmt(ctx: MiniDecafParser.WhileStmtContext) {
+        this.loopStack.push(ctx);
+        this.visitChildren(ctx);
+        this.loopStack.pop();
+    }
+
+    visitDoStmt(ctx: MiniDecafParser.DoStmtContext) {
+        this.loopStack.push(ctx);
+        this.visitChildren(ctx);
+        this.loopStack.pop();
+    }
+
+    visitBreakStmt(ctx: MiniDecafParser.BreakStmtContext) {
+        if (this.loopStack.length) {
+            // 记录 break 语句对应哪个循环
+            ctx["loop"] = this.loopStack[this.loopStack.length - 1];
+        } else {
+            // 不在循环语句中使用 break，报错
+            throw new SemanticError(ctx.start, `cannot use '${ctx.text}' out of loop`);
+        }
+    }
+
+    visitContinueStmt(ctx: MiniDecafParser.ContinueStmtContext) {
+        if (this.loopStack.length) {
+            // 记录 continue 语句对应哪个循环
+            ctx["loop"] = this.loopStack[this.loopStack.length - 1];
+        } else {
+            // 不在循环语句中使用 continue，报错
+            throw new SemanticError(ctx.start, `cannot use '${ctx.text}' out of loop`);
         }
     }
 

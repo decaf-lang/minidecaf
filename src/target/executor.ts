@@ -154,6 +154,14 @@ export class IrExecutor extends IrVisitor<number> {
         }
     }
 
+    visitBnez(instr: IrInstr) {
+        if (this.r0 !== 0) {
+            this.pc = this.currentFunc.labelIndices.get(instr.op.id) + 1;
+        } else {
+            this.pc++;
+        }
+    }
+
     visitReturn(_instr: IrInstr) {
         this.callEnd();
     }
