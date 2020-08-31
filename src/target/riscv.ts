@@ -3,6 +3,8 @@ import { OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
 const WORD_SIZE = 4;
+/** 参数寄存器个数 */
+const ARG_REGS_COUNT = 8;
 
 /** 将 IR 的寄存器名映射到 RISC-V 的寄存器名 */
 function irReg2rvReg(irReg: string): string {
@@ -127,23 +129,28 @@ export class Riscv32CodeGen extends IrVisitor<string> {
 
     /** 函数序言 */
     private emitPrologue(func: IrFunc) {
-        // 栈帧大小为局部变量大小加 ra、fp 的大小
-        let frameSize = func.localVarSize + 2 * WORD_SIZE;
+        // 栈帧大小为局部变量大小加 ra、fp 的大小加保存参数寄存器所需的大小
+        let fsize = func.localVarSize + (Math.min(func.paramCount, ARG_REGS_COUNT) + 2) * WORD_SIZE;
         this.emitDirective(`.globl ${func.name}`);
         this.emitLabel(func.name);
-        this.emitInstr(adjustStack(-frameSize));
-        this.emitInstr(store("ra", "sp", frameSize - WORD_SIZE));
-        this.emitInstr(store("fp", "sp", frameSize - WORD_SIZE * 2));
-        this.emitInstr(`addi fp, sp, ${frameSize}`);
+        this.emitInstr(adjustStack(-fsize));
+        this.emitInstr(store("ra", "sp", fsize - WORD_SIZE));
+        this.emitInstr(store("fp", "sp", fsize - WORD_SIZE * 2));
+        this.emitInstr(`addi fp, sp, ${fsize}`);
+        // 将传参寄存器保存到栈上
+        for (let i = 0; i < func.paramCount && i < ARG_REGS_COUNT; i++) {
+            let offset = -(3 + i) * WORD_SIZE - this.currentFunc.localVarSize;
+            this.emitInstr(store(`a${i}`, "fp", offset));
+        }
     }
 
     /** 函数收尾 */
     private emitEpilogue(func: IrFunc) {
-        let frameSize = func.localVarSize + 2 * WORD_SIZE;
+        let fsize = func.localVarSize + (Math.min(func.paramCount, ARG_REGS_COUNT) + 2) * WORD_SIZE;
         this.emitLabel(`${func.name}_exit`);
-        this.emitInstr(load("ra", "sp", frameSize - WORD_SIZE));
-        this.emitInstr(load("fp", "sp", frameSize - WORD_SIZE * 2));
-        this.emitInstr(adjustStack(frameSize));
+        this.emitInstr(load("ra", "sp", fsize - WORD_SIZE));
+        this.emitInstr(load("fp", "sp", fsize - WORD_SIZE * 2));
+        this.emitInstr(adjustStack(fsize));
         this.emitInstr("ret");
     }
 
@@ -152,7 +159,12 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         let offset: number; // 相对于 `fp` 的偏移量
         switch (instr.op2) {
             case "p": // 参数
-                offset = instr.op * WORD_SIZE;
+                offset =
+                    instr.op < ARG_REGS_COUNT
+                        ? // 前 8 个参数用寄存器传递，从当前函数栈帧中获取
+                          -(3 + instr.op) * WORD_SIZE - this.currentFunc.localVarSize
+                        : // 多余 8 个的参数，从上一函数栈帧中获取
+                          (instr.op - ARG_REGS_COUNT) * WORD_SIZE;
                 break;
             case "l": // 局部变量
                 offset = -instr.op - 3 * WORD_SIZE;
@@ -217,9 +229,17 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
 
     visitCall(instr: IrInstr) {
+        let argCount = instr.op2; // 参数总数
+        let regArgCount = Math.min(argCount, ARG_REGS_COUNT); // 使用寄存器传参的参数个数
+        let stackArgCount = argCount - regArgCount; // 使用栈传参的参数个数
+        for (let i = regArgCount - 1; i >= 0; i--) {
+            // 将前 `regArgCount` 个参数依次存到 `a0`, `a1`, ... 寄存器
+            this.emitInstr(load(`a${i}`, "sp", i * WORD_SIZE));
+        }
+        this.emitInstr(adjustStack(regArgCount * WORD_SIZE)); // 弹出已存到寄存器中的参数的空间
         this.emitInstr(`call ${instr.op}`);
         this.emitInstr("mv t0, a0");
-        this.emitInstr(adjustStack(instr.op2 * WORD_SIZE)); // 释放参数空间
+        this.emitInstr(adjustStack(stackArgCount * WORD_SIZE)); // 释放参数空间
     }
 
     visitReturn(_instr: IrInstr) {
