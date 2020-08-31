@@ -43,7 +43,7 @@ function compileAndRun() {
   }
   setTimeout(() => {
     try {
-      var output = MiniDecaf.compile(ir, { target: "executed" });
+      var output = MiniDecaf.compile(ir, { target: "executed", timeoutSecond: 10 });
       setOutput(label, "output", output);
     } catch (err) {
       setOutput(label, "error", err.message);

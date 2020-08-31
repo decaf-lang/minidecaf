@@ -14,6 +14,7 @@ program
     })
     .option("-s, --asm", "generate the RISC-V assembly code instead of executing")
     .option("-r, --ir", "generate the intermediate representation (IR)")
+    .option("-t, --timeout <second>", "set execution timeout (in seconds)")
     .option("-o, --output <output_file>", "save the output to file")
     .option("-d, --debug", "debug mode");
 
@@ -27,6 +28,10 @@ let option: MiniDecaf.CompilerOption = {
         ? MiniDecaf.CompilerTarget.Ir
         : MiniDecaf.CompilerTarget.Executed,
 };
+if (program.timeout) {
+    let t = parseInt(program.timeout);
+    if (t > 0) option.timeoutSecond = t;
+}
 
 try {
     let output = MiniDecaf.compile(input, option).toString();

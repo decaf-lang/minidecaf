@@ -1,4 +1,4 @@
-import { IrInstr, IrFunc, IrVisitor } from "../ir";
+import { IrInstr, IrFunc, IrVisitor, Ir } from "../ir";
 import { RuntimeError, OtherError } from "../error";
 
 /** 一个整数所占的字节数 */
@@ -87,6 +87,17 @@ export class IrExecutor extends IrVisitor<number> {
     /** 程序是否已终止，即 main 函数已返回 */
     private halt: boolean = false;
 
+    /** 开始运行时的时间戳 */
+    private startTime: number;
+    /** 运行时间限制，单位秒 */
+    private timeoutSecond: number;
+
+    constructor(ir: Ir, timeoutSecond: number) {
+        super(ir);
+        this.startTime = Date.now();
+        this.timeoutSecond = timeoutSecond;
+    }
+
     /** 函数调用开始 */
     private callBegin(func: IrFunc) {
         this.pc = 0; // 函数的第一条指令位置是 0
@@ -100,6 +111,15 @@ export class IrExecutor extends IrVisitor<number> {
         this.stack.length = this.fp; // 恢复栈大小，释放栈空间
         if (this.currentFunc.name == "main") {
             this.halt = true;
+        }
+    }
+
+    /** 检查是否超时 */
+    private checkTimeout(): boolean {
+        if (this.timeoutSecond) {
+            return Date.now() - this.startTime > this.timeoutSecond * 1000;
+        } else {
+            return false;
         }
     }
 
@@ -173,7 +193,7 @@ export class IrExecutor extends IrVisitor<number> {
             throw new RuntimeError("no 'main' function");
         }
         this.callBegin(func);
-        while (true) {
+        while (!this.checkTimeout()) {
             let i = this.currentFunc.instrs[this.pc];
             if (!i) {
                 this.callEnd();
@@ -185,5 +205,6 @@ export class IrExecutor extends IrVisitor<number> {
             }
             steps++;
         }
+        throw new RuntimeError("time limit exceeded");
     }
 }
