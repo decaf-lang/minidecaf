@@ -114,7 +114,11 @@ public:
 		ExprAst* expr_ast;
 		if (lookForward("!") || lookForward("~") || lookForward("-") || lookForward("+"))
 			expr_ast = parserUnary();
-		else
+		else if (lookForward("(")){
+			matchToken("(");
+			expr_ast = parserExpr();
+			matchToken(")");
+		}else
 			expr_ast = parserConstant();
 		return expr_ast;
 	}
