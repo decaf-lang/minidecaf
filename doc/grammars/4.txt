@@ -1,0 +1,46 @@
+program
+    : function
+
+function
+    : type Identifier '(' ')' '{' statement '}'
+
+type
+    : 'int'
+
+statement
+    : 'return' expression ';'
+
+expression
+    : logical_or
+
+logical_or
+    : logical_and
+    | logical_or '||' logical_and
+
+logical_and
+    : equality
+    | logical_and '&&' equality
+
+equality
+    : relational
+    | equality ('=='|'!=') relational
+
+relational
+    : additive
+    | relational ('<'|'>'|'<='|'>=') additive
+
+additive
+    : multiplicative
+    | additive ('+'|'-') multiplicative
+
+multiplicative
+    : unary
+    | multiplicative ('*'|'/'|'%') unary
+
+unary
+    : primary
+    | ('-'|'~'|'!') unary
+
+primary
+    : Integer
+    | '(' expression ')'
