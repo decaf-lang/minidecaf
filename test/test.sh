@@ -100,3 +100,8 @@ assert 55 'int main() { int i=0; int j=0; do {j=i+j; i=i+1;} while(i<=10);  retu
 
 assert 0 'int main() { int i=0; int j=0; while(i<=10) {j=i+j; break; i=i+1;} return j; }'
 assert 11 'int main() { int i=0; int j=0; while(i<=10) {i=i+1; continue; j=i+j;} j=i+j; return j; }'
+
+assert 32 ' int ret32() { return 32; } int main() { return ret32(); }'
+assert 7 'int add2(int x, int y) { return x+y; } int main() { return add2(3,4); } '
+assert 1 'int sub2(int x, int y) { return x-y; } int main() { return sub2(4,3); } '
+assert 55 'int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); } int main() { return fib(9); } '

@@ -1,1 +1,1 @@
-int main() { int i=0; int j=0; while(i<=10) {i=i+1; continue; j=i+j;} j=i+j; return j; }
+int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); } int main() { return fib(9); }

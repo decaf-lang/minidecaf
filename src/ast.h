@@ -15,6 +15,7 @@ protected:
 	static int indent;
 	static int branchnum;
 	static map<string, vector<int>> exprnum;
+	static string function_name;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
 	void addIndent() { indent ++; }
@@ -30,6 +31,7 @@ public:
 };
 
 int Ast::indent = 0;
+string Ast::function_name = "";
 int Ast::branchnum = 0;
 map<string, vector<int>> Ast::exprnum = {};
 
@@ -287,6 +289,35 @@ public:
 	}
 };
 
+class CallAst: public ExprAst{
+	string name;
+	vector<ExprAst*> expr_list;
+public:
+	CallAst(int row, int column) : ExprAst(row, column){}
+	void additem(ExprAst* item){
+		expr_list.push_back(item);
+	}
+	void additem(string item){
+		name = item;
+	}
+	void printto(ofstream &fout){
+		for (int i = expr_list.size()-1; i >= 0 ; --i){
+			expr_list[i]->printto(fout);
+			printstream(fout, "addi sp, sp, -4");
+			printstream(fout, "sw a5, 0(sp)");
+		}
+		if (expr_list.size() < 8){
+			for (int i = 0; i < expr_list.size(); ++i){
+				printstream(fout, "lw a"+std::to_string(i)+", "+std::to_string(4*i)+"(sp)");
+			}
+			printstream(fout, "addi sp, sp, "+std::to_string(4*expr_list.size()));
+		}
+		printstream(fout, "call "+name);
+		printstream(fout, "mv	a5,a0");
+
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}
@@ -302,7 +333,7 @@ public:
 	void printto(ofstream &fout){
 		expr->printto(fout);
 		printstream(fout, "mv a0,a5");
-		printstream(fout, "j .main_exit");
+		printstream(fout, "j ."+function_name+"_exit");
 	}
 };
 
@@ -529,6 +560,7 @@ public:
 
 class FunctionAst: public Ast{
 	string name;
+	vector<string> expr_name;
 	StmtAst* stmt;
 	int variable_num;
 public:
@@ -538,35 +570,54 @@ public:
 		stmt = item;
 		variable_num = num;
 	}
+	void additem(string item){
+		expr_name.push_back(item);
+	}
 	void printto(ofstream &fout){
+		function_name = name;
 		printstream(fout, ".globl "+name);
 		printstream(fout, ".type "+name+", @function");
 		decIndent();
 		printstream(fout, name+":");
 		addIndent();
-		printstream(fout, "addi	sp,sp,-"+std::to_string(4+variable_num*4));
-		printstream(fout, "sw	s0,"+std::to_string(variable_num*4)+"(sp)");
-		printstream(fout, "addi	s0,sp,"+std::to_string(4+variable_num*4));
+		int num = variable_num + expr_name.size();
+		printstream(fout, "addi	sp,sp,-"+std::to_string(8+num*4));
+		printstream(fout, "sw	ra,"+std::to_string(4+num*4)+"(sp)");
+		printstream(fout, "sw	s0,"+std::to_string(num*4)+"(sp)");
+		printstream(fout, "addi	s0,sp,"+std::to_string(8+num*4));
+		for (int i = 0; i < expr_name.size(); ++i){
+			exprnum[expr_name[i]].push_back(12+4*i);
+		}
+		if (expr_name.size() < 8){
+			for (int i = 0; i < expr_name.size(); ++i){
+				exprnum[expr_name[i]].push_back(12+4*i);
+				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(12+4*i)+"(s0)");
+			}
+		}
 		stmt->printto(fout);
 		decIndent();
-		printstream(fout, ".main_exit:");
+		printstream(fout, "."+name+"_exit:");
 		addIndent();
-		printstream(fout, "lw	s0,"+std::to_string(variable_num*4)+"(sp)");
-		printstream(fout, "addi	sp,sp,"+std::to_string(4+variable_num*4));
+		printstream(fout, "lw	s0,"+std::to_string(num*4)+"(sp)");
+		printstream(fout, "lw	ra,"+std::to_string(4+num*4)+"(sp)");
+		printstream(fout, "addi	sp,sp,"+std::to_string(8+num*4));
 		printstream(fout, "jr	ra");
 		decIndent();
 		addIndent();
 		printstream(fout, ".size "+name+", .-"+name);
 		printstream(fout, ".ident	\"GCC: (xPack GNU RISC-V Embedded GCC, 64-bit) 8.3.0\"");
+		for (int i = 0; i < expr_name.size(); ++i){
+			exprnum[expr_name[i]].pop_back();
+		}
 	}
 };
 
 class ProgramAst: public Ast{
-	FunctionAst* function;
+	vector<FunctionAst*> function_list;
 public:
 	ProgramAst(int row, int column) : Ast(row, column){}
 	void additem(FunctionAst* func){
-		function = func;
+		function_list.push_back(func);
 	}
 	void printto(ofstream &fout, string filename){
 		addIndent();
@@ -574,7 +625,8 @@ public:
 		printstream(fout, ".option nopic");
 		printstream(fout, ".text");
 		printstream(fout, ".align	1");
-		function->printto(fout);
+		for (int i = 0; i < function_list.size(); ++i)
+			function_list[i]->printto(fout);
 		decIndent();
 	}
 };

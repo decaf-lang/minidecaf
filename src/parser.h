@@ -32,8 +32,10 @@ public:
 
 	void parserProgram(){
 		ast = new ProgramAst(tokenlist[pos].row(), tokenlist[pos].column());
-		FunctionAst* function_ast = parserFunction();
-		ast->additem(function_ast);
+		while (pos < tokenlist.size()){
+			FunctionAst* function_ast = parserFunction();
+			ast->additem(function_ast);
+		}
 	}
 
 	FunctionAst* parserFunction(){
@@ -43,6 +45,15 @@ public:
 		matchToken("id");
 		string name = tokenlist[pos-1].value();
 		matchToken("(");
+		int k = 0;
+		while (!lookForward(")")){
+			if (k > 0)
+				matchToken(",");
+			matchToken("int");
+			matchToken("id");
+			function_ast->additem(tokenlist[pos-1].value());
+			k++;
+		}
 		matchToken(")");
 		matchToken("{");
 		StmtAst* stmt_ast = parserBlock();
@@ -327,11 +338,31 @@ public:
 			matchToken("(");
 			expr_ast = parserExpr();
 			matchToken(")");
-		}else if (lookForward("id"))
+		}else if (lookForward("id") && lookForward("(", 1)){
+			expr_ast = parserCallExpr();
+		}else if (lookForward("id")){
 			expr_ast = parserId();
-		else
+		}else
 			expr_ast = parserConstant();
 		return expr_ast;
+	}
+
+	ExprAst* parserCallExpr(){
+		CallAst* call_ast = new CallAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("id");
+		string name = tokenlist[pos-1].value();
+		matchToken("(");
+		int k = 0;
+		while (!lookForward(")")){
+			if (k > 0)
+				matchToken(",");
+			ExprAst* expr_ast = parserExpr();
+			call_ast->additem(expr_ast);
+			++k;
+		}
+		matchToken(")");
+		call_ast->additem(name);
+		return call_ast;
 	}
 
 	ExprAst* parserId(){
