@@ -32,9 +32,12 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitDecl(ctx: MiniDecafParser.DeclContext) {
-        if (ctx.expr()) {
+        let v = ctx["variable"] as Variable;
+        if (v.isGlobal) {
+            this.ir.newGlobalData(v.name, ctx["const"]);
+        } else if (ctx.expr()) {
             ctx.expr().accept(this);
-            this.emitVariable(VariableOp.Store, ctx["variable"]);
+            this.emitVariable(VariableOp.Store, v);
         }
     }
 
@@ -188,10 +191,10 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     private emitVariable(varOp: VariableOp, v: Variable) {
         switch (varOp) {
             case VariableOp.Load:
-                this.ir.emitLoadVar(v.offset, v.kind);
+                this.ir.emitLoadVar(v.isGlobal ? v.name : v.offset, v.kind);
                 break;
             case VariableOp.Store:
-                this.ir.emitStoreVar(v.offset, v.kind);
+                this.ir.emitStoreVar(v.isGlobal ? v.name : v.offset, v.kind);
                 break;
         }
     }

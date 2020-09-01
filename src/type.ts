@@ -40,18 +40,23 @@ export class Variable {
     offset: number;
     /** 是否是参数 */
     isParam: boolean = false;
+    /** 是否是全局变量 */
+    isGlobal: boolean = false;
 
-    /** 变量的种类。"l" 表示局部变量，"p" 表示参数 */
+    /** 变量的种类。"g" 表示全局变量，"l" 表示局部变量，"p" 表示参数 */
     get kind(): string {
-        return this.isParam ? "p" : "l";
+        return this.isGlobal ? "g" : this.isParam ? "p" : "l";
     }
 
-    constructor(name: string, type: Type, offset: number, isParam?: boolean) {
+    constructor(name: string, type: Type, offset: number, isParam?: boolean, isGlobal?: boolean) {
         this.name = name;
         this.type = type;
         this.offset = offset;
         if (isParam) {
             this.isParam = true;
+        }
+        if (isGlobal) {
+            this.isGlobal = true;
         }
     }
 }

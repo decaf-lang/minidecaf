@@ -76,22 +76,22 @@ function binaryOp(op: string, rd: string, rs1: string, rs2: string): string | st
  * 从内存地址 `base + offset` 读出数据，存到寄存器 `rd`。
  *
  * @param rd 目标寄存器
- * @param base 基址寄存器
- * @param offset 偏移量，默认为 0
+ * @param base 基址寄存器（访问全局符号时不需要）
+ * @param offset 偏移量或全局符号
  */
-function load(rd: string, base: string, offset: number = 0): string {
-    return `lw ${rd}, ${offset}(${base})`;
+function load(rd: string, base: string, offset: number | string = 0): string {
+    return typeof offset == "string" ? `lw ${rd}, ${offset}` : `lw ${rd}, ${offset}(${base})`;
 }
 
 /**
  * 将寄存器 `rs` 中的数据存到内存地址 `base + offset`。
  *
  * @param rs 源寄存器
- * @param base 基址寄存器
- * @param offset 偏移量，默认为 0
+ * @param base 基址寄存器（访问全局符号时不需要）
+ * @param offset 偏移量或全局符号
  */
-function store(rs: string, base: string, offset: number = 0): string {
-    return `sw ${rs}, ${offset}(${base})`;
+function store(rs: string, base: string, offset: number | string = 0): string {
+    return typeof offset == "string" ? `sw ${rs}, ${offset}, t1` : `sw ${rs}, ${offset}(${base})`;
 }
 
 /** 调整栈指针，即 `sp += offset` */
@@ -114,13 +114,13 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
     /** 生成一个指示符，如 .globl, .data, .word 等 */
     private emitDirective(directive: string) {
-        this.asm += `${directive}\n`;
+        this.asm += `    ${directive}\n`;
     }
     /** 生成一条或多条机器指令 */
     private emitInstr(instr: string | string[]) {
         if (instr.length > 0) {
             if (instr instanceof Array) {
-                this.asm += `    ${instr.join("\n    ")}\n`;
+                this.asm += `    ${instr.filter((i) => i.length > 0).join("\n    ")}\n`;
             } else {
                 this.asm += `    ${instr}\n`;
             }
@@ -156,9 +156,14 @@ export class Riscv32CodeGen extends IrVisitor<string> {
 
     /** 生成对变量的操作指令，操作类型见 {@link VariableOp} */
     private emitVariableOp(op: VariableOp, instr: IrInstr): string {
-        let offset: number; // 相对于 `fp` 的偏移量
+        let base: string; // 基址寄存器（访问全局符号是不需要）
+        let offset: number | string; // 相对于 `base` 的偏移量或全局符号
         switch (instr.op2) {
+            case "g": // 全局变量
+                offset = instr.op;
+                break;
             case "p": // 参数
+                base = "fp";
                 offset =
                     instr.op < ARG_REGS_COUNT
                         ? // 前 8 个参数用寄存器传递，从当前函数栈帧中获取
@@ -167,6 +172,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
                           (instr.op - ARG_REGS_COUNT) * WORD_SIZE;
                 break;
             case "l": // 局部变量
+                base = "fp";
                 offset = -instr.op - 3 * WORD_SIZE;
                 break;
             default:
@@ -174,9 +180,9 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         }
         switch (op) {
             case VariableOp.Load:
-                return load("t0", "fp", offset);
+                return load("t0", base, offset);
             case VariableOp.Store:
-                return store("t0", "fp", offset);
+                return store("t0", base, offset);
             default:
                 throw new OtherError(
                     `invalid variable operation '${op}' of IR insruction '${instr}'`,
@@ -248,6 +254,15 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
 
     visitAll(): string {
+        if (this.ir.globals.size) this.emitDirective(".data");
+        this.ir.globals.forEach((data, name) => {
+            this.emitDirective(`.globl ${name}`);
+            this.emitDirective(".align 2");
+            this.emitLabel(name);
+            this.emitDirective(`.word ${data.init ?? 0}`);
+            this.asm += "\n";
+        });
+        this.emitDirective(".text");
         this.ir.funcs.forEach((func) => {
             this.currentFunc = func;
             this.emitPrologue(func);

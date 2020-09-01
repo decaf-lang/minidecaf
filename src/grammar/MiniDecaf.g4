@@ -3,7 +3,7 @@ grammar MiniDecaf;
 import Lexer;
 
 program
-    : func* EOF
+    : (decl | func)* EOF
     ;
 
 paramList

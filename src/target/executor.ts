@@ -82,6 +82,8 @@ export class IrExecutor extends IrVisitor<number> {
     private fp: number = 0;
     /** 栈。每个整数占据栈的一个位置 */
     private stack: any[] = [];
+    /** 全局变量名到值的映射表 */
+    private globalData: Map<string, number> = new Map();
     /** 当前函数 */
     private currentFunc: IrFunc;
     /** 程序是否已终止，即 main 函数已返回 */
@@ -134,8 +136,12 @@ export class IrExecutor extends IrVisitor<number> {
     /** 处理对变量的操作，操作类型见 {@link VariableOp} */
     variableOp(op: VariableOp, instr: IrInstr) {
         this.pc++;
-        let offset: number; // 相对于栈帧指针的偏移量
+        let offset: number; // 对于非全局变量，相对于栈帧指针的偏移量
+        let isGlobal = false;
         switch (instr.op2) {
+            case "g": // 全局变量
+                isGlobal = true;
+                break;
             case "p": // 参数
                 offset = -instr.op - 4;
                 break;
@@ -147,10 +153,15 @@ export class IrExecutor extends IrVisitor<number> {
         }
         switch (op) {
             case VariableOp.Load:
-                this.r0 = this.stack[this.fp + offset];
+                // 全局变量直接从 `globalData` 而不是栈中获取，下同
+                this.r0 = isGlobal ? this.globalData.get(instr.op) : this.stack[this.fp + offset];
                 break;
             case VariableOp.Store:
-                this.stack[this.fp + offset] = this.r0;
+                if (isGlobal) {
+                    this.globalData.set(instr.op, this.r0);
+                } else {
+                    this.stack[this.fp + offset] = this.r0;
+                }
                 break;
             default:
                 throw new OtherError(
@@ -229,6 +240,9 @@ export class IrExecutor extends IrVisitor<number> {
     }
 
     visitAll(): number {
+        this.ir.globals.forEach((data, name) => {
+            this.globalData.set(name, data.init ?? 0);
+        });
         let steps = 0;
         let func = this.ir.funcs.get("main");
         if (!func) {

@@ -114,12 +114,36 @@ export class IrFunc {
     };
 }
 
+/** 全局数据，保存了全局变量的基本信息 */
+export class IrGlobalData {
+    /** 全局变量名 */
+    name: string;
+    /** 初值（可选） */
+    init?: number;
+
+    constructor(name: string, init?: number) {
+        this.name = name;
+        this.init = init;
+    }
+
+    toString = (): string => {
+        return `GLOBAL ${this.name}: ${this.init}\n`;
+    };
+}
+
 /** 中间表示。该 IR 拥有一个栈和两个寄存器 `r0`, `r1` */
 export class Ir {
+    /** 全局变量名到 {@link IrGlobalData} 的映射表 */
+    private _globals: Map<string, IrGlobalData> = new Map();
     /** 函数名到 {@link IrFunc} 的映射表 */
     private _funcs: Map<string, IrFunc> = new Map();
     /** 当前所在的函数 */
     private currentFunc: IrFunc;
+
+    /** 获取所有全局变量 */
+    get globals(): Map<string, IrGlobalData> {
+        return this._globals;
+    }
 
     /** 获取所有 IR 函数 */
     get funcs(): Map<string, IrFunc> {
@@ -134,11 +158,25 @@ export class Ir {
     /** 格式化输出 */
     toString = (): string => {
         let str = "";
+        this._globals.forEach((data) => {
+            str += data.toString();
+        });
+        if (this._globals.size) str += "\n";
         this._funcs.forEach((func) => {
             str += func.toString() + "\n";
         });
         return str;
     };
+
+    /**
+     * 新建一个全局变量。
+     *
+     * @param name 全局变量名
+     * @param init 初值（可选）
+     */
+    newGlobalData(name: string, init?: number) {
+        this._globals.set(name, new IrGlobalData(name, init));
+    }
 
     /**
      * 新建一个函数。
@@ -182,22 +220,22 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.BINARY, op));
     }
 
-    /** 从 `offset` 处读出变量的值，保存到 `r0`。
+    /** 从指定位置读出变量的值，保存到 `r0`。
      *
-     * @param offset 变量在栈帧中的偏移量
-     * @param varKind 变量种类，"l" 表示局部变量，"p" 表示参数
+     * @param offOrName 变量在栈帧中的偏移量，或全局变量名
+     * @param varKind 变量种类，"g" 表示全局变量，"l" 表示局部变量，"p" 表示参数
      */
-    emitLoadVar(offset: number, varKind: string) {
-        this.emit(new IrInstr(IrInstrName.LOAD_VAR, offset, varKind));
+    emitLoadVar(offOrName: number | string, varKind: string) {
+        this.emit(new IrInstr(IrInstrName.LOAD_VAR, offOrName, varKind));
     }
 
-    /** 将 `r0` 保存到位于 `offset` 的变量。
+    /** 将 `r0` 保存到指定位置处的变量。
      *
-     * @param offset 变量在栈帧中的偏移量
-     * @param varKind 变量种类，"l" 表示局部变量，"p" 表示参数
+     * @param offOrName 变量在栈帧中的偏移量，或全局变量名
+     * @param varKind 变量种类，"g" 表示全局变量，"l" 表示局部变量，"p" 表示参数
      */
-    emitStoreVar(offset: number, varKind: string) {
-        this.emit(new IrInstr(IrInstrName.STORE_VAR, offset, varKind));
+    emitStoreVar(offOrName: number | string, varKind: string) {
+        this.emit(new IrInstr(IrInstrName.STORE_VAR, offOrName, varKind));
     }
 
     /** 将给定的寄存器 `reg` 压入栈顶 */

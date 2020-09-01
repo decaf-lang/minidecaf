@@ -115,8 +115,23 @@ export class SemanticCheck
         let name = ctx.Ident().text;
         if (this.scopes.canDeclare(name)) {
             let type = ctx.Int().text as Type;
-            ctx.expr()?.accept(this);
-            ctx["variable"] = this.scopes.declareVar(name, type);
+            let isGlobal = !this.scopes.currentFunc(); // 如果当前函数作用域为空，则当前是全局作用域
+            let expr = ctx.expr();
+            if (expr) {
+                expr.accept(this);
+                if (isGlobal) {
+                    // 全局变量初值只能是整数常量
+                    if (/^\d+$/.test(expr.text)) {
+                        ctx["const"] = parseInt(expr.text);
+                    } else {
+                        throw new SemanticError(
+                            expr.start,
+                            `initial value of global variable '${name}' is not integer`,
+                        );
+                    }
+                }
+            }
+            ctx["variable"] = this.scopes.declareVar(name, type, isGlobal);
         } else {
             throw new SemanticError(ctx.Ident().symbol, `symbol '${name}' is already declared`);
         }
