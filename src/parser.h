@@ -129,7 +129,7 @@ public:
 		if (lookForward("=",1))
 			expr_ast = parserAssign();
 		else
-			expr_ast = parserLogicOrExpr();
+			expr_ast = parserConditionalExpr();
 		return expr_ast;
 	}
 
@@ -141,6 +141,21 @@ public:
 		ExprAst* expr_ast1 = parserExpr();
 		expr_ast->additem(name, expr_ast1);
 		return expr_ast;
+	}
+
+	ExprAst* parserConditionalExpr(){
+		ConditionalAst* conditional_ast = new ConditionalAst(tokenlist[pos].row(), tokenlist[pos].column());
+		ExprAst* expr_ast1 = parserLogicOrExpr();	
+		ExprAst* expr_ast2 = NULL;	
+		ExprAst* expr_ast3 = NULL;	
+		if (lookForward("?")){
+			matchToken("?");
+			expr_ast2 = parserExpr();
+			matchToken(":");
+			expr_ast3 = parserConditionalExpr();
+		}
+		conditional_ast->additem(expr_ast1, expr_ast2, expr_ast3);
+		return conditional_ast;
 	}
 
 	ExprAst* parserLogicOrExpr(){

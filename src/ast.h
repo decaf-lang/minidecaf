@@ -257,6 +257,36 @@ public:
 	}
 };
 
+class ConditionalAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+	ExprAst* expr3;
+public:
+	ConditionalAst(int row, int column) : ExprAst(row, column){}
+	void additem(ExprAst* item1, ExprAst* item2, ExprAst* item3){
+		expr1 = item1;
+		expr2 = item2;
+		expr3 = item3;
+	}
+	void printto(ofstream &fout){
+		expr1->printto(fout);
+		if (expr2 != NULL){
+			printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+			expr2->printto(fout);
+			printstream(fout, "j .L"+std::to_string(branchnum+1));
+			decIndent();
+			printstream(fout, ".L"+std::to_string(branchnum)+":");
+			branchnum++;
+			addIndent();
+			expr3->printto(fout);
+			decIndent();
+			printstream(fout, ".L"+std::to_string(branchnum)+":");
+			branchnum++;
+			addIndent();
+		}
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}
@@ -337,7 +367,7 @@ public:
 		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
 		stmt1->printto(fout);
 		if (stmt2!=NULL)
-			printstream(fout, "j .L"+std::to_string(branchnum+1)+":");
+			printstream(fout, "j .L"+std::to_string(branchnum+1));
 		decIndent();
 		printstream(fout, ".L"+std::to_string(branchnum)+":");
 		branchnum++;
