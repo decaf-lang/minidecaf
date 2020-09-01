@@ -243,7 +243,11 @@ public:
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
-		printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
+		if (exprnum[name].back() < 0){
+			printstream(fout, "lui a4,%hi("+name+")");
+			printstream(fout, "sw a5, %lo("+name+")(a4)");
+		}else
+			printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
 	}
 };
 
@@ -255,7 +259,11 @@ public:
 		name = name_;
 	}
 	void printto(ofstream &fout){
-		printstream(fout, "lw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
+		if (exprnum[name].back() < 0){
+			printstream(fout, "lui a4,%hi("+name+")");
+			printstream(fout, "lw a5, %lo("+name+")(a4)");
+		}else
+			printstream(fout, "lw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
 	}
 };
 
@@ -594,7 +602,8 @@ public:
 				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(12+4*i)+"(s0)");
 			}
 		}
-		stmt->printto(fout);
+		if (stmt != NULL)
+			stmt->printto(fout);
 		decIndent();
 		printstream(fout, "."+name+"_exit:");
 		addIndent();
@@ -614,15 +623,33 @@ public:
 
 class ProgramAst: public Ast{
 	vector<FunctionAst*> function_list;
+	vector<string> expr_name;
+	vector<int> expr_value;
 public:
 	ProgramAst(int row, int column) : Ast(row, column){}
 	void additem(FunctionAst* func){
 		function_list.push_back(func);
 	}
+	void additem(string s, int v){
+		expr_name.push_back(s);
+		expr_value.push_back(v);
+	}
 	void printto(ofstream &fout, string filename){
 		addIndent();
 		printstream(fout, ".file	\""+filename+"\"");
 		printstream(fout, ".option nopic");
+		if (expr_name.size() > 0){
+			printstream(fout, ".data");
+			for (int i = 0; i < expr_name.size(); ++i){
+				printstream(fout, ".globl "+expr_name[i]);
+				printstream(fout, ".align  2");
+				decIndent();
+				printstream(fout, expr_name[i]+":");
+				addIndent();
+				printstream(fout, ".word "+std::to_string(expr_value[i]));
+				exprnum[expr_name[i]].push_back(-1);
+			}
+		}
 		printstream(fout, ".text");
 		printstream(fout, ".align	1");
 		for (int i = 0; i < function_list.size(); ++i)

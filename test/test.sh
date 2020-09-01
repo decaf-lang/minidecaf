@@ -105,3 +105,6 @@ assert 32 ' int ret32() { return 32; } int main() { return ret32(); }'
 assert 7 'int add2(int x, int y) { return x+y; } int main() { return add2(3,4); } '
 assert 1 'int sub2(int x, int y) { return x-y; } int main() { return sub2(4,3); } '
 assert 55 'int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); } int main() { return fib(9); } '
+
+assert 3 'int foo = 0;  int fun1() { foo = 3; return 0;} int fun2() { return foo;} int main() { fun1();  return fun2();}'
+

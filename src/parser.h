@@ -33,8 +33,22 @@ public:
 	void parserProgram(){
 		ast = new ProgramAst(tokenlist[pos].row(), tokenlist[pos].column());
 		while (pos < tokenlist.size()){
-			FunctionAst* function_ast = parserFunction();
-			ast->additem(function_ast);
+			if (lookForward("(",2)){
+				FunctionAst* function_ast = parserFunction();
+				ast->additem(function_ast);
+			}else{
+				matchToken("int");
+				matchToken("id");
+				string name = tokenlist[pos-1].value();
+				int value = 0;
+				if (lookForward("=")){
+					matchToken("=");
+					matchToken("num");
+					value = tokenlist[pos-1].intvalue();
+				}
+				matchToken(";");
+				ast->additem(name, value);
+			}
 		}
 	}
 
@@ -55,10 +69,15 @@ public:
 			k++;
 		}
 		matchToken(")");
-		matchToken("{");
-		StmtAst* stmt_ast = parserBlock();
-		matchToken("}");
-		function_ast->additem(name, stmt_ast, local_variable_num );
+		StmtAst* stmt_ast = NULL;
+		if (lookForward(";"))
+			matchToken(";");
+		else{
+			matchToken("{");
+			stmt_ast = parserBlock();
+			matchToken("}");
+		}
+		function_ast->additem(name, stmt_ast, local_variable_num);
 		return function_ast;
 	}
 

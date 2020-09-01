@@ -1,1 +1,1 @@
-int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); } int main() { return fib(9); }
+int foo = 0; int fun1() { foo = 3; return 0;} int fun2() { return foo;} int main() { fun1(); return fun2();}
