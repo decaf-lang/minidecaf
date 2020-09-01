@@ -53,14 +53,18 @@ public:
 
 	StmtAst* parserBlock(){
 		BlockAst* block_ast = new BlockAst(tokenlist[pos].row(), tokenlist[pos].column());
+		int num = 0;
 		while (!lookForward("}")){
 			StmtAst* stmt_ast;
-			if (lookForward("int"))
+			if (lookForward("int")){
 				stmt_ast = parserLocalVariable();
-			else
+				num ++;
+			}else
 				stmt_ast = parserStmt();
 			block_ast->additem(stmt_ast);
 		}
+		block_ast->additem(num);
+		local_variable_num = local_variable_num - num;
 		return block_ast;
 	}
 
@@ -70,7 +74,11 @@ public:
 			stmt_ast = parserReturnStmt();
 		else if (lookForward("if"))
 			stmt_ast = parserIfStmt();
-		else
+		else if (lookForward("{")){
+			matchToken("{");
+			stmt_ast = parserBlock();
+			matchToken("}");
+		}else
 			stmt_ast = parserExprStmt();
 		return stmt_ast;
 	}

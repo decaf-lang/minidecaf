@@ -84,3 +84,5 @@ assert 2 'int main() { if (2-1) return 2; return 3; }'
 
 assert 2 'int main() { return 0?1:2; }'
 assert 1 'int main() { return 1?1:2; }'
+
+assert 3 'int main() { {1; {2;} return 3;} }'

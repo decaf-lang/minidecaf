@@ -331,6 +331,7 @@ public:
 		exprnum[name] = position;
 	}
 	void printto(ofstream &fout){
+		printstream(fout, "addi sp, sp, -4");
 		if (expr!=NULL){
 			expr->printto(fout);
 			printstream(fout, "sw a5, -"+ std::to_string(position)+"(s0)");
@@ -340,14 +341,19 @@ public:
 
 class BlockAst: public StmtAst{
 	vector<StmtAst*> stmt_list;
+	int variable_num;
 public:
 	BlockAst(int row, int column) : StmtAst(row, column){}
 	void additem(StmtAst* item){
 		stmt_list.push_back(item);
 	}
+	void additem(int num){
+		variable_num = num;
+	}
 	void printto(ofstream &fout){
 		for (int i = 0; i < stmt_list.size(); ++i)
 			stmt_list[i]->printto(fout);
+		printstream(fout, "addi sp, sp, "+std::to_string(variable_num*4));
 	}
 };
 
@@ -397,16 +403,15 @@ public:
 		decIndent();
 		printstream(fout, name+":");
 		addIndent();
-		int num_ = 16;
-		printstream(fout, "addi	sp,sp,-"+std::to_string(num_));
-		printstream(fout, "sw	s0,"+std::to_string(num_-4)+"(sp)");
-		printstream(fout, "addi	s0,sp,"+std::to_string(num_));
+		printstream(fout, "addi	sp,sp,-"+std::to_string(4));
+		printstream(fout, "sw	s0,"+std::to_string(0)+"(sp)");
+		printstream(fout, "addi	s0,sp,"+std::to_string(4));
 		stmt->printto(fout);
 		decIndent();
 		printstream(fout, ".main_exit:");
 		addIndent();
-		printstream(fout, "lw	s0,"+std::to_string(num_-4)+"(sp)");
-		printstream(fout, "addi	sp,sp,"+std::to_string(num_));
+		printstream(fout, "lw	s0,"+std::to_string(0)+"(sp)");
+		printstream(fout, "addi	sp,sp,"+std::to_string(4));
 		printstream(fout, "jr	ra");
 		decIndent();
 		addIndent();
