@@ -121,7 +121,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
-        ctx.factor().accept(this);
+        ctx.unary().accept(this);
         this.ir.emitPush("r0");
         ctx.expr().accept(this);
         this.ir.emitPop("r1");
@@ -175,7 +175,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
-        ctx.factor().accept(this);
+        ctx.unary().accept(this);
         let op = ctx.getChild(0).text;
         if (op == "*") {
             if (!ctx["lvalue"]) {
