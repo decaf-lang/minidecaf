@@ -3,14 +3,17 @@
 #include<vector>
 #include<fstream>
 #include<string>
+#include<map>
 using std::string;
 using std::vector;
 using std::endl;
+using std::map;
 using std::ofstream;
 class Ast{
 protected:
 	int row, column;
 	static int indent;
+	static map<string, int> exprnum;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
 	void addIndent() { indent ++; }
@@ -26,11 +29,17 @@ public:
 };
 
 int Ast::indent = 0;
+map<string, int> Ast::exprnum = {};
 
 class ExprAst: public Ast{
 protected:
+	bool isVariable_;
+	string variable_;
 public:
-	ExprAst(int row, int column) : Ast(row, column){}
+	ExprAst(int row, int column) : Ast(row, column), isVariable_(false), variable_(""){}
+	ExprAst(int row, int column, bool isVariable, string s_) : Ast(row, column), isVariable_(isVariable), variable_(s_){}
+	bool isVariable() { return isVariable_;}
+	string variable() { return variable_; };
 };
 
 class ConstantAst: public ExprAst{
@@ -219,6 +228,33 @@ public:
 	}
 };
 
+class AssignAst : public ExprAst{
+	string name;
+	ExprAst* expr;
+public:
+	AssignAst(int row, int column) : ExprAst(row, column){}
+	void additem(string name_, ExprAst* e){
+		expr = e;
+		name = name_;
+	}
+	void printto(ofstream &fout){
+		expr->printto(fout);
+		printstream(fout, "sw a5, -"+std::to_string(exprnum[name])+"(s0)");
+	}
+};
+
+class IdAst : public ExprAst{
+	string name;
+public:
+	IdAst(int row, int column) : ExprAst(row, column){}
+	void additem(string name_){
+		name = name_;
+	}
+	void printto(ofstream &fout){
+		printstream(fout, "lw a5, -"+std::to_string(exprnum[name])+"(s0)");
+	}
+};
+
 class StmtAst: public Ast{
 public:
 	StmtAst(int row, int column) : Ast(row, column){}
@@ -234,6 +270,51 @@ public:
 	void printto(ofstream &fout){
 		expr->printto(fout);
 		printstream(fout, "mv a0,a5");
+	}
+};
+
+class ExprStmtAst: public StmtAst{
+	ExprAst* expr;
+public:
+	ExprStmtAst(int row, int column) : StmtAst(row, column){}
+	void additem(ExprAst* item){
+		expr = item;
+	}
+	void printto(ofstream &fout){
+		expr->printto(fout);
+	}
+};
+
+class LocalVariableAst: public StmtAst{
+	string name;
+	ExprAst* expr;
+	int position;
+public:
+	LocalVariableAst(int row, int column) : StmtAst(row, column){}
+	void additem(string name, int num, ExprAst* item){
+		this->name = name;
+		expr = item;
+		this->position = num*4+4;
+		exprnum[name] = position;
+	}
+	void printto(ofstream &fout){
+		if (expr!=NULL){
+			expr->printto(fout);
+			printstream(fout, "sw a5, -"+ std::to_string(position)+"(s0)");
+		}
+	}
+};
+
+class BlockAst: public StmtAst{
+	vector<StmtAst*> stmt_list;
+public:
+	BlockAst(int row, int column) : StmtAst(row, column){}
+	void additem(StmtAst* item){
+		stmt_list.push_back(item);
+	}
+	void printto(ofstream &fout){
+		for (int i = 0; i < stmt_list.size(); ++i)
+			stmt_list[i]->printto(fout);
 	}
 };
 

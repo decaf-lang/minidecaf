@@ -79,7 +79,7 @@ public:
 				ans.push_back(input[column]);
 			else
 				break;
-			if (ans == "=" || ans == "&" || ans == "|"){
+			if (ans == "&" || ans == "|"){
 				column++;
 				continue;
 			}

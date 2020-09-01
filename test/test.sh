@@ -64,3 +64,15 @@ assert 1 'int main() { return 1||1; }'
 assert 1 'int main() { return 0||1; }'
 assert 1 'int main() { return 1||0; }'
 assert 0 'int main() { return 0||0; }'
+
+assert 3 'int main() { int a; a=3; return a; }'
+assert 8 'int main() { int a; int z; a=3; z=5; return a+z; }'
+assert 3 'int main() { int a=3; return a; }'
+assert 8 'int main() { int a=3; int z=5; return a+z; }'
+
+assert 1 'int main() { return 1; 2; 3; }'
+assert 2 'int main() { 1; return 2; 3; }'
+assert 3 'int main() { 1; 2; return 3; }'
+
+assert 3 'int main() { int foo=3; return foo; }'
+assert 8 'int main() { int foo123=3; int bar=5; return foo123+bar; }'
