@@ -77,6 +77,10 @@ public:
 			stmt_ast = parserWhileStmt();
 		else if (lookForward("do"))
 			stmt_ast = parserDoStmt();
+		else if (lookForward("continue"))
+			stmt_ast = parserContinueStmt();
+		else if (lookForward("break"))
+			stmt_ast = parserBreakStmt();
 		else if (lookForward("{")){
 			matchToken("{");
 			stmt_ast = parserBlock();
@@ -195,6 +199,18 @@ public:
 		matchToken(";");
 		do_ast->additem(stmt_ast, expr_ast);
 		return do_ast;
+	}
+
+	StmtAst* parserBreakStmt(){
+		BreakAst* break_ast = new BreakAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("break");
+		return break_ast;
+	}
+
+	StmtAst* parserContinueStmt(){
+		ContinueAst* contionue_ast = new ContinueAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("continue");
+		return contionue_ast;
 	}
 
 	ExprAst* parserExpr(){

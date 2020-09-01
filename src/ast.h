@@ -511,6 +511,22 @@ public:
 	}
 };
 
+class ContinueAst: public StmtAst{
+public:
+	ContinueAst(int row, int column) : StmtAst(row, column){}
+	void printto(ofstream &fout){
+		printstream(fout, "j .L"+std::to_string(branchnum-1));
+	}
+};
+
+class BreakAst: public StmtAst{
+public:
+	BreakAst(int row, int column) : StmtAst(row, column){}
+	void printto(ofstream &fout){
+		printstream(fout, "j .L"+std::to_string(branchnum));
+	}
+};
+
 class FunctionAst: public Ast{
 	string name;
 	StmtAst* stmt;

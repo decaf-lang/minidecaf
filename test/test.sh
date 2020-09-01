@@ -96,3 +96,7 @@ assert 55 'int main() { int i=0; int j=0; while(i<=10) {j=i+j; i=i+1;} return j;
 
 assert 10 'int main() { int i=0; i=0; do i=i+1; while(i<10); return i; }'
 assert 55 'int main() { int i=0; int j=0; do {j=i+j; i=i+1;} while(i<=10);  return j; }'
+
+
+assert 0 'int main() { int i=0; int j=0; while(i<=10) {j=i+j; break; i=i+1;} return j; }'
+assert 11 'int main() { int i=0; int j=0; while(i<=10) {i=i+1; continue; j=i+j;} j=i+j; return j; }'

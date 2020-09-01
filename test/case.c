@@ -1,1 +1,1 @@
-int main() { int i=0; int j=0; do {j=i+j; i=i+1;} while(i<=10); return j; }
+int main() { int i=0; int j=0; while(i<=10) {i=i+1; continue; j=i+j;} j=i+j; return j; }
