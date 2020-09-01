@@ -47,24 +47,21 @@ public:
 		matchToken("{");
 		StmtAst* stmt_ast = parserBlock();
 		matchToken("}");
-		function_ast->additem(name, stmt_ast);
+		function_ast->additem(name, stmt_ast, local_variable_num );
 		return function_ast;
 	}
 
 	StmtAst* parserBlock(){
 		BlockAst* block_ast = new BlockAst(tokenlist[pos].row(), tokenlist[pos].column());
-		int num = 0;
 		while (!lookForward("}")){
-			StmtAst* stmt_ast;
 			if (lookForward("int")){
-				stmt_ast = parserLocalVariable();
-				num ++;
-			}else
-				stmt_ast = parserStmt();
-			block_ast->additem(stmt_ast);
+				LocalVariableAst* stmt_ast = parserLocalVariable();
+				block_ast->additem(stmt_ast, stmt_ast->getname());
+			}else{
+				StmtAst *stmt_ast = parserStmt();
+				block_ast->additem(stmt_ast);
+			}
 		}
-		block_ast->additem(num);
-		local_variable_num = local_variable_num - num;
 		return block_ast;
 	}
 
@@ -92,7 +89,7 @@ public:
 		return return_stmt_ast;
 	}
 
-	StmtAst* parserLocalVariable(){
+	LocalVariableAst* parserLocalVariable(){
 		LocalVariableAst* local_variable_ast = new LocalVariableAst(tokenlist[pos].row(), tokenlist[pos].column());
 		matchToken("int");
 		matchToken("id");

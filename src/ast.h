@@ -14,7 +14,7 @@ protected:
 	int row, column;
 	static int indent;
 	static int branchnum;
-	static map<string, int> exprnum;
+	static map<string, vector<int>> exprnum;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
 	void addIndent() { indent ++; }
@@ -31,7 +31,7 @@ public:
 
 int Ast::indent = 0;
 int Ast::branchnum = 0;
-map<string, int> Ast::exprnum = {};
+map<string, vector<int>> Ast::exprnum = {};
 
 class ExprAst: public Ast{
 protected:
@@ -241,7 +241,7 @@ public:
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
-		printstream(fout, "sw a5, -"+std::to_string(exprnum[name])+"(s0)");
+		printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
 	}
 };
 
@@ -253,7 +253,7 @@ public:
 		name = name_;
 	}
 	void printto(ofstream &fout){
-		printstream(fout, "lw a5, -"+std::to_string(exprnum[name])+"(s0)");
+		printstream(fout, "lw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
 	}
 };
 
@@ -324,36 +324,38 @@ class LocalVariableAst: public StmtAst{
 	int position;
 public:
 	LocalVariableAst(int row, int column) : StmtAst(row, column){}
+	string getname() {return name;}
 	void additem(string name, int num, ExprAst* item){
 		this->name = name;
 		expr = item;
 		this->position = num*4+4;
-		exprnum[name] = position;
 	}
 	void printto(ofstream &fout){
-		printstream(fout, "addi sp, sp, -4");
+		exprnum[name].push_back(this->position);
 		if (expr!=NULL){
 			expr->printto(fout);
-			printstream(fout, "sw a5, -"+ std::to_string(position)+"(s0)");
+			printstream(fout, "sw a5, -"+ std::to_string(exprnum[name].back())+"(s0)");
 		}
 	}
 };
 
 class BlockAst: public StmtAst{
 	vector<StmtAst*> stmt_list;
-	int variable_num;
+	vector<string> name_list;
 public:
 	BlockAst(int row, int column) : StmtAst(row, column){}
 	void additem(StmtAst* item){
 		stmt_list.push_back(item);
 	}
-	void additem(int num){
-		variable_num = num;
+	void additem(StmtAst* item, string name){
+		stmt_list.push_back(item);
+		name_list.push_back(name);
 	}
 	void printto(ofstream &fout){
 		for (int i = 0; i < stmt_list.size(); ++i)
 			stmt_list[i]->printto(fout);
-		printstream(fout, "addi sp, sp, "+std::to_string(variable_num*4));
+		for (int i = 0; i < name_list.size(); ++i)
+			exprnum[name_list[i]].pop_back();
 	}
 };
 
@@ -391,11 +393,13 @@ public:
 class FunctionAst: public Ast{
 	string name;
 	StmtAst* stmt;
+	int variable_num;
 public:
 	FunctionAst(int row, int column) : Ast(row, column){}
-	void additem(string name, StmtAst* item){
+	void additem(string name, StmtAst* item, int num){
 		this->name = name;
 		stmt = item;
+		variable_num = num;
 	}
 	void printto(ofstream &fout){
 		printstream(fout, ".globl "+name);
@@ -403,15 +407,15 @@ public:
 		decIndent();
 		printstream(fout, name+":");
 		addIndent();
-		printstream(fout, "addi	sp,sp,-"+std::to_string(4));
-		printstream(fout, "sw	s0,"+std::to_string(0)+"(sp)");
-		printstream(fout, "addi	s0,sp,"+std::to_string(4));
+		printstream(fout, "addi	sp,sp,-"+std::to_string(4+variable_num*4));
+		printstream(fout, "sw	s0,"+std::to_string(variable_num*4)+"(sp)");
+		printstream(fout, "addi	s0,sp,"+std::to_string(4+variable_num*4));
 		stmt->printto(fout);
 		decIndent();
 		printstream(fout, ".main_exit:");
 		addIndent();
-		printstream(fout, "lw	s0,"+std::to_string(0)+"(sp)");
-		printstream(fout, "addi	sp,sp,"+std::to_string(4));
+		printstream(fout, "lw	s0,"+std::to_string(variable_num*4)+"(sp)");
+		printstream(fout, "addi	sp,sp,"+std::to_string(4+variable_num*4));
 		printstream(fout, "jr	ra");
 		decIndent();
 		addIndent();
