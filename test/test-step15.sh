@@ -83,6 +83,8 @@ assert 3 'int main() { {1; {2;} return 3;} }'
 assert 10 'int main() { int i=0; i=0; while(i<10) i=i+1; return i; }'
 assert 55 'int main() { int i=0; int j=0; while(i<=10) {j=i+j; i=i+1;} return j; }'
 
+assert 10 'int main() { int i=0; i=0; do i=i+1; while(i<10); return i; }'
+
 assert 55 'int main() { int i=0; int j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
 assert 3 'int main() { for (;;) return 3; return 5; }'
 

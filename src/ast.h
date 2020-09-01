@@ -460,8 +460,6 @@ public:
 class WhileAst: public StmtAst{
 	ExprAst* expr;
 	StmtAst* stmt;
-	string declaration;
-	bool isdec;
 public:
 	WhileAst(int row, int column) : StmtAst(row, column){}
 	void additem(ExprAst* item1, StmtAst* item2){
@@ -477,6 +475,33 @@ public:
 		expr->printto(fout);
 		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
 		stmt->printto(fout);
+		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+	}
+};
+
+class DoAst: public StmtAst{
+	StmtAst* stmt;
+	ExprAst* expr;
+public:
+	DoAst(int row, int column) : StmtAst(row, column){}
+	void additem(StmtAst* item1, ExprAst* item2){
+		stmt = item1;
+		expr = item2;
+	}
+	void printto(ofstream &fout){
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+
+		stmt->printto(fout);
+		expr->printto(fout);
+		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
 		printstream(fout, "j .L"+std::to_string(branchnum-1));
 		
 		decIndent();
