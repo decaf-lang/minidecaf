@@ -87,3 +87,6 @@ assert 1 'int main() { return 1?1:2; }'
 
 assert 3 'int main() { {1; {2;} return 3;} }'
 assert 1 'int main() { int a = 1; { return a; int a = 2;} }'
+
+assert 55 'int main() { int i=0; int j=0; for (i=0; i<=10; i=i+1) j=i+j; return j; }'
+assert 3 'int main() { for (;;) return 3; return 5; }'

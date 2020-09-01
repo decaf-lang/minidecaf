@@ -71,12 +71,14 @@ public:
 			stmt_ast = parserReturnStmt();
 		else if (lookForward("if"))
 			stmt_ast = parserIfStmt();
+		else if (lookForward("for"))
+			stmt_ast = parserForStmt();
 		else if (lookForward("{")){
 			matchToken("{");
 			stmt_ast = parserBlock();
 			matchToken("}");
 		}else
-			stmt_ast = parserExprStmt();
+			stmt_ast = parserExprSemicolonStmt();
 		return stmt_ast;
 	}
 
@@ -105,7 +107,7 @@ public:
 		return local_variable_ast;
 	}
 
-	StmtAst* parserExprStmt(){
+	ExprStmtAst* parserExprSemicolonStmt(){
 		ExprStmtAst* expr_stmt_ast = new ExprStmtAst(tokenlist[pos].row(), tokenlist[pos].column());
 		ExprAst* expr_ast = NULL;
 		if (lookForward(";")) 
@@ -116,6 +118,19 @@ public:
 		}
 		expr_stmt_ast->additem(expr_ast);
 		return expr_stmt_ast;
+	}
+
+	ExprCloseStmtAst* parserExprCloseStmt(){
+		ExprCloseStmtAst* expr_close_stmt_ast = new ExprCloseStmtAst(tokenlist[pos].row(), tokenlist[pos].column());
+		ExprAst* expr_ast = NULL;
+		if (lookForward(")")) 
+			matchToken(")");
+		else{
+			expr_ast = parserExpr();
+			matchToken(")");
+		}
+		expr_close_stmt_ast->additem(expr_ast);
+		return expr_close_stmt_ast;
 	}
 
 	StmtAst* parserIfStmt(){
@@ -132,6 +147,26 @@ public:
 		}
 		if_ast->additem(expr_ast, stmt_ast1, stmt_ast2);
 		return if_ast;
+	}
+
+	StmtAst* parserForStmt(){
+		ForAst* for_ast = new ForAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("for");
+		matchToken("(");
+		if (lookForward("int")){
+			LocalVariableAst* stmt_ast1 = parserLocalVariable();
+			ExprStmtAst* stmt_ast2 = parserExprSemicolonStmt();
+			ExprCloseStmtAst* stmt_ast3 = parserExprCloseStmt();
+			StmtAst* stmt_ast4 = parserStmt();
+			for_ast->additem(stmt_ast1->getname(), stmt_ast1, stmt_ast2, stmt_ast3, stmt_ast4);
+		}else{
+			ExprStmtAst* stmt_ast1 = parserExprSemicolonStmt();
+			ExprStmtAst* stmt_ast2 = parserExprSemicolonStmt();
+			ExprCloseStmtAst* stmt_ast3 = parserExprCloseStmt();
+			StmtAst* stmt_ast4 = parserStmt();
+			for_ast->additem(stmt_ast1, stmt_ast2, stmt_ast3, stmt_ast4);
+		}
+		return for_ast;
 	}
 
 	ExprAst* parserExpr(){

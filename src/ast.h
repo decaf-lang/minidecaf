@@ -313,6 +313,25 @@ public:
 	void additem(ExprAst* item){
 		expr = item;
 	}
+	bool hasExpr(){
+		return expr != NULL;
+	}
+	void printto(ofstream &fout){
+		if (expr != NULL)
+			expr->printto(fout);
+	}
+};
+
+class ExprCloseStmtAst: public StmtAst{
+	ExprAst* expr;
+public:
+	ExprCloseStmtAst(int row, int column) : StmtAst(row, column){}
+	void additem(ExprAst* item){
+		expr = item;
+	}
+	bool hasExpr(){
+		return expr != NULL;
+	}
 	void printto(ofstream &fout){
 		if (expr != NULL)
 			expr->printto(fout);
@@ -388,6 +407,53 @@ public:
 			branchnum++;
 			addIndent();
 		}
+	}
+};
+
+class ForAst: public StmtAst{
+	StmtAst* stmt1;
+	ExprStmtAst* stmt2;
+	ExprCloseStmtAst* stmt3;
+	StmtAst* stmt;
+	string declaration;
+	bool isdec;
+public:
+	ForAst(int row, int column) : StmtAst(row, column){}
+	void additem(StmtAst* item1, ExprStmtAst* item2, ExprCloseStmtAst* item3, StmtAst* item){
+		stmt1 = item1;
+		stmt2 = item2;
+		stmt3 = item3;
+		stmt = item;
+		isdec = false;
+	}
+	void additem(string dec, StmtAst* item1, ExprStmtAst* item2, ExprCloseStmtAst* item3, StmtAst* item){
+		stmt1 = item1;
+		stmt2 = item2;
+		stmt3 = item3;
+		stmt = item;
+		declaration = dec;
+		isdec = true;
+	}
+	void printto(ofstream &fout){
+
+		stmt1->printto(fout);
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+		if (stmt2->hasExpr()){
+			stmt2->printto(fout);
+			printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+		}
+		stmt->printto(fout);
+		stmt3->printto(fout);
+		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+		if (isdec)
+			exprnum[declaration].pop_back();
 	}
 };
 

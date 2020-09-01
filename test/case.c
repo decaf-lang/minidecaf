@@ -1,1 +1,1 @@
-int main() { int a = 1; { return a; int a = 2;} }
+int main() { for (;;) return 3; return 5; }
