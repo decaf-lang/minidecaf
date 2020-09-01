@@ -314,7 +314,8 @@ public:
 		expr = item;
 	}
 	void printto(ofstream &fout){
-		expr->printto(fout);
+		if (expr != NULL)
+			expr->printto(fout);
 	}
 };
 

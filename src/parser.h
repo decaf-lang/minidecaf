@@ -107,8 +107,13 @@ public:
 
 	StmtAst* parserExprStmt(){
 		ExprStmtAst* expr_stmt_ast = new ExprStmtAst(tokenlist[pos].row(), tokenlist[pos].column());
-		ExprAst* expr_ast = parserExpr();
-		matchToken(";");
+		ExprAst* expr_ast = NULL;
+		if (lookForward(";")) 
+			matchToken(";");
+		else{
+			expr_ast = parserExpr();
+			matchToken(";");
+		}
 		expr_stmt_ast->additem(expr_ast);
 		return expr_stmt_ast;
 	}
