@@ -34,7 +34,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     visitDecl(ctx: MiniDecafParser.DeclContext) {
         let v = ctx["variable"] as Variable;
         if (v.isGlobal) {
-            this.ir.newGlobalData(v.name, ctx["const"]);
+            this.ir.newGlobalData(v.name, v.type.sizeof(), ctx["const"]);
         } else if (ctx.expr()) {
             ctx.expr().accept(this);
             this.emitVariable(VariableOp.Store, v);
@@ -121,8 +121,11 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
+        ctx.factor().accept(this);
+        this.ir.emitPush("r0");
         ctx.expr().accept(this);
-        this.emitVariable(VariableOp.Store, ctx.factor()["variable"]);
+        this.ir.emitPop("r1");
+        this.ir.emitStore("r0", "r1");
     }
 
     visitCondExpr(ctx: MiniDecafParser.CondExprContext) {
@@ -168,12 +171,19 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitIdentExpr(ctx: MiniDecafParser.IdentExprContext) {
-        this.emitVariable(VariableOp.Load, ctx["variable"]);
+        this.emitVariable(ctx["lvalue"] ? VariableOp.AddrOf : VariableOp.Load, ctx["variable"]);
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
         ctx.factor().accept(this);
-        this.ir.emitUnary(ctx.getChild(0).text);
+        let op = ctx.getChild(0).text;
+        if (op == "*") {
+            if (!ctx["lvalue"]) {
+                this.ir.emitLoad("r0", "r0");
+            }
+        } else if (op != "&") {
+            this.ir.emitUnary(op);
+        }
     }
 
     visitFuncCall(ctx: MiniDecafParser.FuncCallContext) {
@@ -189,12 +199,16 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
 
     /** 生成对变量的操作，操作类型见 {@link VariableOp} */
     private emitVariable(varOp: VariableOp, v: Variable) {
+        let offOrName = v.isGlobal ? v.name : v.offset;
         switch (varOp) {
             case VariableOp.Load:
-                this.ir.emitLoadVar(v.isGlobal ? v.name : v.offset, v.kind);
+                this.ir.emitLoadVar(offOrName, v.kind);
                 break;
             case VariableOp.Store:
-                this.ir.emitStoreVar(v.isGlobal ? v.name : v.offset, v.kind);
+                this.ir.emitStoreVar(offOrName, v.kind);
+                break;
+            case VariableOp.AddrOf:
+                this.ir.emitAddrVar(offOrName, v.kind);
                 break;
         }
     }

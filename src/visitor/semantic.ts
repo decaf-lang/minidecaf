@@ -3,7 +3,7 @@ import { AbstractParseTreeVisitor, TerminalNode } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { SemanticError } from "../error";
-import { Type, BaseType, FuncType, Variable, Function } from "../type";
+import { Type, BaseType, PointerType, FuncType, Variable, Function } from "../type";
 import { Scope, ScopeStack } from "../scope";
 
 /** 支持的最大整数字面量 */
@@ -14,12 +14,25 @@ type Result = ParserRuleContext | undefined;
 
 /** 一元运算的结果类型 */
 function unaryOpType(op: Token, factor: Type): Type {
-    return factor;
+    if (factor instanceof BaseType) {
+        return factor;
+    }
+    // 只能对整数类型进行一元运算
+    throw new SemanticError(op, `incompatible operand: ${op.text} '${factor}'`);
 }
 
 /** 二元运算的结果类型 */
 function binaryOpType(op: Token, lhs: Type, rhs: Type): Type {
-    return lhs;
+    if (lhs instanceof BaseType && rhs instanceof BaseType) {
+        return lhs;
+    }
+    if (lhs instanceof PointerType && rhs instanceof PointerType) {
+        // 指针类型只允许 == 和 != 运算
+        if (["==", "!="].includes(op.text) && lhs.equal(rhs)) {
+            return BaseType.Int;
+        }
+    }
+    throw new SemanticError(op, `incompatible operands: '${lhs}' ${op.text} '${rhs}'`);
 }
 
 /** 语义检查器 */
@@ -30,6 +43,8 @@ export class SemanticCheck
     private scopes: ScopeStack = new ScopeStack();
     /** 嵌套的循环语句构成的栈 */
     private loopStack: ParserRuleContext[] = [];
+    /** 当前表达式是否是作为引用，需要先计算其地址 */
+    private asReference: boolean = false;
 
     defaultResult(): Result {
         return undefined;
@@ -45,6 +60,8 @@ export class SemanticCheck
     visitType(ctx: MiniDecafParser.TypeContext): Result {
         if (ctx.Int()) {
             ctx["ty"] = BaseType.Int;
+        } else {
+            ctx["ty"] = new PointerType(ctx.type().accept(this)["ty"]);
         }
         return ctx;
     }
@@ -268,7 +285,9 @@ export class SemanticCheck
     }
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext): Result {
+        this.asReference = true;
         let lv = ctx.factor().accept(this);
+        this.asReference = false;
         let rv = ctx.expr().accept(this);
         if (!lv["lvalue"]) {
             // 不是给左值赋值，报错
@@ -347,6 +366,8 @@ export class SemanticCheck
     }
 
     visitIdentExpr(ctx: MiniDecafParser.IdentExprContext): Result {
+        ctx["lvalue"] = this.asReference; // 成为左值还需 asReference 为真
+        this.asReference = false;
         let name = ctx.Ident().text;
         let v = this.scopes.find(name);
         if (v instanceof Variable) {
@@ -355,7 +376,6 @@ export class SemanticCheck
             throw new SemanticError(ctx.Ident().symbol, `variable '${name}' is not declared`);
         }
         ctx["ty"] = v.type;
-        ctx["lvalue"] = true; // Ident 是左值
         return ctx;
     }
 
@@ -368,8 +388,30 @@ export class SemanticCheck
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext): Result {
         let op = ctx.getChild(0) as TerminalNode;
-        let f = ctx.factor().accept(this);
-        ctx["ty"] = unaryOpType(op.symbol, f["ty"]);
+        let f = ctx.factor();
+        if (op.text == "&") {
+            // 取地址
+            this.asReference = true;
+            f.accept(this);
+            this.asReference = false;
+            if (!f["lvalue"]) {
+                throw new SemanticError(op.symbol, "lvalue required as unary '&' operand");
+            }
+            ctx["ty"] = f["ty"].ref();
+        } else if (op.text == "*") {
+            // 解引用
+            ctx["lvalue"] = this.asReference; // 如果 asReference 为真，*e 也是左值
+            this.asReference = false;
+            f.accept(this);
+            ctx["ty"] = f["ty"].deref();
+            if (!ctx["ty"]) {
+                throw new SemanticError(op.symbol, `cannot dereference type '${f["ty"]}'`);
+            }
+        } else {
+            // 其他一元运算
+            f.accept(this);
+            ctx["ty"] = unaryOpType(op.symbol, f["ty"]);
+        }
         return ctx;
     }
 

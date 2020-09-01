@@ -36,6 +36,7 @@ LessEqual: '<=';
 Greater: '>';
 GreaterEqual: '>=';
 Assign: '=';
+Ref: '&';
 
 Integer: [0-9]+;
 Ident: [a-zA-Z_][0-9a-zA-Z_]*;

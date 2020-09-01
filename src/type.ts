@@ -1,6 +1,6 @@
 import { FuncContext } from "./gen/MiniDecafParser";
 
-/** 一个整数所占的字节数 */
+/** 一个整数或指针所占的字节数 */
 export const WORD_SIZE = 4;
 
 export interface Type {
@@ -8,6 +8,10 @@ export interface Type {
     equal(rhs: Type): boolean;
     /** 所占内存的大小 */
     sizeof(): number;
+    /** 引用后的类型 */
+    ref(): Type;
+    /** 解引用后的类型 */
+    deref(): Type;
 }
 
 /** 基本类型（只有整数类型） */
@@ -30,9 +34,44 @@ export class BaseType implements Type {
             return false;
         }
     }
+    ref(): Type {
+        return new PointerType(this);
+    }
+    deref(): Type {
+        return undefined;
+    }
 
     /** 整数类型 */
     static Int = new BaseType("int");
+}
+
+/** 指针类型 */
+export class PointerType implements Type {
+    /** 指针基类型 */
+    private readonly base: BaseType | PointerType;
+    constructor(base: BaseType | PointerType) {
+        this.base = base;
+    }
+    toString = (): string => {
+        return this.base.toString() + "*";
+    };
+
+    sizeof(): number {
+        return WORD_SIZE;
+    }
+    equal(rhs: Type): boolean {
+        if (rhs instanceof PointerType) {
+            return this.base.equal(rhs.base);
+        } else {
+            return false;
+        }
+    }
+    ref(): Type {
+        return new PointerType(this);
+    }
+    deref(): Type {
+        return this.base;
+    }
 }
 
 /** 函数的类型 */
@@ -67,7 +106,7 @@ export class FuncType {
 export class Variable {
     /** 变量名 */
     name: string;
-    /** 变量类型，目前只有整数类型 */
+    /** 变量类型 */
     type: Type;
     /** 如果是局部变量，表示变量在栈帧中的偏移量；如果是参数，表示第几个参数 */
     offset: number;

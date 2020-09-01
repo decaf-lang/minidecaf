@@ -182,6 +182,8 @@ export class Riscv32CodeGen extends IrVisitor<string> {
                 return load("t0", base, offset);
             case VariableOp.Store:
                 return store("t0", base, offset);
+            case VariableOp.AddrOf:
+                return instr.op2 == "g" ? `la t0, ${offset}` : `addi t0, ${base}, ${offset}`;
             default:
                 throw new OtherError(
                     `invalid variable operation '${op}' of IR insruction '${instr}'`,
@@ -205,12 +207,24 @@ export class Riscv32CodeGen extends IrVisitor<string> {
         this.emitInstr(binaryOp(instr.op, "t0", "t1", "t0"));
     }
 
+    visitLoad(instr: IrInstr) {
+        this.emitInstr(load(irReg2rvReg(instr.op), irReg2rvReg(instr.op2)));
+    }
+
+    visitStore(instr: IrInstr) {
+        this.emitInstr(store(irReg2rvReg(instr.op), irReg2rvReg(instr.op2)));
+    }
+
     visitLoadVar(instr: IrInstr) {
         this.emitInstr(this.emitVariableOp(VariableOp.Load, instr));
     }
 
     visitStoreVar(instr: IrInstr) {
         this.emitInstr(this.emitVariableOp(VariableOp.Store, instr));
+    }
+
+    visitAddrVar(instr: IrInstr) {
+        this.emitInstr(this.emitVariableOp(VariableOp.AddrOf, instr));
     }
 
     visitPush(instr: IrInstr) {
@@ -258,7 +272,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
             this.emitDirective(`.globl ${name}`);
             this.emitDirective(".align 2");
             this.emitLabel(name);
-            this.emitDirective(`.word ${data.init ?? 0}`);
+            this.emitDirective(data.init ? `.word ${data.init}` : `.zero ${data.size}`);
             this.asm += "\n";
         });
         this.emitDirective(".text");

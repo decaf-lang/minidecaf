@@ -28,6 +28,8 @@ export enum VariableOp {
     Load = "load",
     /** 将寄存器的值保存到变量 */
     Store = "store",
+    /** 获取变量的地址，保存到寄存器 */
+    AddrOf = "addr",
 }
 
 /** IR 指令名称 */
@@ -40,10 +42,16 @@ export enum IrInstrName {
     UNARY = "UNARY",
     /** 计算二元运算，左右操作数分别是 `r1` 和 `r0`，结果存到 `r0` */
     BINARY = "BINARY",
+    /** 从给定内存地址读出数据，保存到给定寄存器 */
+    LOAD = "LOAD",
+    /** 将给定寄存器中的数据保存到给定内存地址 */
+    STORE = "STORE",
     /** 读出变量的值，保存到 `r0` */
     LOAD_VAR = "LOAD_VAR",
     /** 将 `r0` 保存到变量 */
     STORE_VAR = "STORE_VAR",
+    /** 获取变量的地址，保存到 `r0` */
+    ADDR_VAR = "ADDR_VAR",
     /** 将给定的寄存器压入栈顶 */
     PUSH = "PUSH",
     /** 从栈顶弹出一个数，存到给定的寄存器 */
@@ -76,11 +84,12 @@ export class IrInstr {
     }
 
     toString = (): string => {
-        return (
-            this.name +
-            (this.op !== undefined ? ` ${this.op}` : "") +
-            (this.op2 !== undefined ? `, ${this.op2}` : "")
-        );
+        let opStr = this.op !== undefined ? ` ${this.op}` : "";
+        let opStr2 = this.op2 !== undefined ? `, ${this.op2}` : "";
+        if (this.name == IrInstrName.LOAD || this.name == IrInstrName.STORE) {
+            opStr2 = `, (${this.op2})`;
+        }
+        return this.name + opStr + opStr2;
     };
 }
 
@@ -118,16 +127,19 @@ export class IrFunc {
 export class IrGlobalData {
     /** 全局变量名 */
     name: string;
+    /** 全局变量所占内存的大小 */
+    size: number;
     /** 初值（可选） */
     init?: number;
 
-    constructor(name: string, init?: number) {
+    constructor(name: string, size: number, init?: number) {
         this.name = name;
+        this.size = size;
         this.init = init;
     }
 
     toString = (): string => {
-        return `GLOBAL ${this.name}: ${this.init}\n`;
+        return `GLOBAL ${this.name}(size=${this.size}): ${this.init}\n`;
     };
 }
 
@@ -172,10 +184,11 @@ export class Ir {
      * 新建一个全局变量。
      *
      * @param name 全局变量名
+     * @param size 全局变量所占内存的大小
      * @param init 初值（可选）
      */
-    newGlobalData(name: string, init?: number) {
-        this._globals.set(name, new IrGlobalData(name, init));
+    newGlobalData(name: string, size: number, init?: number) {
+        this._globals.set(name, new IrGlobalData(name, size, init));
     }
 
     /**
@@ -220,6 +233,24 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.BINARY, op));
     }
 
+    /** 从内存地址 `base` 处读出数据，保存到 `rd`。
+     *
+     * @param rd 目标寄存器
+     * @param base 基址寄存器
+     */
+    emitLoad(rd: string, base: string) {
+        this.emit(new IrInstr(IrInstrName.LOAD, rd, base));
+    }
+
+    /** 将寄存器 `rs` 中的数据保存到内存地址 `base`。
+     *
+     * @param rs 源寄存器
+     * @param base 基址寄存器
+     */
+    emitStore(rs: string, base: string) {
+        this.emit(new IrInstr(IrInstrName.STORE, rs, base));
+    }
+
     /** 从指定位置读出变量的值，保存到 `r0`。
      *
      * @param offOrName 变量在栈帧中的偏移量，或全局变量名
@@ -236,6 +267,15 @@ export class Ir {
      */
     emitStoreVar(offOrName: number | string, varKind: string) {
         this.emit(new IrInstr(IrInstrName.STORE_VAR, offOrName, varKind));
+    }
+
+    /** 获取变量的地址，保存到 `r0`
+     *
+     * @param offOrName 变量在栈帧中的偏移量，或全局变量名
+     * @param varKind 变量种类，"g" 表示全局变量，"l" 表示局部变量，"p" 表示参数
+     */
+    emitAddrVar(offOrName: number | string, varKind: string) {
+        this.emit(new IrInstr(IrInstrName.ADDR_VAR, offOrName, varKind));
     }
 
     /** 将给定的寄存器 `reg` 压入栈顶 */
@@ -293,10 +333,16 @@ export abstract class IrVisitor<Result> {
     abstract visitUnary(instr: IrInstr): any;
     /** 处理二元运算指令 `BINARY` */
     abstract visitBinary(instr: IrInstr): any;
+    /** 处理读内存指令 `LOAD` */
+    abstract visitLoad(instr: IrInstr): any;
+    /** 处理写内存指令 `STORE` */
+    abstract visitStore(instr: IrInstr): any;
     /** 处理读取变量指令 `LOAD_VAR` */
     abstract visitLoadVar(instr: IrInstr): any;
     /** 处理保存变量指令 `STORE_VAR` */
     abstract visitStoreVar(instr: IrInstr): any;
+    /** 处理获取变量地址指令 `ADDR_VAR` */
+    abstract visitAddrVar(instr: IrInstr): any;
     /** 处理压栈指令 `PUSH` */
     abstract visitPush(instr: IrInstr): any;
     /** 处理弹栈指令 `POP` */
@@ -326,10 +372,16 @@ export abstract class IrVisitor<Result> {
                 return this.visitUnary(i);
             case IrInstrName.BINARY:
                 return this.visitBinary(i);
+            case IrInstrName.LOAD:
+                return this.visitLoad(i);
+            case IrInstrName.STORE:
+                return this.visitStore(i);
             case IrInstrName.LOAD_VAR:
                 return this.visitLoadVar(i);
             case IrInstrName.STORE_VAR:
                 return this.visitStoreVar(i);
+            case IrInstrName.ADDR_VAR:
+                return this.visitAddrVar(i);
             case IrInstrName.PUSH:
                 return this.visitPush(i);
             case IrInstrName.POP:

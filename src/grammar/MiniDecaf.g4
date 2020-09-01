@@ -8,6 +8,7 @@ program
 
 type
     : Int
+    | type '*'
     ;
 
 paramList
@@ -83,9 +84,9 @@ mulExpr
     ;
 
 factor
-    : Integer                           # IntExpr
-    | Ident                             # IdentExpr
-    | '(' expr ')'                      # NestedExpr
-    | ('-' | '~' | '!') factor          # UnaryExpr
-    | Ident '(' (expr (',' expr)*)? ')' # FuncCall
+    : Integer                               # IntExpr
+    | Ident                                 # IdentExpr
+    | '(' expr ')'                          # NestedExpr
+    | ('-' | '~' | '!' | '*' | '&') factor  # UnaryExpr
+    | Ident '(' (expr (',' expr)*)? ')'     # FuncCall
     ;
