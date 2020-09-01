@@ -73,6 +73,8 @@ public:
 			stmt_ast = parserIfStmt();
 		else if (lookForward("for"))
 			stmt_ast = parserForStmt();
+		else if (lookForward("while"))
+			stmt_ast = parserWhileStmt();
 		else if (lookForward("{")){
 			matchToken("{");
 			stmt_ast = parserBlock();
@@ -167,6 +169,17 @@ public:
 			for_ast->additem(stmt_ast1, stmt_ast2, stmt_ast3, stmt_ast4);
 		}
 		return for_ast;
+	}
+
+	StmtAst* parserWhileStmt(){
+		WhileAst* while_ast = new WhileAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("while");
+		matchToken("(");
+		ExprAst* expr_ast = parserExpr();
+		matchToken(")");
+		StmtAst* stmt_ast = parserStmt();
+		while_ast->additem(expr_ast, stmt_ast);
+		return while_ast;
 	}
 
 	ExprAst* parserExpr(){

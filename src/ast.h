@@ -457,6 +457,35 @@ public:
 	}
 };
 
+class WhileAst: public StmtAst{
+	ExprAst* expr;
+	StmtAst* stmt;
+	string declaration;
+	bool isdec;
+public:
+	WhileAst(int row, int column) : StmtAst(row, column){}
+	void additem(ExprAst* item1, StmtAst* item2){
+		expr = item1;
+		stmt = item2;
+	}
+	void printto(ofstream &fout){
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+
+		expr->printto(fout);
+		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+		stmt->printto(fout);
+		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+	}
+};
+
 class FunctionAst: public Ast{
 	string name;
 	StmtAst* stmt;
