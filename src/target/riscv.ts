@@ -1,8 +1,7 @@
 import { Label, VariableOp, IrInstr, IrFunc, IrVisitor } from "../ir";
 import { OtherError } from "../error";
+import { WORD_SIZE } from "../type";
 
-/** 一个整数所占的字节数 */
-const WORD_SIZE = 4;
 /** 参数寄存器个数 */
 const ARG_REGS_COUNT = 8;
 

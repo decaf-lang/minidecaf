@@ -1,5 +1,38 @@
-export enum Type {
-    Int = "int",
+import { FuncContext } from "./gen/MiniDecafParser";
+
+/** 一个整数所占的字节数 */
+export const WORD_SIZE = 4;
+
+export interface Type {
+    /** 与 `rhs` 的类型是否相等 */
+    equal(rhs: Type): boolean;
+    /** 所占内存的大小 */
+    sizeof(): number;
+}
+
+/** 基本类型（只有整数类型） */
+export class BaseType implements Type {
+    private readonly name: string;
+    private constructor(name: string) {
+        this.name = name;
+    }
+    toString = (): string => {
+        return this.name;
+    };
+
+    sizeof(): number {
+        return WORD_SIZE;
+    }
+    equal(rhs: Type): boolean {
+        if (rhs instanceof BaseType) {
+            return this.name === rhs.name;
+        } else {
+            return false;
+        }
+    }
+
+    /** 整数类型 */
+    static Int = new BaseType("int");
 }
 
 /** 函数的类型 */
@@ -15,11 +48,11 @@ export class FuncType {
     }
 
     equal(rhs: FuncType): boolean {
-        if (this.ret !== rhs.ret || this.params.length != rhs.params.length) {
+        if (!this.ret.equal(rhs.ret) || this.params.length != rhs.params.length) {
             return false;
         }
         for (let i = 0; i < this.params.length; i++) {
-            if (this.params[i] !== rhs.params[i]) {
+            if (!this.params[i].equal(rhs.params[i])) {
                 return false;
             }
         }

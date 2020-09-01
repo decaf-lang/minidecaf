@@ -6,12 +6,16 @@ program
     : (decl | func)* EOF
     ;
 
+type
+    : Int
+    ;
+
 paramList
-    : (Int Ident (',' Int Ident)*)?
+    : (type Ident (',' type Ident)*)?
     ;
 
 func
-    : Int Ident '(' paramList ')' ('{' blockItem* '}' | ';')
+    : type Ident '(' paramList ')' ('{' blockItem* '}' | ';')
     ;
 
 blockItem
@@ -20,7 +24,7 @@ blockItem
     ;
 
 decl
-    : Int Ident ('=' expr)? ';'
+    : type Ident ('=' expr)? ';'
     ;
 
 stmt
@@ -41,7 +45,7 @@ expr
     ;
 
 assignExpr
-    : Ident '=' expr
+    : factor '=' expr
     ;
 
 condExpr

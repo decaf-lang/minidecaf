@@ -3,7 +3,7 @@ import { AbstractParseTreeVisitor, TerminalNode } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { SemanticError } from "../error";
-import { Type, FuncType, Variable, Function } from "../type";
+import { Type, BaseType, FuncType, Variable, Function } from "../type";
 import { Scope, ScopeStack } from "../scope";
 
 /** 支持的最大整数字面量 */
@@ -11,6 +11,16 @@ const MAX_INT_LITERAL = 0x7fff_ffff;
 
 /** 返回值都是 {@link ParserRuleContext}，以便直接获取子节点的属性 */
 type Result = ParserRuleContext | undefined;
+
+/** 一元运算的结果类型 */
+function unaryOpType(op: Token, factor: Type): Type {
+    return factor;
+}
+
+/** 二元运算的结果类型 */
+function binaryOpType(op: Token, lhs: Type, rhs: Type): Type {
+    return lhs;
+}
 
 /** 语义检查器 */
 export class SemanticCheck
@@ -32,6 +42,13 @@ export class SemanticCheck
         return ctx;
     }
 
+    visitType(ctx: MiniDecafParser.TypeContext): Result {
+        if (ctx.Int()) {
+            ctx["ty"] = BaseType.Int;
+        }
+        return ctx;
+    }
+
     visitParamList(ctx: MiniDecafParser.ParamListContext): Result {
         let params: Token[] = [];
         let paramTypes: Type[] = [];
@@ -39,7 +56,7 @@ export class SemanticCheck
             let typeNode = ctx.getChild(i);
             let identNode = ctx.getChild(i + 1) as TerminalNode;
             params.push(identNode.symbol);
-            paramTypes.push(typeNode.text as Type);
+            paramTypes.push(typeNode.accept(this)["ty"]);
         }
         ctx["params"] = params;
         ctx["paramTypes"] = paramTypes;
@@ -53,7 +70,7 @@ export class SemanticCheck
         let paramNode = ctx.paramList().accept(this);
         let params = paramNode["params"];
         let paramTypes = paramNode["paramTypes"];
-        let funcType = new FuncType(paramTypes, ctx.Int().text as Type);
+        let funcType = new FuncType(paramTypes, ctx.type().accept(this)["ty"]);
         ctx["paramCount"] = params.length;
 
         /** 首先查找该函数名是否已在符号表中 */
@@ -114,12 +131,18 @@ export class SemanticCheck
     visitDecl(ctx: MiniDecafParser.DeclContext): Result {
         let name = ctx.Ident().text;
         if (this.scopes.canDeclare(name)) {
-            let type = ctx.Int().text as Type;
+            let type = ctx.type().accept(this)["ty"];
             let isGlobal = !this.scopes.currentFunc(); // 如果当前函数作用域为空，则当前是全局作用域
             let expr = ctx.expr();
             if (expr) {
                 expr.accept(this);
-                if (isGlobal) {
+                if (!type.equal(expr["ty"])) {
+                    // 初值类型不匹配，报错
+                    throw new SemanticError(
+                        ctx.Assign().symbol,
+                        `cannot assign '${expr["ty"]}' to '${type}'`,
+                    );
+                } else if (isGlobal) {
                     // 全局变量初值只能是整数常量
                     if (/^\d+$/.test(expr.text)) {
                         ctx["const"] = parseInt(expr.text);
@@ -138,10 +161,43 @@ export class SemanticCheck
         return ctx;
     }
 
+    visitReturnStmt(ctx: MiniDecafParser.ReturnStmtContext): Result {
+        let fnName = this.scopes.currentFunc().name;
+        let fn = this.scopes.currentGlobal().find(fnName) as Function;
+        let e = ctx.expr().accept(this);
+        if (!e["ty"].equal(fn.type.ret)) {
+            // 返回值类型与函数定义中的不匹配，报错
+            throw new SemanticError(
+                e.start,
+                `mismatched return type: expected '${fn.type.ret}', found '${e["ty"]}`,
+            );
+        }
+        return ctx;
+    }
+
+    visitIfStmt(ctx: MiniDecafParser.IfStmtContext): Result {
+        let cond = ctx.expr().accept(this);
+        if (!cond["ty"].equal(BaseType.Int)) {
+            throw new SemanticError(
+                cond.start,
+                `incompatible condition type '${cond["ty"]}' in 'if' statement`,
+            );
+        }
+        ctx.stmt().forEach((stmt) => stmt.accept(this));
+        return ctx;
+    }
+
     visitForStmt(ctx: MiniDecafParser.ForStmtContext): Result {
         this.loopStack.push(ctx);
         this.scopes.open(Scope.newLocal()); // for 循环需要打开一个新的局部作用域
         this.visitChildren(ctx);
+        let cond = ctx._cond;
+        if (cond && !cond["ty"].equal(BaseType.Int)) {
+            throw new SemanticError(
+                cond.start,
+                `incompatible condition type '${cond["ty"]}' in 'for' statement`,
+            );
+        }
         this.scopes.close();
         this.loopStack.pop();
         return ctx;
@@ -149,14 +205,28 @@ export class SemanticCheck
 
     visitWhileStmt(ctx: MiniDecafParser.WhileStmtContext): Result {
         this.loopStack.push(ctx);
-        this.visitChildren(ctx);
+        let cond = ctx.expr().accept(this);
+        if (!cond["ty"].equal(BaseType.Int)) {
+            throw new SemanticError(
+                cond.start,
+                `incompatible condition type '${cond["ty"]}' in 'while' statement`,
+            );
+        }
+        ctx.stmt().accept(this);
         this.loopStack.pop();
         return ctx;
     }
 
     visitDoStmt(ctx: MiniDecafParser.DoStmtContext): Result {
         this.loopStack.push(ctx);
-        this.visitChildren(ctx);
+        ctx.stmt().accept(this);
+        let cond = ctx.expr().accept(this);
+        if (!cond["ty"].equal(BaseType.Int)) {
+            throw new SemanticError(
+                cond.start,
+                `incompatible condition type '${cond["ty"]}' in 'do-while' statement`,
+            );
+        }
         this.loopStack.pop();
         return ctx;
     }
@@ -190,20 +260,85 @@ export class SemanticCheck
         return ctx;
     }
 
+    visitExpr(ctx: MiniDecafParser.ExprContext): Result {
+        let e = ctx.getChild(0).accept(this);
+        ctx["ty"] = e["ty"];
+        ctx["lvalue"] = e["lvalue"];
+        return ctx;
+    }
+
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext): Result {
-        let name = ctx.Ident().text;
-        let v = this.scopes.find(name);
-        if (v instanceof Variable) {
-            ctx["variable"] = v;
-            ctx.expr().accept(this);
+        let lv = ctx.factor().accept(this);
+        let rv = ctx.expr().accept(this);
+        if (!lv["lvalue"]) {
+            // 不是给左值赋值，报错
+            throw new SemanticError(
+                ctx.Assign().symbol,
+                "lvalue required as left operand of assignment",
+            );
+        } else if (!lv["ty"].equal(rv["ty"])) {
+            // 类型不匹配，报错
+            throw new SemanticError(
+                ctx.Assign().symbol,
+                `cannot assign '${lv["ty"]}' to '${rv["ty"]}'`,
+            );
+        }
+        ctx["ty"] = lv["ty"];
+        return ctx;
+    }
+
+    visitCondExpr(ctx: MiniDecafParser.CondExprContext): Result {
+        let cond = ctx.orExpr().accept(this);
+        if (ctx.Question()) {
+            if (!cond["ty"].equal(BaseType.Int)) {
+                throw new SemanticError(
+                    cond.start,
+                    `incompatible condition type '${cond["ty"]}' in conditional expression`,
+                );
+            }
+            let t = ctx.expr().accept(this);
+            let f = ctx.condExpr().accept(this);
+            if (!t["ty"].equal(f["ty"])) {
+                throw new SemanticError(
+                    ctx.Colon().symbol,
+                    `type '${t["ty"]}' and '${f["ty"]}' mismatched in conditional expression`,
+                );
+            }
+            ctx["ty"] = t["ty"];
         } else {
-            throw new SemanticError(ctx.Ident().symbol, `variable '${name}' is not declared`);
+            ctx["ty"] = cond["ty"];
+            ctx["lvalue"] = cond["lvalue"];
         }
         return ctx;
     }
 
+    visitOrExpr(ctx: MiniDecafParser.OrExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
+    visitAndExpr(ctx: MiniDecafParser.AndExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
+    visitEqualExpr(ctx: MiniDecafParser.EqualExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
+    visitRelExpr(ctx: MiniDecafParser.RelExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
+    visitAddExpr(ctx: MiniDecafParser.AddExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
+    visitMulExpr(ctx: MiniDecafParser.MulExprContext): Result {
+        return this.visitBinary(ctx);
+    }
+
     visitIntExpr(ctx: MiniDecafParser.IntExprContext): Result {
         let int = parseInt(ctx.Integer().text);
+        ctx["ty"] = BaseType.Int;
         ctx["integer"] = int;
         if (int > MAX_INT_LITERAL) {
             throw new SemanticError(ctx.Integer().symbol, `integer '${int}' is too large`);
@@ -219,6 +354,22 @@ export class SemanticCheck
         } else {
             throw new SemanticError(ctx.Ident().symbol, `variable '${name}' is not declared`);
         }
+        ctx["ty"] = v.type;
+        ctx["lvalue"] = true; // Ident 是左值
+        return ctx;
+    }
+
+    visitNestedExpr(ctx: MiniDecafParser.NestedExprContext): Result {
+        let e = ctx.expr().accept(this);
+        ctx["ty"] = e["ty"];
+        ctx["lvalue"] = e["lvalue"]; // 如果 e 是左值，(e) 也是左值
+        return ctx;
+    }
+
+    visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext): Result {
+        let op = ctx.getChild(0) as TerminalNode;
+        let f = ctx.factor().accept(this);
+        ctx["ty"] = unaryOpType(op.symbol, f["ty"]);
         return ctx;
     }
 
@@ -234,10 +385,34 @@ export class SemanticCheck
                     `mismatched arguments number of function '${fnName}'`,
                 );
             }
-            this.visitChildren(ctx);
+            for (let i = 0; i < f.type.paramCount(); i++) {
+                let e = ctx.expr(i).accept(this);
+                if (!e["ty"].equal(f.type.params[i])) {
+                    // 参数类型不匹配，报错
+                    throw new SemanticError(
+                        e.start,
+                        `mismatched argument type: expected '${f.type.params[i]}', found '${e["ty"]}'`,
+                    );
+                }
+            }
+            ctx["ty"] = f.type.ret;
         } else {
             // 函数没有被声明定义，或不是函数类型，报错
             throw new SemanticError(ident.symbol, `function '${fnName}' is not declared`);
+        }
+        return ctx;
+    }
+
+    private visitBinary(ctx: ParserRuleContext): Result {
+        if (ctx.childCount == 1) {
+            let e = ctx.getChild(0).accept(this);
+            ctx["ty"] = e["ty"];
+            ctx["lvalue"] = e["lvalue"];
+        } else {
+            let op = ctx.getChild(1) as TerminalNode;
+            let lhs = ctx.getChild(0).accept(this)["ty"];
+            let rhs = ctx.getChild(2).accept(this)["ty"];
+            ctx["ty"] = binaryOpType(op.symbol, lhs, rhs);
         }
         return ctx;
     }

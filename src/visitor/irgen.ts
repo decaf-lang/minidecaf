@@ -122,7 +122,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
 
     visitAssignExpr(ctx: MiniDecafParser.AssignExprContext) {
         ctx.expr().accept(this);
-        this.emitVariable(VariableOp.Store, ctx["variable"]);
+        this.emitVariable(VariableOp.Store, ctx.factor()["variable"]);
     }
 
     visitCondExpr(ctx: MiniDecafParser.CondExprContext) {

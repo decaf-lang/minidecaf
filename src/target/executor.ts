@@ -1,8 +1,7 @@
 import { VariableOp, IrInstr, IrFunc, IrVisitor, Ir } from "../ir";
 import { RuntimeError, OtherError } from "../error";
+import { WORD_SIZE } from "../type";
 
-/** 一个整数所占的字节数 */
-const WORD_SIZE = 4;
 /** 为了模拟 32 位计算机，所有运算结果都要按位与上该数，以截取低 32 位 */
 const MAX_UINT = 0xffff_ffff;
 

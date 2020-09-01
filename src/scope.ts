@@ -32,7 +32,7 @@ export class Scope {
     /** 在该作用域中定义一个变量 */
     declareVar(name: string, type: Type, isGlobal: boolean): Variable {
         let v = new Variable(name, type, this.nextOffset, false, isGlobal);
-        this.nextOffset += 4;
+        this.nextOffset += v.type.sizeof();
         this.symbols.set(name, v);
         return v;
     }
