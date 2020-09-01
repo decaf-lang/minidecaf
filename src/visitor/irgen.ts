@@ -3,7 +3,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { Label, VariableOp, Ir } from "../ir";
-import { Variable } from "../type";
+import { Type, ArrayType, Variable } from "../type";
 
 /** 语法树到 IR 的生成器 */
 export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVisitor<void> {
@@ -26,7 +26,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         ctx.blockItem().forEach((item) => item.accept(this));
         // 如果函数没有返回语句，默认返回 0
         if (this.ir.missReturn()) {
-            this.ir.emitImmediate(0);
+            this.ir.emitImmediate(0, "r0");
             this.ir.emitReturn();
         }
     }
@@ -167,11 +167,14 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
     }
 
     visitIntExpr(ctx: MiniDecafParser.IntExprContext) {
-        this.ir.emitImmediate(ctx["integer"]);
+        this.ir.emitImmediate(ctx["integer"], "r0");
     }
 
     visitIdentExpr(ctx: MiniDecafParser.IdentExprContext) {
-        this.emitVariable(ctx["lvalue"] ? VariableOp.AddrOf : VariableOp.Load, ctx["variable"]);
+        this.emitVariable(
+            ctx["lvalue"] || ctx["ty"] instanceof ArrayType ? VariableOp.AddrOf : VariableOp.Load,
+            ctx["variable"],
+        );
     }
 
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext) {
@@ -183,6 +186,20 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
             }
         } else if (op != "&") {
             this.ir.emitUnary(op);
+        }
+    }
+
+    visitIndexExpr(ctx: MiniDecafParser.IndexExprContext) {
+        let type = ctx["ty"] as Type;
+        ctx.postfix().accept(this); // 计算要取下标的表达式的值，结果存在 `r0`
+        this.ir.emitPush("r0"); // 将结果 `r0` 保存到栈顶
+        ctx.expr().accept(this); // 计算下标表达式的值，结果存在 `r0`
+        this.ir.emitImmediate(type.sizeof(), "r1"); // `r1` 为类型大小
+        this.ir.emitBinary("*"); // 生成运算 `r1 * r0`
+        this.ir.emitPop("r1"); // 从栈顶弹出 postfix 的值到 `r1`
+        this.ir.emitBinary("+"); // 生成运算 `r1 + r0`
+        if (!(type instanceof ArrayType) && !ctx["lvalue"]) {
+            this.ir.emitLoad("r0", "r0");
         }
     }
 

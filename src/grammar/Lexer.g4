@@ -14,6 +14,8 @@ LeftParen: '(';
 RightParen: ')';
 LeftBrace: '{';
 RightBrace: '}';
+LeftBracket: '[';
+RightBracket: ']';
 
 Semi: ';';
 Question: '?';

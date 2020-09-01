@@ -25,7 +25,7 @@ blockItem
     ;
 
 decl
-    : type Ident ('=' expr)? ';'
+    : type Ident ('[' Integer ']')* ('=' expr)? ';'
     ;
 
 stmt
@@ -91,6 +91,7 @@ unary
 
 postfix
     : primary                           # PrimaryExpr
+    | postfix '[' expr ']'              # IndexExpr
     | Ident '(' (expr (',' expr)*)? ')' # FuncCall
     ;
 

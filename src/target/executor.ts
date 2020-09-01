@@ -198,7 +198,7 @@ export class IrExecutor extends IrVisitor<number> {
 
     visitImmediate(instr: IrInstr) {
         this.pc++;
-        this.r0 = instr.op;
+        this[instr.op2] = instr.op;
     }
 
     visitUnary(instr: IrInstr) {

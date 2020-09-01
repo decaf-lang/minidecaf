@@ -218,9 +218,9 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.LABEL, label));
     }
 
-    /** 加载一个立即数 `value` 到 `r0` */
-    emitImmediate(value: number) {
-        this.emit(new IrInstr(IrInstrName.IMM, value));
+    /** 加载一个立即数 `value` 到给定寄存器 `rd` */
+    emitImmediate(value: number, rd: string) {
+        this.emit(new IrInstr(IrInstrName.IMM, value, rd));
     }
 
     /** 对 `r0` 进行一元运算，结果存到 `r0` */

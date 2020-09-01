@@ -12,6 +12,8 @@ export interface Type {
     ref(): Type;
     /** 解引用后的类型 */
     deref(): Type;
+    /** 下标运算后的类型 */
+    index(): Type;
     /** 是否可以显示转换为 `to` 类型 */
     canCast(to: Type): boolean;
 }
@@ -40,6 +42,9 @@ export class BaseType implements Type {
         return new PointerType(this);
     }
     deref(): Type {
+        return undefined;
+    }
+    index(): Type {
         return undefined;
     }
     canCast(_to: Type): boolean {
@@ -77,8 +82,69 @@ export class PointerType implements Type {
     deref(): Type {
         return this.base;
     }
+    index(): Type {
+        return this.base;
+    }
     canCast(_to: Type): boolean {
         return true;
+    }
+}
+
+/** 数组类型 */
+export class ArrayType implements Type {
+    /** 数组基类型 */
+    private readonly base: BaseType | PointerType;
+    /** 数组每一位大小 */
+    private readonly shape: number[];
+    /** 数组维数 */
+    private readonly dims: number;
+    /** 数组元素个数 */
+    private readonly elements: number;
+    constructor(base: BaseType | PointerType, shape: number[]) {
+        let size = 1;
+        shape.forEach((d) => (size *= d));
+        this.base = base;
+        this.shape = shape;
+        this.dims = shape.length;
+        this.elements = size;
+    }
+    toString = (): string => {
+        return this.base.toString() + this.shape.map((d) => `[${d}]`).join("");
+    };
+
+    sizeof(): number {
+        return this.elements * this.base.sizeof();
+    }
+    equal(rhs: Type): boolean {
+        if (rhs instanceof ArrayType) {
+            if (!this.base.equal(rhs.base) || this.dims !== rhs.dims) {
+                return false;
+            }
+            for (let i = 0; i < this.dims; i++) {
+                if (this.shape[i] !== rhs.shape[i]) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+    ref(): Type {
+        return undefined;
+    }
+    deref(): Type {
+        return undefined;
+    }
+    index(): Type {
+        if (this.dims == 1) {
+            return this.base;
+        } else {
+            return new ArrayType(this.base, this.shape.slice(1));
+        }
+    }
+    canCast(to: Type): boolean {
+        return to instanceof PointerType;
     }
 }
 

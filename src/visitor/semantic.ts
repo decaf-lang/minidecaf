@@ -3,7 +3,7 @@ import { AbstractParseTreeVisitor, TerminalNode } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { SemanticError } from "../error";
-import { Type, BaseType, PointerType, FuncType, Variable, Function } from "../type";
+import { Type, BaseType, PointerType, ArrayType, FuncType, Variable, Function } from "../type";
 import { Scope, ScopeStack } from "../scope";
 
 /** 支持的最大整数字面量 */
@@ -149,11 +149,33 @@ export class SemanticCheck
         let name = ctx.Ident().text;
         if (this.scopes.canDeclare(name)) {
             let type = ctx.type().accept(this)["ty"];
+            // 如果是数组类型
+            if (ctx.LeftBracket().length) {
+                let shape = [];
+                ctx.Integer().forEach((i) => {
+                    let int = parseInt(i.text);
+                    if (int <= 0 || int > MAX_INT_LITERAL) {
+                        throw new SemanticError(i.symbol, `invalid array size`);
+                    }
+                    shape.push(int);
+                });
+                type = new ArrayType(type, shape);
+                if (type.sizeof() > MAX_INT_LITERAL) {
+                    throw new SemanticError(
+                        ctx.Ident().symbol,
+                        `size of array '${name}' is too large`,
+                    );
+                }
+            }
+
             let isGlobal = !this.scopes.currentFunc(); // 如果当前函数作用域为空，则当前是全局作用域
             let expr = ctx.expr();
             if (expr) {
                 expr.accept(this);
-                if (!type.equal(expr["ty"])) {
+                if (type instanceof ArrayType) {
+                    // 数组不能初始化，报错
+                    throw new SemanticError(ctx.Assign().symbol, "cannot assign to array type");
+                } else if (!type.equal(expr["ty"])) {
                     // 初值类型不匹配，报错
                     throw new SemanticError(
                         ctx.Assign().symbol,
@@ -289,7 +311,10 @@ export class SemanticCheck
         let lv = ctx.unary().accept(this);
         this.asReference = false;
         let rv = ctx.expr().accept(this);
-        if (!lv["lvalue"]) {
+        if (lv["ty"] instanceof ArrayType) {
+            // 数组不能赋值，报错
+            throw new SemanticError(ctx.Assign().symbol, "cannot assign to array type");
+        } else if (!lv["lvalue"]) {
             // 不是给左值赋值，报错
             throw new SemanticError(
                 ctx.Assign().symbol,
@@ -415,6 +440,10 @@ export class SemanticCheck
                 throw new SemanticError(op.symbol, "lvalue required as unary '&' operand");
             }
             ctx["ty"] = f["ty"].ref();
+            if (!ctx["ty"]) {
+                // 数组不能取地址，报错
+                throw new SemanticError(op.symbol, `cannot reference type '${f["ty"]}'`);
+            }
         } else if (op.text == "*") {
             // 解引用
             ctx["lvalue"] = this.asReference; // 如果 asReference 为真，*e 也是左值
@@ -436,6 +465,27 @@ export class SemanticCheck
         let p = ctx.primary().accept(this);
         ctx["ty"] = p["ty"];
         ctx["lvalue"] = p["lvalue"];
+        return ctx;
+    }
+
+    visitIndexExpr(ctx: MiniDecafParser.IndexExprContext): Result {
+        ctx["lvalue"] = this.asReference;
+        this.asReference = false;
+        let p = ctx.postfix().accept(this);
+        ctx["ty"] = p["ty"].index();
+        if (ctx["ty"]) {
+            // 下标不是整数类型，报错
+            let e = ctx.expr().accept(this);
+            if (!e["ty"].equal(BaseType.Int)) {
+                throw new SemanticError(e.start, `array subscript is not an integer`);
+            }
+        } else {
+            // 对非数组或指针取下标，报错
+            throw new SemanticError(
+                ctx.LeftBracket().symbol,
+                `subscripted value is neither array nor pointer`,
+            );
+        }
         return ctx;
     }
 

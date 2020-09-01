@@ -7,7 +7,7 @@ const ARG_REGS_COUNT = 8;
 
 /** 将 IR 的寄存器名映射到 RISC-V 的寄存器名 */
 function irReg2rvReg(irReg: string): string {
-    return { r0: "t0", r1: "t1" }[irReg];
+    return { r0: "t0", r1: "t1" }[irReg] || irReg;
 }
 
 /**
@@ -172,7 +172,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
                 break;
             case "l": // 局部变量
                 base = "fp";
-                offset = -instr.op - 3 * WORD_SIZE;
+                offset = -2 * WORD_SIZE - this.currentFunc.localVarSize + instr.op;
                 break;
             default:
                 throw new OtherError(`invalid operand '${instr.op2}' of IR insruction '${instr}'`);
@@ -196,7 +196,7 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
 
     visitImmediate(instr: IrInstr) {
-        this.emitInstr(`li t0, ${instr.op}`);
+        this.emitInstr(`li ${irReg2rvReg(instr.op2)}, ${instr.op}`);
     }
 
     visitUnary(instr: IrInstr) {
