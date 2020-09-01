@@ -1,0 +1,32 @@
+program
+    : function
+
+function
+    : type Identifier '(' ')' '{' statement '}'
+
+type
+    : 'int'
+
+statement
+    : 'return' expression ';'
+
+BEGINCHANGED
+expression
+    : additive
+
+additive
+    : multiplicative
+    | additive ('+'|'-') multiplicative
+
+multiplicative
+    : unary
+    | multiplicative ('*'|'/'|'%') unary
+
+unary
+    : primary
+    | ('-'|'~'|'!') unary
+
+primary
+    : Integer
+    | '(' expression ')'
+ENDCHANGED

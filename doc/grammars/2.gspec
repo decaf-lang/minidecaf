@@ -1,0 +1,20 @@
+program
+    : function
+
+function
+    : type Identifier '(' ')' '{' statement '}'
+
+type
+    : 'int'
+
+statement
+    : 'return' expression ';'
+
+BEGINCHANGED
+expression
+    : unary
+
+unary
+    : Integer
+    | ('-'|'!'|'~') unary
+ENDCHANGED

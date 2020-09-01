@@ -1,0 +1,71 @@
+program
+    : function
+
+BEGINCHANGED
+function
+    : type Identifier '(' ')' '{' block_item* '}'
+ENDCHANGED
+
+type
+    : 'int'
+
+BEGINCHANGED
+block_item
+    : statement
+    | declaration
+ENDCHANGED
+
+statement
+    : 'return' expression ';'
+    | expression? ';'
+BEGINCHANGED
+    | 'if' '(' expression ')' statement ('else' statement)?
+ENDCHANGED
+
+declaration
+    : type Identifier ('=' expression)? ';'
+
+expression
+    : assignment
+
+BEGINCHANGED
+assignment
+    : conditional
+    | Identifier '=' expression
+
+conditional
+    : logical_or
+    | logical_or '?' expression ':' conditional
+ENDCHANGED
+
+logical_or
+    : logical_and
+    | logical_or '||' logical_and
+
+logical_and
+    : equality
+    | logical_and '&&' equality
+
+equality
+    : relational
+    | equality ('=='|'!=') relational
+
+relational
+    : additive
+    | relational ('<'|'>'|'<='|'>=') additive
+
+additive
+    : multiplicative
+    | additive ('+'|'-') multiplicative
+
+multiplicative
+    : unary
+    | multiplicative ('*'|'/'|'%') unary
+
+unary
+    : primary
+    | ('-'|'~'|'!') unary
+
+primary
+    : Integer
+    | '(' expression ')'
