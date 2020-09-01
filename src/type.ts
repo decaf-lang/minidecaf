@@ -12,6 +12,8 @@ export interface Type {
     ref(): Type;
     /** 解引用后的类型 */
     deref(): Type;
+    /** 是否可以显示转换为 `to` 类型 */
+    canCast(to: Type): boolean;
 }
 
 /** 基本类型（只有整数类型） */
@@ -39,6 +41,9 @@ export class BaseType implements Type {
     }
     deref(): Type {
         return undefined;
+    }
+    canCast(_to: Type): boolean {
+        return true;
     }
 
     /** 整数类型 */
@@ -71,6 +76,9 @@ export class PointerType implements Type {
     }
     deref(): Type {
         return this.base;
+    }
+    canCast(_to: Type): boolean {
+        return true;
     }
 }
 

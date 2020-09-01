@@ -16,6 +16,7 @@ program
     .option("-r, --ir", "generate the intermediate representation (IR)")
     .option("-t, --timeout <second>", "set execution timeout (in seconds)")
     .option("-o, --output <output_file>", "save the output to file")
+    .option("-c, --trunc", "truncate the return code to 8-bit integer")
     .option("-d, --debug", "debug mode");
 
 program.parse(process.argv);
@@ -27,6 +28,7 @@ let option: MiniDecaf.CompilerOption = {
         : program.ir
         ? MiniDecaf.CompilerTarget.Ir
         : MiniDecaf.CompilerTarget.Executed,
+    truncateReturnCode: program.trunc,
 };
 if (program.timeout) {
     let t = parseInt(program.timeout);

@@ -25,6 +25,7 @@ Options:
   -r, --ir                    generate the intermediate representation (IR)
   -t, --timeout <second>      set execution timeout (in seconds)
   -o, --output <output_file>  save the output to file
+  -c, --trunc                 truncate the return code to 8-bit integer
   -d, --debug                 debug mode
   -h, --help                  display help for command
 ```

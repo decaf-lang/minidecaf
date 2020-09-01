@@ -20,6 +20,8 @@ export enum CompilerTarget {
 export class CompilerOption {
     /** 编译目标 {@link CompilerTarget} */
     target: CompilerTarget;
+    /** 是否将程序返回码截断为 8 位 */
+    truncateReturnCode: boolean = false;
     /** 运行时间限制(秒) */
     timeoutSecond?: number;
 }
@@ -85,6 +87,10 @@ export function compile(input: string | Ir, option: CompilerOption): string | Ir
         return codegen.visitAll();
     } else if (option.target === CompilerTarget.Executed) {
         let executor = new IrExecutor(ir, option.timeoutSecond); // 直接执行中间代码
-        return (executor.visitAll() & 0xff).toString(); // Shell 返回码只有 8 位
+        let res = executor.visitAll();
+        if (option.truncateReturnCode) {
+            res &= 0xff; // Shell 返回码只有 8 位
+        }
+        return res.toString();
     }
 }

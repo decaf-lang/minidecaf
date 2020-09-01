@@ -87,6 +87,7 @@ factor
     : Integer                               # IntExpr
     | Ident                                 # IdentExpr
     | '(' expr ')'                          # NestedExpr
+    | '(' type ')' factor                   # CastExpr
     | ('-' | '~' | '!' | '*' | '&') factor  # UnaryExpr
     | Ident '(' (expr (',' expr)*)? ')'     # FuncCall
     ;

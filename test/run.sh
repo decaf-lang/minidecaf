@@ -22,7 +22,7 @@ if [ "$target" == "codegen" ]; then
     $EMU "$file_exe" > /dev/null
     res=$?
 else
-    npm --prefix "$base_dir/.." run cli -- "$file_in" -o "$file_res" > /dev/null
+    npm --prefix "$base_dir/.." run cli -- "$file_in" -c -o "$file_res" > /dev/null
     res=$(cat "$file_res")
 fi
 

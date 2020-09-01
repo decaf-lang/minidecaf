@@ -386,6 +386,16 @@ export class SemanticCheck
         return ctx;
     }
 
+    visitCastExpr(ctx: MiniDecafParser.CastExprContext): Result {
+        let to = ctx.type().accept(this)["ty"] as Type;
+        let from = ctx.factor().accept(this)["ty"] as Type;
+        if (!from.canCast(to)) {
+            throw new SemanticError(ctx.start, `cannot cast from '${from}' to '${to}'`);
+        }
+        ctx["ty"] = to;
+        return ctx;
+    }
+
     visitUnaryExpr(ctx: MiniDecafParser.UnaryExprContext): Result {
         let op = ctx.getChild(0) as TerminalNode;
         let f = ctx.factor();
