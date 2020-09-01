@@ -76,3 +76,8 @@ assert 3 'int main() { 1; 2; return 3; }'
 
 assert 3 'int main() { int foo=3; return foo; }'
 assert 8 'int main() { int foo123=3; int bar=5; return foo123+bar; }'
+
+assert 3 'int main() { if (0) return 2; return 3; }'
+assert 3 'int main() { if (1-1) return 2; return 3; }'
+assert 2 'int main() { if (1) return 2; return 3; }'
+assert 2 'int main() { if (2-1) return 2; return 3; }'

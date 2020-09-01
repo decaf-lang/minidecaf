@@ -13,6 +13,7 @@ class Ast{
 protected:
 	int row, column;
 	static int indent;
+	static int branchnum;
 	static map<string, int> exprnum;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
@@ -29,6 +30,7 @@ public:
 };
 
 int Ast::indent = 0;
+int Ast::branchnum = 0;
 map<string, int> Ast::exprnum = {};
 
 class ExprAst: public Ast{
@@ -270,6 +272,7 @@ public:
 	void printto(ofstream &fout){
 		expr->printto(fout);
 		printstream(fout, "mv a0,a5");
+		printstream(fout, "j .main_exit");
 	}
 };
 
@@ -318,6 +321,37 @@ public:
 	}
 };
 
+class IfAst: public StmtAst{
+	ExprAst* expr;
+	StmtAst* stmt1;
+	StmtAst* stmt2;
+public:
+	IfAst(int row, int column) : StmtAst(row, column){}
+	void additem(ExprAst* item, StmtAst* item1, StmtAst* item2){
+		expr = item;
+		stmt1 = item1;
+		stmt2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr->printto(fout);
+		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+		stmt1->printto(fout);
+		if (stmt2!=NULL)
+			printstream(fout, "j .L"+std::to_string(branchnum+1)+":");
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		branchnum++;
+		addIndent();
+		if (stmt2!=NULL){
+			stmt2->printto(fout);
+			decIndent();
+			printstream(fout, ".L"+std::to_string(branchnum)+":");
+			branchnum++;
+			addIndent();
+		}
+	}
+};
+
 class FunctionAst: public Ast{
 	string name;
 	StmtAst* stmt;
@@ -338,6 +372,9 @@ public:
 		printstream(fout, "sw	s0,"+std::to_string(num_-4)+"(sp)");
 		printstream(fout, "addi	s0,sp,"+std::to_string(num_));
 		stmt->printto(fout);
+		decIndent();
+		printstream(fout, ".main_exit:");
+		addIndent();
 		printstream(fout, "lw	s0,"+std::to_string(num_-4)+"(sp)");
 		printstream(fout, "addi	sp,sp,"+std::to_string(num_));
 		printstream(fout, "jr	ra");

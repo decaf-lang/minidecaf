@@ -68,6 +68,8 @@ public:
 		StmtAst* stmt_ast;
 		if (lookForward("return"))
 			stmt_ast = parserReturnStmt();
+		else if (lookForward("if"))
+			stmt_ast = parserIfStmt();
 		else
 			stmt_ast = parserExprStmt();
 		return stmt_ast;
@@ -104,6 +106,22 @@ public:
 		matchToken(";");
 		expr_stmt_ast->additem(expr_ast);
 		return expr_stmt_ast;
+	}
+
+	StmtAst* parserIfStmt(){
+		IfAst* if_ast = new IfAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("if");
+		matchToken("(");
+		ExprAst* expr_ast = parserExpr();
+		matchToken(")");
+		StmtAst* stmt_ast1 = parserStmt();
+		StmtAst* stmt_ast2 = NULL;
+		if (lookForward("else")){
+			matchToken("else");
+			stmt_ast2 = parserStmt();
+		}
+		if_ast->additem(expr_ast, stmt_ast1, stmt_ast2);
+		return if_ast;
 	}
 
 	ExprAst* parserExpr(){
