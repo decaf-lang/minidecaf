@@ -62,9 +62,10 @@ CTestTestfile.cmake
 _deps
 
 ## ANTLR IGNORE
-generated
-!MiniDecaf.g4
+generated/**
+!generated/*.g4
 *.tokens
 *.interp
 
 a.out
+minidecaf-tests
