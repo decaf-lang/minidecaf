@@ -89,3 +89,4 @@ postfix
 primary
     : Integer
     | '(' expression ')'
+    | Identifier

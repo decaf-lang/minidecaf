@@ -89,3 +89,4 @@ ENDCHANGED
 primary
     : Integer
     | '(' expression ')'
+    | Identifier

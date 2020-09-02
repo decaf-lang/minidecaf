@@ -65,3 +65,4 @@ unary
 primary
     : Integer
     | '(' expression ')'
+    | Identifier

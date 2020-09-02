@@ -4,7 +4,7 @@ import subprocess
 
 specfile = sys.argv[1]+'.gspec'
 htmlfile = sys.argv[1]+'.html'
-subprocess.call(f'vim -c TOhtml -c wqa {specfile}', shell=True)
+subprocess.call(f'vim -c "set nonumber" -c TOhtml -c wqa {specfile}', shell=True)
 subprocess.call(f'mv {specfile}.html {htmlfile}', shell=True)
 
 with open(htmlfile, "r") as f:
@@ -15,6 +15,8 @@ while i < len(lines):
     l = lines[i]
     if l == "</style>\n":
         lines[i] = ".changed { background: lightgrey; }\n" + lines[i]
+    if l == "<pre id='vimCodeElement'>\n":
+        lines[i] = lines[i] + "<code></code>\n" # strip eol
     if 'BEGINCHANGED' in l:
         del lines[i]
         lines[i] = '<div class="changed">' + lines[i]

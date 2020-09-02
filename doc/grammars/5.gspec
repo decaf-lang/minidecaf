@@ -9,9 +9,9 @@ ENDCHANGED
 type
     : 'int'
 
-BEGINCHANGED
 statement
     : 'return' expression ';'
+BEGINCHANGED
     | expression? ';'
     | declaration
 
@@ -57,3 +57,6 @@ unary
 primary
     : Integer
     | '(' expression ')'
+BEGINCHANGED
+    | Identifier
+ENDCHANGED

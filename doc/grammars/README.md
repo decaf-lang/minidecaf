@@ -17,9 +17,13 @@
 语法高亮是 gspec.vim
 
 # makehtml
+需要你安装 `gspec.vim` 语法到 vim，并且保证你 vim 的 term 是 256 色的（例如 tmux 里 `export TERM=screen-256color`）。
+
 用法：
 ```
 ./makehtml 10
 ```
 
 然后就会生成 10.html
+
+（为什么这么麻烦：因为单纯的语法高亮似乎不太好设置某些背景要灰色。）
