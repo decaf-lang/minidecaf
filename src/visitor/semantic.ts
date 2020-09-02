@@ -27,10 +27,29 @@ function binaryOpType(op: Token, lhs: Type, rhs: Type): Type {
         return lhs;
     }
     if (lhs instanceof PointerType && rhs instanceof PointerType) {
-        // 指针类型只允许 == 和 != 运算
+        // 指针比较
         if (["==", "!="].includes(op.text) && lhs.equal(rhs)) {
             return BaseType.Int;
         }
+    }
+    // 指针加减法
+    switch (op.text) {
+        case "+":
+            if (lhs instanceof PointerType && rhs instanceof BaseType) {
+                return lhs;
+            }
+            if (lhs instanceof BaseType && rhs instanceof PointerType) {
+                return rhs;
+            }
+            break;
+        case "-":
+            if (lhs instanceof PointerType && rhs instanceof BaseType) {
+                return lhs;
+            }
+            if (lhs.equal(rhs)) {
+                return BaseType.Int;
+            }
+            break;
     }
     throw new SemanticError(op, `incompatible operands: '${lhs}' ${op.text} '${rhs}'`);
 }

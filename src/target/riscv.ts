@@ -66,6 +66,10 @@ function binaryOp(op: string, rd: string, rs1: string, rs2: string): string | st
             return `div ${rd}, ${rs1}, ${rs2}`;
         case "%":
             return `rem ${rd}, ${rs1}, ${rs2}`;
+        case "<<":
+            return `sll ${rd}, ${rs1}, ${rs2}`;
+        case ">>":
+            return `sra ${rd}, ${rs1}, ${rs2}`;
         default:
             throw new OtherError(`unknown binary operator '${op}'`);
     }
@@ -200,11 +204,11 @@ export class Riscv32CodeGen extends IrVisitor<string> {
     }
 
     visitUnary(instr: IrInstr) {
-        this.emitInstr(unaryOp(instr.op, "t0", "t0"));
+        this.emitInstr(unaryOp(instr.op, "t0", irReg2rvReg(instr.op2)));
     }
 
     visitBinary(instr: IrInstr) {
-        this.emitInstr(binaryOp(instr.op, "t0", "t1", "t0"));
+        this.emitInstr(binaryOp(instr.op, "t0", irReg2rvReg(instr.op2), irReg2rvReg(instr.op3)));
     }
 
     visitLoad(instr: IrInstr) {

@@ -3,7 +3,7 @@ import { AbstractParseTreeVisitor } from "antlr4ts/tree";
 import MiniDecafParser = require("../gen/MiniDecafParser");
 import { MiniDecafVisitor } from "../gen/MiniDecafVisitor";
 import { Label, VariableOp, Ir } from "../ir";
-import { Type, ArrayType, Variable } from "../type";
+import { Type, BaseType, PointerType, ArrayType, Variable } from "../type";
 
 /** 语法树到 IR 的生成器 */
 export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVisitor<void> {
@@ -185,7 +185,7 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
                 this.ir.emitLoad("r0", "r0");
             }
         } else if (op != "&") {
-            this.ir.emitUnary(op);
+            this.ir.emitUnary(op, "r0");
         }
     }
 
@@ -195,9 +195,9 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         this.ir.emitPush("r0"); // 将结果 `r0` 保存到栈顶
         ctx.expr().accept(this); // 计算下标表达式的值，结果存在 `r0`
         this.ir.emitImmediate(type.sizeof(), "r1"); // `r1` 为类型大小
-        this.ir.emitBinary("*"); // 生成运算 `r1 * r0`
+        this.ir.emitBinary("*", "r0", "r1"); // 生成运算 `r1 * r0`
         this.ir.emitPop("r1"); // 从栈顶弹出 postfix 的值到 `r1`
-        this.ir.emitBinary("+"); // 生成运算 `r1 + r0`
+        this.ir.emitBinary("+", "r1", "r0"); // 生成运算 `r1 + r0`
         if (!(type instanceof ArrayType) && !ctx["lvalue"]) {
             this.ir.emitLoad("r0", "r0");
         }
@@ -265,16 +265,39 @@ export class IrGen extends AbstractParseTreeVisitor<void> implements MiniDecafVi
         this.ir.emitLabel(labelNext);
     }
 
+    private emitBinary(op: string, lhs: ParserRuleContext, rhs: ParserRuleContext) {
+        let lt = lhs["ty"] as Type;
+        let rt = rhs["ty"] as Type;
+        lhs.accept(this); // 计算左操作数，结果存在 `r0`
+        if (["+", "-"].includes(op) && lt instanceof BaseType && rt instanceof PointerType) {
+            // 如果是整数 +/- 指针，将整数乘上指针基类型的大小
+            this.ir.emitImmediate(Math.log2(rt.base.sizeof()), "r1");
+            this.ir.emitBinary("<<", "r0", "r1");
+        }
+        this.ir.emitPush("r0"); // 将结果 `r0` 保存到栈顶
+        rhs.accept(this); // 计算右操作数，结果存在 `r0`
+        if (["+", "-"].includes(op) && lt instanceof PointerType && rt instanceof BaseType) {
+            // 如果是指针 +/- 整数，将整数乘上指针基类型的大小
+            this.ir.emitImmediate(Math.log2(lt.base.sizeof()), "r1");
+            this.ir.emitBinary("<<", "r0", "r1");
+        }
+        this.ir.emitPop("r1"); // 从栈顶弹出左操作数的结果到 `r1`
+        this.ir.emitBinary(op, "r1", "r0"); // 生成运算 `r1` op `r0`
+        if (op == "-" && lt instanceof PointerType && lt.equal(rt)) {
+            // 如果是指针 - 指针，将结果除以指针基类型的大小
+            this.ir.emitImmediate(Math.log2(lt.base.sizeof()), "r1");
+            this.ir.emitBinary(">>", "r0", "r1");
+        }
+    }
+
     private visitBinary(ctx: ParserRuleContext) {
         if (ctx.childCount == 1) {
             ctx.getChild(0).accept(this);
         } else {
             let op = ctx.getChild(1);
-            ctx.getChild(0).accept(this); // 计算左操作数，结果存在 `r0`
-            this.ir.emitPush("r0"); // 将结果 `r0` 保存到栈顶
-            ctx.getChild(2).accept(this); // 计算右操作数，结果存在 `r0`
-            this.ir.emitPop("r1"); // 从栈顶弹出左操作数的结果到 `r1`
-            this.ir.emitBinary(op.text); // 生成运算 `r1` op `r0`
+            let lhs = ctx.getChild(0) as ParserRuleContext;
+            let rhs = ctx.getChild(2) as ParserRuleContext;
+            this.emitBinary(op.text, lhs, rhs);
         }
     }
 }

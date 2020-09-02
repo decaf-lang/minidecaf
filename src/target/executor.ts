@@ -68,6 +68,10 @@ function binaryOp(op: string, lhs: number, rhs: number): number {
                 throw new RuntimeError("divide by zero");
             }
             return lhs % rhs;
+        case "<<":
+            return lhs << rhs;
+        case ">>":
+            return lhs >> rhs;
         default:
             throw new OtherError(`unknown binary operator '${op}'`);
     }
@@ -203,12 +207,12 @@ export class IrExecutor extends IrVisitor<number> {
 
     visitUnary(instr: IrInstr) {
         this.pc++;
-        this.r0 = unaryOp(instr.op, this.r0);
+        this.r0 = unaryOp(instr.op, this[instr.op2]);
     }
 
     visitBinary(instr: IrInstr) {
         this.pc++;
-        this.r0 = binaryOp(instr.op, this.r1, this.r0);
+        this.r0 = binaryOp(instr.op, this[instr.op2], this[instr.op3]);
     }
 
     visitLoad(instr: IrInstr) {

@@ -38,9 +38,9 @@ export enum IrInstrName {
     LABEL = "LABEL",
     /** 加载一个立即数到 `r0` */
     IMM = "IMM",
-    /** 对 `r0` 进行一元运算，结果存到 `r0` */
+    /** 对给定寄存器进行一元运算，结果存到 `r0` */
     UNARY = "UNARY",
-    /** 计算二元运算，左右操作数分别是 `r1` 和 `r0`，结果存到 `r0` */
+    /** 计算二元运算，分别给定左右操作数，结果存到 `r0` */
     BINARY = "BINARY",
     /** 从给定内存地址读出数据，保存到给定寄存器 */
     LOAD = "LOAD",
@@ -68,7 +68,7 @@ export enum IrInstrName {
     RET = "RET",
 }
 
-/** 一条 IR 指令。可拥有最多 2 个操作数 */
+/** 一条 IR 指令。可拥有最多 3 个操作数 */
 export class IrInstr {
     /** 指令名称 */
     readonly name: IrInstrName;
@@ -76,20 +76,29 @@ export class IrInstr {
     readonly op: any;
     /** 第二个操作数 */
     readonly op2: any;
+    /** 第三个操作数 */
+    readonly op3: any;
 
-    constructor(name: IrInstrName, op: any = undefined, op2: any = undefined) {
+    constructor(
+        name: IrInstrName,
+        op: any = undefined,
+        op2: any = undefined,
+        op3: any = undefined,
+    ) {
         this.name = name;
         this.op = op;
         this.op2 = op2;
+        this.op3 = op3;
     }
 
     toString = (): string => {
         let opStr = this.op !== undefined ? ` ${this.op}` : "";
         let opStr2 = this.op2 !== undefined ? `, ${this.op2}` : "";
+        let opStr3 = this.op3 !== undefined ? `, ${this.op3}` : "";
         if (this.name == IrInstrName.LOAD || this.name == IrInstrName.STORE) {
             opStr2 = `, (${this.op2})`;
         }
-        return this.name + opStr + opStr2;
+        return this.name + opStr + opStr2 + opStr3;
     };
 }
 
@@ -223,14 +232,14 @@ export class Ir {
         this.emit(new IrInstr(IrInstrName.IMM, value, rd));
     }
 
-    /** 对 `r0` 进行一元运算，结果存到 `r0` */
-    emitUnary(op: string) {
-        this.emit(new IrInstr(IrInstrName.UNARY, op));
+    /** 对寄存器 `reg` 进行一元运算，结果存到 `r0` */
+    emitUnary(op: string, reg: string) {
+        this.emit(new IrInstr(IrInstrName.UNARY, op, reg));
     }
 
-    /** 计算二元运算，左右操作数分别是 `r1` 和 `r0`，结果存到 `r0` */
-    emitBinary(op: string) {
-        this.emit(new IrInstr(IrInstrName.BINARY, op));
+    /** 计算二元运算，左右操作数分别是寄存器 `reg1` 和 `reg2`，结果存到 `r0` */
+    emitBinary(op: string, reg1: string, reg2: string) {
+        this.emit(new IrInstr(IrInstrName.BINARY, op, reg1, reg2));
     }
 
     /** 从内存地址 `base` 处读出数据，保存到 `rd`。

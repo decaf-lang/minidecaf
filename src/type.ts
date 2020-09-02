@@ -58,7 +58,7 @@ export class BaseType implements Type {
 /** 指针类型 */
 export class PointerType implements Type {
     /** 指针基类型 */
-    private readonly base: BaseType | PointerType;
+    readonly base: BaseType | PointerType;
     constructor(base: BaseType | PointerType) {
         this.base = base;
     }
