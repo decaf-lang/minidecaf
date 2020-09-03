@@ -1,6 +1,8 @@
 ANTLR_JAR ?= /usr/local/lib/antlr-4.8-complete.jar
 i ?= i.c
 o ?= o.s
+CC = riscv64-unknown-elf-gcc  -march=rv32im -mabi=ilp32
+QEMU = qemu-riscv32
 
 ifdef DEBUG
 	EXTRA_ARGS = -backtrace
@@ -15,15 +17,15 @@ CLASSPATH = $(ANTLR_JAR):generated
 all: run
 
 run: asm
-	riscv64-unknown-elf-gcc $(o)
-	qemu-riscv64 a.out ; echo $$?
+	$(CC) $(o)
+	$(QEMU) a.out ; echo $$?
 
 cst: grammar-java
 	java -cp $(CLASSPATH) org.antlr.v4.gui.TestRig MiniDecaf prog -gui $(i)
 
 justrun:
-	riscv64-unknown-elf-gcc $(o)
-	qemu-riscv64 a.out ; echo $$?
+	$(CC) $(o)
+	$(QEMU) a.out ; echo $$?
 
 asm: grammar-py
 	$(RUNMD) $(i) $(o)

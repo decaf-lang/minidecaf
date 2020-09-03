@@ -12,16 +12,16 @@ def Instrs(f):
 @Instrs
 def _push(val):
     if type(val) is int:
-        return [f"addi sp, sp, -8", f"li t1, {val}", f"sd t1, 0(sp)"] # push int
+        return [f"addi sp, sp, -{INT_BYTES}", f"li t1, {val}", f"sw t1, 0(sp)"] # push int
     else:
-        return [f"addi sp, sp, -8", f"sd {val}, 0(sp)"] # push register
+        return [f"addi sp, sp, -{INT_BYTES}", f"sw {val}, 0(sp)"] # push register
 
 def push(*vals):
     return flatten(map(_push, vals))
 
 @Instrs
 def _pop(reg):
-    return ([f"ld {reg}, 0(sp)"] if reg is not None else []) + [f"addi sp, sp, 8"]
+    return ([f"lw {reg}, 0(sp)"] if reg is not None else []) + [f"addi sp, sp, {INT_BYTES}"]
 
 def pop(*regs):
     return flatten(map(_pop, regs))
@@ -57,11 +57,11 @@ def frameSlot(offset):
 
 @Instrs
 def load():
-    return pop("t1") + [f"ld t1, 0(t1)"] + push("t1")
+    return pop("t1") + [f"lw t1, 0(t1)"] + push("t1")
 
 @Instrs
 def store():
-    return pop("t2", "t1") + [f"sd t1, 0(t2)"] + push("t1")
+    return pop("t2", "t1") + [f"sw t1, 0(t2)"] + push("t1")
 
 @Instrs
 def ret(func:str):
@@ -140,9 +140,9 @@ class RISCVAsmGen(IRVisitor):
             AsmInstr("mv fp, sp"),
             AsmComment("copy args:")])
         for i in range(func.nParams):
-            fr, to = 8*(i+2), -8*(i+1)
+            fr, to = INT_BYTES*(i+2), -INT_BYTES*(i+1)
             self._E([
-                AsmInstr(f"ld t1, {fr}(fp)")] +
+                AsmInstr(f"lw t1, {fr}(fp)")] +
                 push("t1"))
         self._E([
             AsmComment("END PROLOGUE"),
@@ -154,7 +154,7 @@ class RISCVAsmGen(IRVisitor):
             AsmComment("BEGIN EPOLOGUE")] +
             push(0) + [
             AsmLabel(f"{func.name}_exit"),
-            AsmInstr("ld a0, 0(sp)"),
+            AsmInstr("lw a0, 0(sp)"),
             AsmInstr("mv sp, fp")] +
             pop("fp", "ra") + [
             AsmInstr("jr ra"),

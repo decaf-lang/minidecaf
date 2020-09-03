@@ -1,7 +1,7 @@
 import sys
 from copy import deepcopy
 
-INT_BYTES = 8
+INT_BYTES = 4
 
 MAX_INT = 2**(INT_BYTES*8-1) - 1
 MIN_INT = -2**(INT_BYTES*8)

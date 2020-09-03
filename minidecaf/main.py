@@ -49,8 +49,11 @@ def IRGen(tree, nameInfo, typeInfo):
 
 
 def AsmGen(ir, outfile):
-    return asmGen(ir, outfile)
-
+    if outfile is not None:
+        with open(outfile, 'w') as fout:
+            return asmGen(ir, fout)
+    else:
+        return asmGen(ir, sys.stdout)
 
 def Lexer(inputStream):
     lexer = MiniDecafLexer(inputStream)

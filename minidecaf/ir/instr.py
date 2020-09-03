@@ -132,7 +132,7 @@ class FrameSlot(IRInstr):
         fp --------------> + ------------------------
                            | old fp  at 0(fp)
                            + ------------------------
-                           | old ra  at 8(fp)
+                           | old ra  at 4(fp)
                            + ------------------------
 
     FrameSlot(offset) will be translated to something like `x = fp + offset ; push x`

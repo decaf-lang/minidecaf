@@ -1,3 +1,4 @@
+from ..utils import *
 from .instr import IRInstr
 from .visitor import IRVisitor
 
@@ -20,7 +21,7 @@ class IRFunc:
 
 
 class IRGlob:
-    def __init__(self, sym:str, size:int, init=None, align=8):
+    def __init__(self, sym:str, size:int, init=None, align=INT_BYTES):
         self.sym = sym
         self.size = size
         self.init = init # byte array
