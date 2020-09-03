@@ -15,5 +15,6 @@ stmt
     ;
 
 expr
-    : Interger
+    : ('!' | '~' | '-') expr                                        # unaryOp
+    | Interger                                                      # integer 
     ;

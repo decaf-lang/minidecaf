@@ -34,6 +34,10 @@ Punctuator
     | Semicolon
     ;
 
+Minus : '-';
+Exclamation : '!';
+Tilde : '~';
+
 
 // integer, identifier
 Interger
