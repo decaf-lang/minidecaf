@@ -16,5 +16,8 @@ stmt
 
 expr
     : ('!' | '~' | '-') expr                                        # unaryOp
+    | expr ('*' | '/' | '%') expr                                   # mulDiv
+    | expr ('+' | '-') expr                                         # addSub
+    | '(' expr ')'                                                  # atomParen
     | Interger                                                      # integer 
     ;

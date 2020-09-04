@@ -51,3 +51,60 @@ antlrcpp::Any CodeGenVisitor::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx)
     }
     return retType::UNDEF;
 }
+
+//@brief: Visit Expr with parenthesis, like '3-(1+2)'
+//@ret: Expr type: Inner expr
+antlrcpp::Any CodeGenVisitor::visitAtomParen(MiniDecafParser::AtomParenContext *ctx) {
+    /*
+        Cause the parenthesis only specifies the priority of the expr,
+        what we need to do is visit the inner Expr.
+        While the parsing process of antlr4 defines the priority.
+    */
+    return visit(ctx->expr());
+}
+
+//@brief: visit AddSub node, including addition & subtraction between expressions
+//@ret: Expr type: depending on the left & right expressions
+antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        The use of token ptr is the same as FUNC<visitUnaryOp>.
+        In this step, stack machine first pops the 2 operators at the top of stack,
+        then computes the result, finally pushes the result to the stack.
+    */
+    code_ << pop2;
+    if (ctx->Addition()) {
+        code_ << "\tadd a0, t0, t1\n"
+              << push;
+        return retType::INT;
+    } else if (ctx->Minus()) {
+        code_ << "\tsub a0, t0, t1\n"
+              << push;
+        return retType::INT;
+    }
+    return retType::UNDEF;
+}
+
+//@brief: visit MulDiv node, including multiplication, division & modular between expressions
+//@ret: Expr type: depending on the left & right expressions
+antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        Totally the same as FUNC<visitAddSub>.
+    */
+    code_ << pop2;
+    if (ctx->Multiplication()) {
+        code_ << "\tmul a0, t0, t1\n"
+              << push;
+        return retType::INT;
+    } else if (ctx->Division()) {
+        code_ << "\tdiv a0, t0, t1\n"
+              << push;
+        return retType::INT;
+    } else if (ctx->Modular()) {
+        code_ << "\trem a0, t0, t1\n"
+              << push;
+        return retType::INT;
+    }
+    return retType::UNDEF;
+}

@@ -8,8 +8,12 @@ class CodeGenVisitor : public MiniDecafBaseVisitor {
 public:
     antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx);
     antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
-    antlrcpp::Any visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx);
     antlrcpp::Any visitInteger(MiniDecafParser::IntegerContext *ctx);
+
+    antlrcpp::Any visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx);
+    antlrcpp::Any visitAtomParen(MiniDecafParser::AtomParenContext *ctx);
+    antlrcpp::Any visitAddSub(MiniDecafParser::AddSubContext *ctx);
+    antlrcpp::Any visitMulDiv(MiniDecafParser::MulDivContext *ctx);
 
 private:
     /*
@@ -22,8 +26,8 @@ private:
     */
     const char* push = "\taddi sp, sp, -4\n"
                        "\tsw a0, (sp)\n";
-    const char* pop2 = "\tlw t0, (sp)\n"
-                       "\tlw t1, 4(sp)\n"
+    const char* pop2 = "\tlw t0, 4(sp)\n"
+                       "\tlw t1, (sp)\n"
                        "\taddi sp, sp, 8\n";
     const char* pop1 = "\tlw t0, (sp)\n"
                        "\taddi sp, sp, 4\n";

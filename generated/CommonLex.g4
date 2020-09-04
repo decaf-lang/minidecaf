@@ -37,6 +37,10 @@ Punctuator
 Minus : '-';
 Exclamation : '!';
 Tilde : '~';
+Addition : '+';
+Multiplication : '*';
+Division : '/';
+Modular : '%';
 
 
 // integer, identifier
