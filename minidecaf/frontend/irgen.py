@@ -2,8 +2,7 @@ from ..ir.instr import *
 from .namer import *
 from .typer import *
 from ..utils import *
-from ..generated.MiniDecafParser import MiniDecafParser
-from ..generated.MiniDecafVisitor import MiniDecafVisitor
+from ..generated import MiniDecafVisitor, MiniDecafParser
 
 
 class LabelManager:
