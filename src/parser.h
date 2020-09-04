@@ -37,7 +37,7 @@ public:
 				FunctionAst* function_ast = parserFunction();
 				ast->additem(function_ast);
 			}else{
-				matchToken("int");
+				TypeAst* type_ast = parserType();
 				matchToken("id");
 				string name = tokenlist[pos-1].value();
 				int value = 0;
@@ -47,7 +47,7 @@ public:
 					value = tokenlist[pos-1].intvalue();
 				}
 				matchToken(";");
-				ast->additem(name, value);
+				ast->additem(type_ast, name, value);
 			}
 		}
 	}
@@ -55,7 +55,7 @@ public:
 	FunctionAst* parserFunction(){
 		local_variable_num = 0;
 		FunctionAst* function_ast = new FunctionAst(tokenlist[pos].row(), tokenlist[pos].column());
-		matchToken("int");
+		TypeAst* type_ast = parserType();
 		matchToken("id");
 		string name = tokenlist[pos-1].value();
 		matchToken("(");
@@ -63,9 +63,9 @@ public:
 		while (!lookForward(")")){
 			if (k > 0)
 				matchToken(",");
-			matchToken("int");
+			TypeAst* new_type_ast = parserType();
 			matchToken("id");
-			function_ast->additem(tokenlist[pos-1].value());
+			function_ast->additem(new_type_ast, tokenlist[pos-1].value());
 			k++;
 		}
 		matchToken(")");
@@ -77,8 +77,16 @@ public:
 			stmt_ast = parserBlock();
 			matchToken("}");
 		}
-		function_ast->additem(name, stmt_ast, local_variable_num);
+		function_ast->additem(type_ast, name, stmt_ast, local_variable_num);
 		return function_ast;
+	}
+
+	TypeAst* parserType(){
+		TypeAst* type_ast = new TypeAst(tokenlist[pos].row(), tokenlist[pos].column());
+		matchToken("int");
+		while (lookForward("*"))
+			matchToken("*");
+		return type_ast;
 	}
 
 	StmtAst* parserBlock(){
@@ -131,7 +139,7 @@ public:
 
 	LocalVariableAst* parserLocalVariable(){
 		LocalVariableAst* local_variable_ast = new LocalVariableAst(tokenlist[pos].row(), tokenlist[pos].column());
-		matchToken("int");
+		TypeAst* type_ast = parserType();
 		matchToken("id");
 		string name = tokenlist[pos-1].value();
 		ExprAst* expr_ast = NULL;
@@ -141,7 +149,7 @@ public:
 		}
 		matchToken(";");
 		local_variable_num++;
-		local_variable_ast->additem(name, local_variable_num, expr_ast);
+		local_variable_ast->additem(type_ast, name, local_variable_num, expr_ast);
 		return local_variable_ast;
 	}
 
@@ -245,20 +253,24 @@ public:
 
 	ExprAst* parserExpr(){
 		ExprAst* expr_ast;
-		if (lookForward("=",1))
+		int id = pos;
+		expr_ast = parserFactor();
+		if (lookForward("=")){
+			pos = id;
 			expr_ast = parserAssign();
-		else
+		}else{
+			pos = id;
 			expr_ast = parserConditionalExpr();
+		}
 		return expr_ast;
 	}
 
 	ExprAst* parserAssign(){
 		AssignAst* expr_ast = new AssignAst(tokenlist[pos].row(), tokenlist[pos].column());
-		matchToken("id");
-		string name = tokenlist[pos-1].value();
+		ExprAst* expr_ast1 = parserFactor();
 		matchToken("=");
-		ExprAst* expr_ast1 = parserExpr();
-		expr_ast->additem(name, expr_ast1);
+		ExprAst* expr_ast2 = parserExpr();
+		expr_ast->additem(expr_ast1, expr_ast2);
 		return expr_ast;
 	}
 
@@ -351,9 +363,14 @@ public:
 
 	ExprAst* parserFactor(){
 		ExprAst* expr_ast;
-		if (lookForward("!") || lookForward("~") || lookForward("-") || lookForward("+"))
+		if (lookForward("!") || lookForward("~") || lookForward("-") || lookForward("*") || lookForward("&") || lookForward("+"))
 			expr_ast = parserUnary();
-		else if (lookForward("(")){
+		else if (lookForward("(") && lookForward("int",1)){
+			matchToken("(");
+			parserType();
+			expr_ast = parserExpr();
+			matchToken(")");
+		}else if (lookForward("(")){
 			matchToken("(");
 			expr_ast = parserExpr();
 			matchToken(")");

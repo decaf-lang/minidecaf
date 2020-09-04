@@ -9,6 +9,7 @@ using std::vector;
 using std::endl;
 using std::map;
 using std::ofstream;
+int functionvalue = 8;
 class Ast{
 protected:
 	int row, column;
@@ -16,14 +17,25 @@ protected:
 	static int branchnum;
 	static map<string, vector<int>> exprnum;
 	static string function_name;
+	static vector<string> printans;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
 	void addIndent() { indent ++; }
 	void decIndent() { indent --; }
 	void printstream(ofstream &fout, string st){
+		string s = "";
 		for (int i = 0; i < indent; ++i)
-			fout << "\t" ;
-		fout << st << endl;
+			s = s + "\t" ;
+		s = s + st;
+		printans.push_back(s);
+
+	}
+	void pop(){
+		printans.pop_back();
+	}
+	void printall(ofstream &fout){
+		for (int i = 0; i < printans.size(); ++i)
+			fout << printans[i] << std::endl;
 	}
 	virtual void printto(ofstream &fout){
 		std::cout << "AStprint  ERROR" << std::endl;
@@ -34,16 +46,27 @@ int Ast::indent = 0;
 string Ast::function_name = "";
 int Ast::branchnum = 0;
 map<string, vector<int>> Ast::exprnum = {};
+vector<string> Ast::printans = {};
+
+class TypeAst: public Ast{
+public:
+	TypeAst(int row, int column) : Ast(row, column){}
+	void printto(ofstream &fout){
+	}
+};
 
 class ExprAst: public Ast{
 protected:
+	bool isAddress_;
 	bool isVariable_;
 	string variable_;
 public:
-	ExprAst(int row, int column) : Ast(row, column), isVariable_(false), variable_(""){}
-	ExprAst(int row, int column, bool isVariable, string s_) : Ast(row, column), isVariable_(isVariable), variable_(s_){}
+	ExprAst(int row, int column) : Ast(row, column), isVariable_(false), isAddress_(false), variable_(""){}
+	void setVariable(string variable) { isVariable_ = true; variable_ = variable; }
 	bool isVariable() { return isVariable_;}
 	string variable() { return variable_; };
+	void setAddress(bool a) { isAddress_ = a;  }
+	bool isAddress() { return isAddress_;}
 };
 
 class ConstantAst: public ExprAst{
@@ -54,7 +77,10 @@ public:
 		intvalue = item;
 	}
 	void printto(ofstream &fout){
-		printstream(fout, "li a5,"+std::to_string(intvalue));
+		if (isAddress())
+			printstream(fout, "li a5,"+std::to_string(intvalue*4));
+		else
+			printstream(fout, "li a5,"+std::to_string(intvalue));
 	}
 };
 
@@ -67,6 +93,13 @@ public:
 		expr = item;
 	}
 	void printto(ofstream &fout){
+		if (str == "*"){
+			expr->setAddress(true);
+		}else if  (str == "&"){
+			expr->setAddress(false);
+		}else 
+			expr->setAddress(isAddress());
+
 		expr->printto(fout);
 		if (str == "!")
 			printstream(fout, "seqz a5,a5");
@@ -74,7 +107,11 @@ public:
 			printstream(fout, "not a5,a5");
 		else if (str == "-")
 			printstream(fout, "neg a5,a5");
-		else
+		else if (str == "&"){
+			pop();
+		}else if (str == "*"){
+			printstream(fout, "lw a5,0(a5)");
+		}else
 			{}
 	}
 };
@@ -90,6 +127,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -117,6 +157,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -142,6 +185,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -173,6 +219,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -199,6 +248,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -221,6 +273,9 @@ public:
 		expr2 = item2;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
@@ -233,21 +288,31 @@ public:
 };
 
 class AssignAst : public ExprAst{
-	string name;
-	ExprAst* expr;
+	ExprAst* expr1;
+	ExprAst* expr2;
 public:
 	AssignAst(int row, int column) : ExprAst(row, column){}
-	void additem(string name_, ExprAst* e){
-		expr = e;
-		name = name_;
+	void additem(ExprAst* e1, ExprAst* e2){
+		expr1 = e1;
+		expr2 = e2;
 	}
 	void printto(ofstream &fout){
-		expr->printto(fout);
-		if (exprnum[name].back() < 0){
-			printstream(fout, "lui a4,%hi("+name+")");
-			printstream(fout, "sw a5, %lo("+name+")(a4)");
-		}else
-			printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(this->isAddress());
+
+		expr1->printto(fout);
+		pop();
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+		expr2->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+		printstream(fout, "sw a5, 0(a4)");
+		// if (exprnum[name].back() < 0){
+		// 	printstream(fout, "lui a4,%hi("+name+")");
+		// 	printstream(fout, "sw a5, %lo("+name+")(a4)");
+		// }else
+		// 	printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
 	}
 };
 
@@ -257,13 +322,17 @@ public:
 	IdAst(int row, int column) : ExprAst(row, column){}
 	void additem(string name_){
 		name = name_;
+		setVariable(name_);
 	}
 	void printto(ofstream &fout){
 		if (exprnum[name].back() < 0){
 			printstream(fout, "lui a4,%hi("+name+")");
-			printstream(fout, "lw a5, %lo("+name+")(a4)");
-		}else
-			printstream(fout, "lw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
+			printstream(fout, "addi a5, a4, %lo("+name+")");
+			printstream(fout, "lw a5,0(a5)");
+		}else{
+			printstream(fout, "addi a5, s0, -"+std::to_string(exprnum[name].back()));
+			printstream(fout, "lw a5,0(a5)");
+		}
 	}
 };
 
@@ -279,8 +348,12 @@ public:
 		expr3 = item3;
 	}
 	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
 		expr1->printto(fout);
 		if (expr2 != NULL){
+			expr2->setAddress(this->isAddress());
+			expr3->setAddress(this->isAddress());
+			
 			printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
 			expr2->printto(fout);
 			printstream(fout, "j .L"+std::to_string(branchnum+1));
@@ -310,6 +383,7 @@ public:
 	}
 	void printto(ofstream &fout){
 		for (int i = expr_list.size()-1; i >= 0 ; --i){
+			expr_list[i]->setAddress(this->isAddress());
 			expr_list[i]->printto(fout);
 			printstream(fout, "addi sp, sp, -4");
 			printstream(fout, "sw a5, 0(sp)");
@@ -378,16 +452,18 @@ public:
 };
 
 class LocalVariableAst: public StmtAst{
+	TypeAst* type;
 	string name;
 	ExprAst* expr;
 	int position;
 public:
 	LocalVariableAst(int row, int column) : StmtAst(row, column){}
 	string getname() {return name;}
-	void additem(string name, int num, ExprAst* item){
+	void additem(TypeAst* type, string name, int num, ExprAst* item){
+		this->type = type;
 		this->name = name;
 		expr = item;
-		this->position = num*4+4;
+		this->position = num*4+functionvalue;
 	}
 	void printto(ofstream &fout){
 		exprnum[name].push_back(this->position);
@@ -567,18 +643,22 @@ public:
 };
 
 class FunctionAst: public Ast{
+	TypeAst* type;
 	string name;
+	vector<TypeAst*> expr_type;
 	vector<string> expr_name;
 	StmtAst* stmt;
 	int variable_num;
 public:
 	FunctionAst(int row, int column) : Ast(row, column){}
-	void additem(string name, StmtAst* item, int num){
+	void additem(TypeAst* type, string name, StmtAst* item, int num){
+		this->type = type;
 		this->name = name;
 		stmt = item;
 		variable_num = num;
 	}
-	void additem(string item){
+	void additem(TypeAst* type, string item){
+		expr_type.push_back(type);
 		expr_name.push_back(item);
 	}
 	void printto(ofstream &fout){
@@ -589,17 +669,14 @@ public:
 		printstream(fout, name+":");
 		addIndent();
 		int num = variable_num + expr_name.size();
-		printstream(fout, "addi	sp,sp,-"+std::to_string(8+num*4));
+		printstream(fout, "addi	sp,sp,-"+std::to_string(functionvalue+num*4));
 		printstream(fout, "sw	ra,"+std::to_string(4+num*4)+"(sp)");
 		printstream(fout, "sw	s0,"+std::to_string(num*4)+"(sp)");
-		printstream(fout, "addi	s0,sp,"+std::to_string(8+num*4));
-		for (int i = 0; i < expr_name.size(); ++i){
-			exprnum[expr_name[i]].push_back(12+4*i);
-		}
+		printstream(fout, "addi	s0,sp,"+std::to_string(functionvalue+num*4));
 		if (expr_name.size() < 8){
 			for (int i = 0; i < expr_name.size(); ++i){
-				exprnum[expr_name[i]].push_back(12+4*i);
-				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(12+4*i)+"(s0)");
+				exprnum[expr_name[i]].push_back(functionvalue+4+4*i);
+				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(functionvalue+4+4*i)+"(s0)");
 			}
 		}
 		if (stmt != NULL)
@@ -609,7 +686,7 @@ public:
 		addIndent();
 		printstream(fout, "lw	s0,"+std::to_string(num*4)+"(sp)");
 		printstream(fout, "lw	ra,"+std::to_string(4+num*4)+"(sp)");
-		printstream(fout, "addi	sp,sp,"+std::to_string(8+num*4));
+		printstream(fout, "addi	sp,sp,"+std::to_string(functionvalue+num*4));
 		printstream(fout, "jr	ra");
 		decIndent();
 		addIndent();
@@ -624,15 +701,17 @@ public:
 class ProgramAst: public Ast{
 	vector<FunctionAst*> function_list;
 	vector<string> expr_name;
+	vector<TypeAst*> expr_type;
 	vector<int> expr_value;
 public:
 	ProgramAst(int row, int column) : Ast(row, column){}
 	void additem(FunctionAst* func){
 		function_list.push_back(func);
 	}
-	void additem(string s, int v){
+	void additem(TypeAst* type, string s, int v){
 		expr_name.push_back(s);
 		expr_value.push_back(v);
+		expr_type.push_back(type);
 	}
 	void printto(ofstream &fout, string filename){
 		addIndent();
@@ -655,6 +734,8 @@ public:
 		for (int i = 0; i < function_list.size(); ++i)
 			function_list[i]->printto(fout);
 		decIndent();
+
+		printall(fout);
 	}
 };
 

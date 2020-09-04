@@ -80,7 +80,7 @@ public:
 				ans.push_back(input[column]);
 			else
 				break;
-			if (ans == "&" || ans == "|"){
+			if (ans == "|"){
 				column++;
 				continue;
 			}

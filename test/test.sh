@@ -108,3 +108,17 @@ assert 55 'int fib(int x) { if (x<=1) return 1; return fib(x-1) + fib(x-2); } in
 
 assert 3 'int foo = 0;  int fun1() { foo = 3; return 0;} int fun2() { return foo;} int main() { fun1();  return fun2();}'
 
+
+assert 3 'int main() { int x=3; return *&x; }'
+assert 3 'int main() { int x=3; int *y=&x; int **z=&y; return **z; }'
+assert 5 'int main() { int x=3; int y=5; return *(&x-1); }'
+assert 5 'int main() { int x=3; int y=5; return *(-1+&x); }'
+assert 3 'int main() { int x=3; int y=5; return *(&y+1); }'
+assert 5 'int main() { int x=3; int y=5; int *z=&x; return *(z-1); }'
+assert 3 'int main() { int x=3; int y=5; int *z=&y; return *(z+1); }'
+assert 5 'int main() { int x=3; int *y=&x; *y=5; return x; }'
+
+assert 7 'int main() { int x=3; int y=5; *(&x-1)=7; return y; }'
+
+assert 7 'int main() { int x=3; int y=5; *(&y+1)=7; return x; }'
+assert 8 'int main() { int x=3; int y=5; return foo(&x, y); } int foo(int *x, int y) { return *x + y; }'
