@@ -72,10 +72,10 @@ def Parser(tokenStream):
     return tree
 
 
-def main():
+def main(argv):
     try:
         global args
-        args = parseArgs(sys.argv)
+        args = parseArgs(argv)
 
         inputStream = FileStream(args.infile)
         tokenStream = Lexer(inputStream)
