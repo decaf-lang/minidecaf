@@ -1,6 +1,12 @@
+"""This module is invoked when minidecaf is run as a module.
+When run on web, don't use this module, see webutils.py.
+"""
 import sys
 import argparse
 from .main import main
+from .utils import *
+
+assert not WEB_ENVIRONMENT
 
 def parseArgs(argv):
     parser = argparse.ArgumentParser(description="MiniDecaf compiler")
@@ -16,17 +22,5 @@ def parseArgs(argv):
     parser.add_argument("-backtrace", action="store_true", help="emit backtrace information (for debugging)")
     return parser.parse_args()
 
-
-class MockArgs:
-    def __init__(self, stage):
-        self.infile = None
-        self.outfile = None
-        self.lex = (stage == "lex")
-        self.parse = (stage == "parse")
-        self.ni = (stage == "ni")
-        self.ty = (stage == "ty")
-        self.ir = (stage == "ir")
-        self.backtrace = False
-
-args = MockArgs("parse") #parseArgs(sys.argv)
-sys.exit(main(args, input="int main(){return 0;}"))
+args = parseArgs(sys.argv)
+sys.exit(main(args))

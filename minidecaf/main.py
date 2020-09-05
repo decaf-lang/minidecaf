@@ -59,13 +59,13 @@ def Parser(tokenStream):
     return tree
 
 
-def main(_args, input=None):
+def main(_args):
     try:
         global args
         args = _args
 
-        if input is not None:
-            inputStream = InputStream(input)
+        if hasattr(args, 'input'):
+            inputStream = InputStream(args.input)
         else:
             inputStream = FileStream(args.infile)
         tokenStream = Lexer(inputStream)

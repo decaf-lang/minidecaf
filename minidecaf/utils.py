@@ -1,6 +1,7 @@
 import sys
 from copy import deepcopy
 
+WEB_ENVIRONMENT = ("brython" in sys.version.lower())
 INT_BYTES = 4
 
 MAX_INT = 2**(INT_BYTES*8-1) - 1
@@ -81,6 +82,9 @@ def listFind(f, l):
     return None
 
 def safeEval(s:str):
+    if WEB_ENVIRONMENT:
+        # Because ast involves C code that brython cannot handle.
+        return eval(s, {}, {})
     from ast import literal_eval
     return literal_eval(s)
 
