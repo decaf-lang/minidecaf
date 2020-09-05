@@ -12,8 +12,13 @@ public:
 
     antlrcpp::Any visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx);
     antlrcpp::Any visitAtomParen(MiniDecafParser::AtomParenContext *ctx);
+
     antlrcpp::Any visitAddSub(MiniDecafParser::AddSubContext *ctx);
     antlrcpp::Any visitMulDiv(MiniDecafParser::MulDivContext *ctx);
+    antlrcpp::Any visitEqual(MiniDecafParser::EqualContext *ctx);
+    antlrcpp::Any visitLessGreat(MiniDecafParser::LessGreatContext *ctx);
+    antlrcpp::Any visitLand(MiniDecafParser::LandContext *ctx);
+    antlrcpp::Any visitLor(MiniDecafParser::LorContext *ctx);
 
 private:
     /*

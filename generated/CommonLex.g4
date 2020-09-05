@@ -40,7 +40,15 @@ Tilde : '~';
 Addition : '+';
 Multiplication : '*';
 Division : '/';
-Modular : '%';
+Modulo : '%';
+LAND : '&&';
+LOR : '||';
+EQ : '==';
+NEQ : '!=';
+LT : '<';
+LE : '<=';
+GT : '>';
+GE : '>=';
 
 
 // integer, identifier

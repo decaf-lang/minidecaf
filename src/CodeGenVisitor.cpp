@@ -66,6 +66,7 @@ antlrcpp::Any CodeGenVisitor::visitAtomParen(MiniDecafParser::AtomParenContext *
 //@brief: visit AddSub node, including addition & subtraction between expressions
 //@ret: Expr type: depending on the left & right expressions
 antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
+    // Get the type of left & right expressions
     retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
     /*
         The use of token ptr is the same as FUNC<visitUnaryOp>.
@@ -85,9 +86,10 @@ antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
     return retType::UNDEF;
 }
 
-//@brief: visit MulDiv node, including multiplication, division & modular between expressions
+//@brief: visit MulDiv node, including multiplication, division & modulo between expressions
 //@ret: Expr type: depending on the left & right expressions
 antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
+    // Get the type of left & right expressions
     retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
     /*
         Totally the same as FUNC<visitAddSub>.
@@ -101,10 +103,82 @@ antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
         code_ << "\tdiv a0, t0, t1\n"
               << push;
         return retType::INT;
-    } else if (ctx->Modular()) {
+    } else if (ctx->Modulo()) {
         code_ << "\trem a0, t0, t1\n"
               << push;
         return retType::INT;
     }
     return retType::UNDEF;
+}
+
+//@brief: visit Equal node, including '==' & '!=' between expressions
+//@ret: Expr type: INT
+antlrcpp::Any CodeGenVisitor::visitEqual(MiniDecafParser::EqualContext *ctx) {
+    // Get the type of left & right expressions
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        Nearly the same as FUNC<visitAddSub>
+    */
+   code_ << pop2
+         << "\tsub t0, t0, t1\n";
+   if (ctx->EQ()) {
+        code_ << "\tseqz a0, t0\n";
+   } else if (ctx->NEQ()) {
+        code_ << "\tsnez a0, t0\n";
+   }
+   code_ << push;
+   return retType::INT;
+}
+
+//@brief: visit LessGreat node, including '<=', '<', '>' & '>=' between expressions
+//@ret: Expr type: INT
+antlrcpp::Any CodeGenVisitor::visitLessGreat(MiniDecafParser::LessGreatContext *ctx) {
+    // Get the type of left & right expressions
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        Nearly the same as FUNC<visitAddSub>
+    */
+    code_ << pop2;
+    if (ctx->LE()) {
+        code_ << "\tsgt a0, t0, t1\n"
+              << "\txori a0, a0, 1\n";
+    } else if (ctx->LT()) {
+        code_ << "\tslt a0, t0, t1\n";
+    } else if (ctx->GE()) {
+        code_ << "\tslt a0, t0, t1\n"
+              << "\txori a0, a0, 1\n";
+    } else if (ctx->GT()) {
+        code_ << "\tsgt a0, t0, t1\n";
+    }
+    code_ << push;
+    return retType::INT;
+}
+
+//@brief: visit Land node, including '&&' between expressions
+//@ret: Expr type: INT
+antlrcpp::Any CodeGenVisitor::visitLand(MiniDecafParser::LandContext *ctx) {
+    // Get the type of left & right expressions
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        Nearly the same as FUNC<visitAddSub>
+    */
+    code_ << pop2
+          << "\tmul a0, t0, t1\n"
+          << "\tsnez a0, a0\n"
+          << push;
+    return retType::INT;
+}
+
+//@brief: visit Lor node, including '||' between expressions
+//@ret: Expr type: INT
+antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
+    // Get the type of left & right expressions
+    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    /*
+        Nearly the same as FUNC<visitAddSub>
+    */
+    code_ << pop2
+          << "\tor a0, t0, t1\n"
+          << push;
+    return retType::INT;
 }
