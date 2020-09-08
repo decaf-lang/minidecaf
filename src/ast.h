@@ -10,14 +10,19 @@ using std::endl;
 using std::map;
 using std::ofstream;
 int functionvalue = 8;
+vector<int> array;
 class Ast{
 protected:
 	int row, column;
 	static int indent;
 	static int branchnum;
-	static map<string, vector<int>> exprnum;
+	static map<string, vector<vector<int>>> exprnum;
+	static map<string, vector<bool>> exprisarray;
+	static map<string, vector<bool>> exprisaddress;
 	static string function_name;
 	static vector<string> printans;
+	static vector<string> continue_list;
+	static vector<string> break_list;
 public:
 	Ast(int row, int column) : row(row), column(column){ } 
 	void addIndent() { indent ++; }
@@ -45,28 +50,35 @@ public:
 int Ast::indent = 0;
 string Ast::function_name = "";
 int Ast::branchnum = 0;
-map<string, vector<int>> Ast::exprnum = {};
+map<string, vector<vector<int>>> Ast::exprnum = {};
+map<string, vector<bool>> Ast::exprisarray = {};
+map<string, vector<bool>> Ast::exprisaddress = {};
 vector<string> Ast::printans = {};
+vector<string> Ast::continue_list = {};
+vector<string> Ast::break_list = {};
 
 class TypeAst: public Ast{
 public:
+	bool isAddress;
 	TypeAst(int row, int column) : Ast(row, column){}
+	void additem(bool b){
+		isAddress = b;
+	}
 	void printto(ofstream &fout){
 	}
 };
 
 class ExprAst: public Ast{
 protected:
-	bool isAddress_;
-	bool isVariable_;
+	bool isId_;         //是否是idast
+	bool isAddress_;    //是否是地址值
 	string variable_;
 public:
-	ExprAst(int row, int column) : Ast(row, column), isVariable_(false), isAddress_(false), variable_(""){}
-	void setVariable(string variable) { isVariable_ = true; variable_ = variable; }
-	bool isVariable() { return isVariable_;}
-	string variable() { return variable_; };
+	ExprAst(int row, int column) : Ast(row, column), isAddress_(false), isId_(false){}
 	void setAddress(bool a) { isAddress_ = a;  }
 	bool isAddress() { return isAddress_;}
+	void setId() { isId_ = true;}
+	bool isId() { return isId_;}
 };
 
 class ConstantAst: public ExprAst{
@@ -109,6 +121,7 @@ public:
 			printstream(fout, "neg a5,a5");
 		else if (str == "&"){
 			pop();
+			this->setAddress(true);
 		}else if (str == "*"){
 			printstream(fout, "lw a5,0(a5)");
 		}else
@@ -146,6 +159,62 @@ public:
 	}
 };
 
+class TypeFactor: public ExprAst{
+	TypeAst* type;
+	ExprAst* expr;
+public:
+	TypeFactor(int row, int column) : ExprAst(row, column){}
+	void additem(TypeAst* item1, ExprAst* item2){
+		type = item1;
+		expr = item2;
+	}
+	void printto(ofstream &fout){
+		expr->printto(fout);
+		if (array.size() > 2){
+			while (array.size() > 1)
+				array.pop_back();
+			array.push_back(1);
+			array.push_back(1);
+		}
+		if (type->isAddress)
+			this->setAddress(true);
+	}
+};
+
+class PostfixAst: public ExprAst{
+	ExprAst* expr1;
+	ExprAst* expr2;
+public:
+	PostfixAst(int row, int column) : ExprAst(row, column){}
+	void additem(ExprAst* item1, ExprAst* item2){
+		expr1 = item1;
+		expr2 = item2;
+	}
+	void printto(ofstream &fout){
+		expr1->setAddress(this->isAddress());
+		expr2->setAddress(false);
+
+		expr2->printto(fout);
+		printstream(fout, "sw a5, -4(sp)");
+		printstream(fout, "addi sp, sp, -4");
+
+		expr1->printto(fout);
+		printstream(fout, "lw a4, 0(sp)");
+		printstream(fout, "addi sp, sp, 4");
+
+		printstream(fout, "li a3, 4");
+		printstream(fout, "mul a4, a4, a3");
+		printstream(fout, "li a3, "+std::to_string(array[array.back()]));
+		printstream(fout, "mul a4, a4, a3");
+		printstream(fout, "add a5, a5, a4");
+		if (array.back() >= array.size()-2){
+			printstream(fout, "lw a5, 0(a5)");
+			array[array.size()-1] = 1;
+		}else
+			array[array.size()-1] = array[array.size()-1] + 1;
+	}
+};
+
 class TermAst: public ExprAst{
 	ExprAst* expr1;
 	ExprAst* expr2;
@@ -166,10 +235,25 @@ public:
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
-		if (str == "+")
+		// std::cout << expr1->isAddress() << " TermAst " << expr2->isAddress() << std::endl;
+		// std::cout << row << " TermAst row " << column << std::endl;
+		if (expr1->isAddress() && !expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a5, a5, a3");
+			this->setAddress(true);
+		}else if (!expr1->isAddress() && expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a4, a4, a3");
+			this->setAddress(true);
+		}else if (expr1->isAddress() && expr2->isAddress()){
+			this->setAddress(true);
+		}
+		if (str == "+"){
 			printstream(fout, "add a5, a4, a5");
-		else if (str == "-")
+		}
+		else if (str == "-"){
 			printstream(fout, "sub a5, a4, a5");
+		}
 
 	}
 };
@@ -194,6 +278,15 @@ public:
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
+
+		if (expr1->isAddress() && !expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a5, a5, a3");
+		}else if (!expr1->isAddress() && expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a4, a4, a3");
+		}
+
 		if (str == "<")
 			printstream(fout, "slt a5, a4, a5");
 		else if (str == ">")
@@ -222,12 +315,25 @@ public:
 		expr1->setAddress(this->isAddress());
 		expr2->setAddress(this->isAddress());
 
+		// std::cout << expr1->isAddress() << " RelationalAst 1 " << expr2->isAddress() << std::endl;
 		expr1->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
+
+		// std::cout << expr1->isAddress() << " RelationalAst 2 " << expr2->isAddress() << std::endl;
 		expr2->printto(fout);
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
+		// std::cout << expr1->isAddress() << " " << expr2->isAddress() << std::endl;
+		if (expr1->isAddress() && !expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a5, a5, a3");
+		}else if (!expr1->isAddress() && expr2->isAddress()){
+			printstream(fout, "li a3, 4");
+			printstream(fout, "mul a4, a4, a3");
+		}
+
+
 		if (str == "!="){
 			printstream(fout, "xor a5, a4, a5");
 			printstream(fout, "snez a5, a5");
@@ -300,19 +406,16 @@ public:
 		expr1->setAddress(this->isAddress());
 		expr2->setAddress(this->isAddress());
 
-		expr1->printto(fout);
-		pop();
+		expr2->printto(fout);
 		printstream(fout, "sw a5, -4(sp)");
 		printstream(fout, "addi sp, sp, -4");
-		expr2->printto(fout);
+
+		expr1->printto(fout);
+		pop();
 		printstream(fout, "lw a4, 0(sp)");
 		printstream(fout, "addi sp, sp, 4");
-		printstream(fout, "sw a5, 0(a4)");
-		// if (exprnum[name].back() < 0){
-		// 	printstream(fout, "lui a4,%hi("+name+")");
-		// 	printstream(fout, "sw a5, %lo("+name+")(a4)");
-		// }else
-		// 	printstream(fout, "sw a5, -"+std::to_string(exprnum[name].back())+"(s0)");
+		printstream(fout, "sw a4, 0(a5)");
+		printstream(fout, "mv a5, a4");
 	}
 };
 
@@ -322,17 +425,34 @@ public:
 	IdAst(int row, int column) : ExprAst(row, column){}
 	void additem(string name_){
 		name = name_;
-		setVariable(name_);
+		this->setId();
 	}
 	void printto(ofstream &fout){
-		if (exprnum[name].back() < 0){
+		vector<int> ids = exprnum[name].back();
+		array = exprnum[name].back();
+		array.push_back(1);
+		if (ids[0] < 0){
 			printstream(fout, "lui a4,%hi("+name+")");
 			printstream(fout, "addi a5, a4, %lo("+name+")");
-			printstream(fout, "lw a5,0(a5)");
+			if (!exprisarray[name].back()){
+				printstream(fout, "lw a5,0(a5)");
+				if (!exprisaddress[name].back() && this->isAddress()){
+					printstream(fout, "li a3,4");
+					printstream(fout, "mul a5,a3, a5");
+				}
+			}
 		}else{
-			printstream(fout, "addi a5, s0, -"+std::to_string(exprnum[name].back()));
-			printstream(fout, "lw a5,0(a5)");
+			printstream(fout, "addi a5, s0, -"+std::to_string(ids[0]));
+			if (!exprisarray[name].back()){
+				printstream(fout, "lw a5,0(a5)");
+				if (!exprisaddress[name].back() && this->isAddress()){
+					printstream(fout, "li a3,4");
+					printstream(fout, "mul a5,a3, a5");
+				}
+			}
 		}
+		if (exprisaddress[name].back())
+			this->setAddress(true);
 	}
 };
 
@@ -353,18 +473,20 @@ public:
 		if (expr2 != NULL){
 			expr2->setAddress(this->isAddress());
 			expr3->setAddress(this->isAddress());
-			
-			printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
-			expr2->printto(fout);
-			printstream(fout, "j .L"+std::to_string(branchnum+1));
-			decIndent();
-			printstream(fout, ".L"+std::to_string(branchnum)+":");
+			int branch = branchnum;
 			branchnum++;
+			printstream(fout, "beqz a5, .L"+std::to_string(branch));
+
+			expr2->printto(fout);
+			int branch2 = branchnum;
+			branchnum++;
+			printstream(fout, "j .L"+std::to_string(branch2));
+			decIndent();
+			printstream(fout, ".L"+std::to_string(branch)+":");
 			addIndent();
 			expr3->printto(fout);
 			decIndent();
-			printstream(fout, ".L"+std::to_string(branchnum)+":");
-			branchnum++;
+			printstream(fout, ".L"+std::to_string(branch2)+":");
 			addIndent();
 		}
 	}
@@ -414,6 +536,10 @@ public:
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
+		if (expr->isAddress()){
+			printstream(fout, "li a4,4");
+			printstream(fout, "div a5,a5,a4");
+		}
 		printstream(fout, "mv a0,a5");
 		printstream(fout, "j ."+function_name+"_exit");
 	}
@@ -455,21 +581,26 @@ class LocalVariableAst: public StmtAst{
 	TypeAst* type;
 	string name;
 	ExprAst* expr;
-	int position;
+	vector<int> position;
+	bool isArray;
 public:
 	LocalVariableAst(int row, int column) : StmtAst(row, column){}
 	string getname() {return name;}
-	void additem(TypeAst* type, string name, int num, ExprAst* item){
+	void additem(TypeAst* type, string name, vector<int> num, ExprAst* item, bool b){
 		this->type = type;
 		this->name = name;
 		expr = item;
-		this->position = num*4+functionvalue;
+		position = num;
+		position[0] = (position[0]*4+functionvalue+4);
+		isArray = b;
 	}
 	void printto(ofstream &fout){
 		exprnum[name].push_back(this->position);
+		exprisarray[name].push_back(isArray);
+		exprisaddress[name].push_back(type->isAddress);
 		if (expr!=NULL){
 			expr->printto(fout);
-			printstream(fout, "sw a5, -"+ std::to_string(exprnum[name].back())+"(s0)");
+			printstream(fout, "sw a5, -"+ std::to_string(exprnum[name].back()[0])+"(s0)");
 		}
 	}
 };
@@ -489,8 +620,11 @@ public:
 	void printto(ofstream &fout){
 		for (int i = 0; i < stmt_list.size(); ++i)
 			stmt_list[i]->printto(fout);
-		for (int i = 0; i < name_list.size(); ++i)
+		for (int i = 0; i < name_list.size(); ++i){
 			exprnum[name_list[i]].pop_back();
+			exprisarray[name_list[i]].pop_back();
+			exprisaddress[name_list[i]].pop_back();
+		}
 	}
 };
 
@@ -507,19 +641,22 @@ public:
 	}
 	void printto(ofstream &fout){
 		expr->printto(fout);
-		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
-		stmt1->printto(fout);
-		if (stmt2!=NULL)
-			printstream(fout, "j .L"+std::to_string(branchnum+1));
-		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		int branch = branchnum;
 		branchnum++;
+		printstream(fout, "beqz a5, .L"+std::to_string(branch));
+		stmt1->printto(fout);
+		int branch2 = branchnum;
+		if (stmt2!=NULL){
+			printstream(fout, "j .L"+std::to_string(branch2));
+			branchnum++;
+		}
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branch)+":");
 		addIndent();
 		if (stmt2!=NULL){
 			stmt2->printto(fout);
 			decIndent();
-			printstream(fout, ".L"+std::to_string(branchnum)+":");
-			branchnum++;
+			printstream(fout, ".L"+std::to_string(branch2)+":");
 			addIndent();
 		}
 	}
@@ -553,22 +690,42 @@ public:
 
 		stmt1->printto(fout);
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		int branch = branchnum;
+		printstream(fout, ".L"+std::to_string(branch)+":");
 		branchnum++;
 		addIndent();
+
+
+		int branch2 = branchnum;
+		branchnum++;
+
+		break_list.push_back(".L"+std::to_string(branch2));
+
+		int branch3 = branchnum;
+		branchnum++;
+
+		continue_list.push_back(".L"+std::to_string(branch3));
+
 		if (stmt2->hasExpr()){
 			stmt2->printto(fout);
-			printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+			printstream(fout, "beqz a5, .L"+std::to_string(branch2));
 		}
 		stmt->printto(fout);
-		stmt3->printto(fout);
-		printstream(fout, "j .L"+std::to_string(branchnum-1));
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
-		branchnum++;
+		printstream(fout, ".L"+std::to_string(branch3)+":");
 		addIndent();
-		if (isdec)
+		stmt3->printto(fout);
+		printstream(fout, "j .L"+std::to_string(branch));
+		decIndent();
+		printstream(fout, ".L"+std::to_string(branch2)+":");
+		addIndent();
+		if (isdec){
 			exprnum[declaration].pop_back();
+			exprisarray[declaration].pop_back();
+			exprisaddress[declaration].pop_back();
+		}
+		continue_list.pop_back();
+		break_list.pop_back();
 	}
 };
 
@@ -583,19 +740,29 @@ public:
 	}
 	void printto(ofstream &fout){
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		int branch = branchnum;
 		branchnum++;
+		printstream(fout, ".L"+std::to_string(branch)+":");
 		addIndent();
 
+		int branch2 = branchnum;
+		branchnum++;
+
+
+		continue_list.push_back(".L"+std::to_string(branch));
+		break_list.push_back(".L"+std::to_string(branch2));
+
 		expr->printto(fout);
-		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
+		printstream(fout, "beqz a5, .L"+std::to_string(branch2));
 		stmt->printto(fout);
-		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		printstream(fout, "j .L"+std::to_string(branch));
 		
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
-		branchnum++;
+		printstream(fout, ".L"+std::to_string(branch2)+":");
 		addIndent();
+
+		continue_list.pop_back();
+		break_list.pop_back();
 	}
 };
 
@@ -610,19 +777,27 @@ public:
 	}
 	void printto(ofstream &fout){
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
+		int branch = branchnum;
 		branchnum++;
+		printstream(fout, ".L"+std::to_string(branch)+":");
 		addIndent();
 
+
+		int branch2 = branchnum;
+		branchnum++;
+
+		continue_list.push_back(".L"+std::to_string(branch));
+		break_list.push_back(".L"+std::to_string(branch2));
 		stmt->printto(fout);
 		expr->printto(fout);
-		printstream(fout, "beqz a5, .L"+std::to_string(branchnum));
-		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		printstream(fout, "beqz a5, .L"+std::to_string(branch2));
+		printstream(fout, "j .L"+std::to_string(branch));
 		
 		decIndent();
-		printstream(fout, ".L"+std::to_string(branchnum)+":");
-		branchnum++;
+		printstream(fout, ".L"+std::to_string(branch2)+":");
 		addIndent();
+		continue_list.pop_back();
+		break_list.pop_back();
 	}
 };
 
@@ -630,7 +805,7 @@ class ContinueAst: public StmtAst{
 public:
 	ContinueAst(int row, int column) : StmtAst(row, column){}
 	void printto(ofstream &fout){
-		printstream(fout, "j .L"+std::to_string(branchnum-1));
+		printstream(fout, "j "+continue_list.back());
 	}
 };
 
@@ -638,7 +813,7 @@ class BreakAst: public StmtAst{
 public:
 	BreakAst(int row, int column) : StmtAst(row, column){}
 	void printto(ofstream &fout){
-		printstream(fout, "j .L"+std::to_string(branchnum));
+		printstream(fout, "j "+break_list.back());
 	}
 };
 
@@ -662,6 +837,8 @@ public:
 		expr_name.push_back(item);
 	}
 	void printto(ofstream &fout){
+		if (stmt==NULL)
+			return;
 		function_name = name;
 		printstream(fout, ".globl "+name);
 		printstream(fout, ".type "+name+", @function");
@@ -675,12 +852,19 @@ public:
 		printstream(fout, "addi	s0,sp,"+std::to_string(functionvalue+num*4));
 		if (expr_name.size() < 8){
 			for (int i = 0; i < expr_name.size(); ++i){
-				exprnum[expr_name[i]].push_back(functionvalue+4+4*i);
-				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(functionvalue+4+4*i)+"(s0)");
+				vector<int> position;
+				position.push_back(functionvalue+variable_num*4+4+4*i);
+				exprnum[expr_name[i]].push_back(position);
+				exprisarray[expr_name[i]].push_back(false);
+				exprisaddress[expr_name[i]].push_back(expr_type[i]->isAddress);
+				printstream(fout, "sw	a"+std::to_string(i)+",-"+std::to_string(functionvalue+variable_num*4+4+4*i)+"(s0)");
 			}
 		}
 		if (stmt != NULL)
 			stmt->printto(fout);
+
+		printstream(fout, "li	a5, 0");
+		printstream(fout, "mv	a0, a5");
 		decIndent();
 		printstream(fout, "."+name+"_exit:");
 		addIndent();
@@ -694,6 +878,8 @@ public:
 		printstream(fout, ".ident	\"GCC: (xPack GNU RISC-V Embedded GCC, 64-bit) 8.3.0\"");
 		for (int i = 0; i < expr_name.size(); ++i){
 			exprnum[expr_name[i]].pop_back();
+			exprisarray[expr_name[i]].pop_back();
+			exprisaddress[expr_name[i]].pop_back();
 		}
 	}
 };
@@ -702,16 +888,22 @@ class ProgramAst: public Ast{
 	vector<FunctionAst*> function_list;
 	vector<string> expr_name;
 	vector<TypeAst*> expr_type;
+	vector<int> expr_length;
+	vector<vector<int>> expr_num;
 	vector<int> expr_value;
+	vector<bool> expr_array;
 public:
 	ProgramAst(int row, int column) : Ast(row, column){}
 	void additem(FunctionAst* func){
 		function_list.push_back(func);
 	}
-	void additem(TypeAst* type, string s, int v){
+	void additem(TypeAst* type, string s, vector<int> num, int length, int v, int b = false){
 		expr_name.push_back(s);
 		expr_value.push_back(v);
+		expr_length.push_back(length);
+		expr_num.push_back(num);
 		expr_type.push_back(type);
+		expr_array.push_back(b);
 	}
 	void printto(ofstream &fout, string filename){
 		addIndent();
@@ -720,13 +912,29 @@ public:
 		if (expr_name.size() > 0){
 			printstream(fout, ".data");
 			for (int i = 0; i < expr_name.size(); ++i){
-				printstream(fout, ".globl "+expr_name[i]);
-				printstream(fout, ".align  2");
-				decIndent();
-				printstream(fout, expr_name[i]+":");
-				addIndent();
-				printstream(fout, ".word "+std::to_string(expr_value[i]));
-				exprnum[expr_name[i]].push_back(-1);
+				if (!expr_array[i]){
+					printstream(fout, ".globl "+expr_name[i]);
+					printstream(fout, ".align  2");
+					decIndent();
+					printstream(fout, expr_name[i]+":");
+					addIndent();
+					printstream(fout, ".word "+std::to_string(expr_value[i]));
+					vector<int> position;
+					position.push_back(-1);
+					exprnum[expr_name[i]].push_back(position);
+					exprisarray[expr_name[i]].push_back(false);
+					exprisaddress[expr_name[i]].push_back(expr_type[i]->isAddress);
+				}else{
+					printstream(fout, ".globl "+expr_name[i]);
+					printstream(fout, ".align  2");
+					decIndent();
+					printstream(fout, expr_name[i]+":");
+					addIndent();
+					printstream(fout, ".zero "+std::to_string(4*expr_length[i]));
+					exprnum[expr_name[i]].push_back(expr_num[i]);
+					exprisarray[expr_name[i]].push_back(true);
+					exprisaddress[expr_name[i]].push_back(expr_type[i]->isAddress);
+				}
 			}
 		}
 		printstream(fout, ".text");

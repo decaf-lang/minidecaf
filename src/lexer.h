@@ -14,7 +14,7 @@ class Lexer{
 	int row;
 public:
 	Lexer(string filename){
-		row = 0;
+		row = 1;
 		fin.open(filename);
 		tokenlist.clear();
 	}
@@ -67,7 +67,7 @@ public:
         return (ch == '(' || ch == ')' || ch == '{' || ch == '}' || ch == ';' || ch == '!' 
         	 || ch == '~' || ch == '-' || ch == '+' || ch == '*' || ch == '/' || ch == '%' 
         	 || ch == '>' || ch == '<' || ch == '=' || ch == '&' || ch == '|' || ch == '?'
-        	 || ch == ':' || ch == ','
+        	 || ch == ':' || ch == ',' || ch == '[' || ch == ']'
          	);
 	}
 

@@ -17,7 +17,7 @@ public:
 		if (tokenlist[pos].label() == expected){
 			pos++;
 		}else{
-			std::cout << "find " << expected << " when matching "<< tokenlist[pos].label() <<
+			std::cout << "find " << tokenlist[pos].label() << " when matching "<< expected <<
 			" token in row " << tokenlist[pos].row() << " column " << tokenlist[pos].column() << 
 			std::endl;
 			exit(-1) ;
@@ -25,6 +25,8 @@ public:
 	}
 
 	bool lookForward(string expected, int x = 0){
+		if (pos+x >= tokenlist.size())
+			return false;
 		if (tokenlist[pos+x].label() == expected)
 			return true;
 		return false;
@@ -33,13 +35,41 @@ public:
 	void parserProgram(){
 		ast = new ProgramAst(tokenlist[pos].row(), tokenlist[pos].column());
 		while (pos < tokenlist.size()){
-			if (lookForward("(",2)){
+			int id = pos;
+			parserType();
+			matchToken("id");
+			if (lookForward("(")){
+				pos = id;
 				FunctionAst* function_ast = parserFunction();
 				ast->additem(function_ast);
 			}else{
+				pos = id;
 				TypeAst* type_ast = parserType();
 				matchToken("id");
 				string name = tokenlist[pos-1].value();
+				int isarray = false;
+				int num = 1;
+
+				vector<int>position;
+				position.push_back(-1);
+				while (lookForward("[")){
+					matchToken("[");
+					matchToken("num");
+					num *= tokenlist[pos-1].intvalue();
+					position.push_back(tokenlist[pos-1].intvalue());
+					matchToken("]");
+					isarray = true;
+				}
+				if (position.size() > 1){
+					for (int i = 1; i < position.size() - 1; ++i)
+						position[i] = position[i+1];
+					position[position.size() - 1] = 1;
+					for (int i = position.size() - 2; i>0; --i)
+						position[i] = position[i] * position[i+1];
+					// for (int i = position.size() - 1; i>0; --i)
+					// 	position[i] = -position[i];
+				}else
+					position.push_back(1);
 				int value = 0;
 				if (lookForward("=")){
 					matchToken("=");
@@ -47,7 +77,7 @@ public:
 					value = tokenlist[pos-1].intvalue();
 				}
 				matchToken(";");
-				ast->additem(type_ast, name, value);
+				ast->additem(type_ast, name, position, num, value, isarray);
 			}
 		}
 	}
@@ -84,8 +114,12 @@ public:
 	TypeAst* parserType(){
 		TypeAst* type_ast = new TypeAst(tokenlist[pos].row(), tokenlist[pos].column());
 		matchToken("int");
-		while (lookForward("*"))
+		bool isaddress = false;
+		while (lookForward("*")){
 			matchToken("*");
+			isaddress = true;
+		}
+		type_ast->additem(isaddress);
 		return type_ast;
 	}
 
@@ -141,15 +175,44 @@ public:
 		LocalVariableAst* local_variable_ast = new LocalVariableAst(tokenlist[pos].row(), tokenlist[pos].column());
 		TypeAst* type_ast = parserType();
 		matchToken("id");
+
 		string name = tokenlist[pos-1].value();
+		int num = 1;
+		bool isarray = false;
+
+
+				
+
+		vector<int>position;
+		position.push_back(local_variable_num);
+		while (lookForward("[")){
+			matchToken("[");
+			matchToken("num");
+			num *= tokenlist[pos-1].intvalue();
+			position.push_back(tokenlist[pos-1].intvalue());
+			matchToken("]");
+			isarray = true;
+		}
+		if (position.size() > 1){
+			for (int i = 1; i < position.size() - 1; ++i)
+				position[i] = position[i+1];
+			position[position.size() - 1] = 1;
+			for (int i = position.size() - 2; i>0; --i)
+				position[i] = position[i] * position[i+1];
+			// for (int i = position.size() - 1; i>0; --i)
+			// 	position[i] = -position[i];
+		}else
+			position.push_back(1);
+		position[0] = local_variable_num + num -1 ;
 		ExprAst* expr_ast = NULL;
 		if (lookForward("=")){
 			matchToken("=");
 			expr_ast = parserExpr();
 		}
 		matchToken(";");
-		local_variable_num++;
-		local_variable_ast->additem(type_ast, name, local_variable_num, expr_ast);
+		local_variable_ast->additem(type_ast, name,position, expr_ast, isarray);
+
+		local_variable_num += num;
 		return local_variable_ast;
 	}
 
@@ -179,6 +242,7 @@ public:
 		return expr_close_stmt_ast;
 	}
 
+    
 	StmtAst* parserIfStmt(){
 		IfAst* if_ast = new IfAst(tokenlist[pos].row(), tokenlist[pos].column());
 		matchToken("if");
@@ -242,12 +306,14 @@ public:
 	StmtAst* parserBreakStmt(){
 		BreakAst* break_ast = new BreakAst(tokenlist[pos].row(), tokenlist[pos].column());
 		matchToken("break");
+		matchToken(";");
 		return break_ast;
 	}
 
 	StmtAst* parserContinueStmt(){
 		ContinueAst* contionue_ast = new ContinueAst(tokenlist[pos].row(), tokenlist[pos].column());
 		matchToken("continue");
+		matchToken(";");
 		return contionue_ast;
 	}
 
@@ -284,8 +350,9 @@ public:
 			expr_ast2 = parserExpr();
 			matchToken(":");
 			expr_ast3 = parserConditionalExpr();
-		}
-		conditional_ast->additem(expr_ast1, expr_ast2, expr_ast3);
+			conditional_ast->additem(expr_ast1, expr_ast2, expr_ast3);
+		}else
+			return expr_ast1;
 		return conditional_ast;
 	}
 
@@ -354,32 +421,62 @@ public:
 		while (lookForward("*") || lookForward("/") || lookForward("%")){
 			FactorAst* factor_ast = new FactorAst(tokenlist[pos].row(), tokenlist[pos].column(), tokenlist[pos].label());
 			matchToken(tokenlist[pos].label());
-			ExprAst* expr_ast2 = parserTerm();
+			ExprAst* expr_ast2 = parserFactor();
 			factor_ast->additem(expr_ast, expr_ast2);
 			expr_ast = factor_ast;
 		}
 		return expr_ast;
 	}
-
+	
 	ExprAst* parserFactor(){
 		ExprAst* expr_ast;
 		if (lookForward("!") || lookForward("~") || lookForward("-") || lookForward("*") || lookForward("&") || lookForward("+"))
 			expr_ast = parserUnary();
 		else if (lookForward("(") && lookForward("int",1)){
+			TypeFactor* type_factor =  new TypeFactor(tokenlist[pos].row(), tokenlist[pos].column());
 			matchToken("(");
-			parserType();
-			expr_ast = parserExpr();
+			TypeAst* type_ast = parserType();
 			matchToken(")");
-		}else if (lookForward("(")){
-			matchToken("(");
-			expr_ast = parserExpr();
-			matchToken(")");
+			expr_ast = parserFactor();
+			type_factor->additem(type_ast, expr_ast);
+			expr_ast = type_factor;
+		}else
+			expr_ast = parserPostfix();
+		return expr_ast;
+	}
+
+	ExprAst* parserPostfix(){
+		ExprAst* expr_ast;
+		if (lookForward("(")){
+			expr_ast = parserPrimary();
+		}else if (lookForward("num")){
+			expr_ast = parserPrimary();
 		}else if (lookForward("id") && lookForward("(", 1)){
 			expr_ast = parserCallExpr();
-		}else if (lookForward("id")){
-			expr_ast = parserId();
-		}else
+		}else if (lookForward("id"))
+			expr_ast = parserPrimary();
+		while (lookForward("[")){
+			PostfixAst* postfix_ast = new PostfixAst(tokenlist[pos].row(), tokenlist[pos].column());
+			matchToken("[");
+			ExprAst* item = parserExpr();
+			matchToken("]");
+			postfix_ast->additem(expr_ast, item);
+			expr_ast = postfix_ast;
+		}
+		
+		return expr_ast;
+	}
+
+	ExprAst* parserPrimary(){
+		ExprAst* expr_ast;
+		if (lookForward("(")){
+			matchToken("(");
+			expr_ast = parserExpr();
+			matchToken(")");
+		}else if (lookForward("num")){
 			expr_ast = parserConstant();
+		}else if (lookForward("id"))
+			expr_ast = parserId();
 		return expr_ast;
 	}
 
