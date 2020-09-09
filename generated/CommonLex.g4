@@ -23,17 +23,6 @@ Rbrace : '}' ;
 Comma : ',' ;
 Semicolon : ';' ;
 
-Punctuator
-    : Lparen
-    | Rparen
-    | Lbrkt
-    | Rbrkt
-    | Lbrace
-    | Rbrace
-    | Comma
-    | Semicolon
-    ;
-
 Minus : '-';
 Exclamation : '!';
 Tilde : '~';
@@ -54,6 +43,10 @@ GE : '>=';
 // integer, identifier
 Interger
     : [0-9]+
+    ;
+
+Identifier
+    : [a-zA-Z_][a-zA-Z_0-9]
     ;
 
 WS : 

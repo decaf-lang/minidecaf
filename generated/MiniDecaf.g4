@@ -7,11 +7,13 @@ prog
     ;
 
 func
-    : 'int' 'main' '(' ')' '{' stmt '}'
+    : type Identifier '(' ')' '{' stmt* '}'
     ;
 
 stmt
     : 'return' expr ';'                                             # returnStmt
+    | expr ';'                                                      # singleExpr
+    | type Identifier ('=' expr)? ';'                               # varDef
     ;
 
 expr
@@ -23,5 +25,11 @@ expr
     | expr '||' expr                                                # lor
     | expr ('+' | '-') expr                                         # addSub
     | '(' expr ')'                                                  # atomParen
+    | Identifier '=' expr                                           # assign
+    | Identifier                                                    # Identifier
     | Interger                                                      # integer
+    ;
+
+type
+    : 'int'
     ;

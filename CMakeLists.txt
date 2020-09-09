@@ -28,6 +28,7 @@ file(GLOB src_dir
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafVisitor.cpp
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafBaseVisitor.cpp
     ${PROJECT_SOURCE_DIR}/src/CodeGenVisitor.cpp
+    ${PROJECT_SOURCE_DIR}/src/Allocator.cpp
 )
 
 add_library(antlr4-cpp-runtime ${antlr4-cpp-src})
