@@ -1,7 +1,3 @@
-# minidecaf
+## step0
 
-
-## Reference:
-- [nqcc](https://github.com/nlsandler/nqcc)
-
-
+配置测试环境、安排项目结构。
