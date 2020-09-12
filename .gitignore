@@ -9,3 +9,5 @@ test/out
 *.S
 *.s
 a.out
+./vscode/*
+*.asm
