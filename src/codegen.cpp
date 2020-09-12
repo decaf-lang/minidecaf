@@ -1,6 +1,7 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdarg>
+#include <cstring>
 #include "codegen.h"
 
 static bool debug_ = false;
@@ -34,7 +35,7 @@ void pop(const char* reg) {
 }
 
 inline int var_offset(VarPtr var) {
-    return -(3+var->offset);
+    return var->is_arg ? var->offset : -(var->offset + 3);
 }
 
 inline void store(const char* reg, int offset) {
@@ -131,7 +132,6 @@ void gen_binary(NDPtr node) {
 void gen(NDPtr node) {
     if(!node) 
         return;
-    int seq, brk, cont;
     switch (node->kind) {
     // Statement
     case ND_RETURN:
@@ -156,9 +156,9 @@ void gen(NDPtr node) {
             pop("t0");
         }
         break;
-    case ND_IF: 
+    case ND_IF: {
         debug("ND_IF");
-        seq = label_seq++;
+        int seq = label_seq++;
         gen(node->cond);
         pop("t0");
         if (node->els) {
@@ -173,15 +173,16 @@ void gen(NDPtr node) {
         }
         label(EXIT, seq);
         break;
+    }
     case ND_BLOCK:
         for (auto n = node->body.begin(); n != node->body.end(); ++n)
             gen(*n);
         break;
-    case ND_FOR:
-        seq = label_seq++;
+    case ND_FOR: {
+        int seq = label_seq++;
         // 使用局部变量备份　brk_seq, cont_seq, 便于后续恢复
-        brk = brk_seq;
-        cont = cont_seq;
+        int brk = brk_seq;
+        int cont = cont_seq;
         // brk_seq／cont_seq　总表示当前 break/continue 语句需要跳转到的序号
         // 在进入一个需要处理 break/continue 的结构时，需要更新。在上一步做了备份。
         brk_seq = cont_seq = seq;
@@ -209,10 +210,11 @@ void gen(NDPtr node) {
         brk_seq = brk;
         cont_seq = cont;
         break;
-    case ND_WHILEDO:
-        seq = label_seq++;
-        brk = brk_seq;
-        cont = cont_seq;
+    }
+    case ND_WHILEDO: {
+        int seq = label_seq++;
+        int brk = brk_seq;
+        int cont = cont_seq;
         brk_seq = cont_seq = seq;
         label(CONTINUE, seq);
         gen(node->cond);
@@ -224,7 +226,9 @@ void gen(NDPtr node) {
         brk_seq = brk;
         cont_seq = cont;
         break;
-    case ND_DOWHILE:
+    }
+    case ND_DOWHILE: {
+        int seq, brk, cont;
         seq = label_seq++;
         brk = brk_seq;
         cont = cont_seq;
@@ -237,6 +241,7 @@ void gen(NDPtr node) {
         brk_seq = brk;
         cont_seq = cont;
         break;
+    }
     case ND_BREAK:
         jmp(EXIT, brk_seq);
         break;
@@ -285,9 +290,9 @@ void gen(NDPtr node) {
         store_var("t0", node->lexpr->var);
         push("t0");
         break;
-    case ND_TERNARY:
+    case ND_TERNARY: {
         debug("TERNARY\n");
-        seq = label_seq++;
+        int seq = label_seq++;
         gen(node->cond);
         pop("t0");
         beqz("t0", ELSE, seq);
@@ -297,6 +302,26 @@ void gen(NDPtr node) {
         gen(node->els);
         label(EXIT, seq);
         break;
+    }
+    case ND_FUNC_CALL: {
+        debug("FUNC CALL\n");
+        assert(node->func_call);
+        int nargs = 0;
+        // 计算参数值，注意计算顺序
+        // 为了简单将参数全部储存在栈上，所以不需要后续处理
+        for (auto a = node->func_call->args.rbegin(); a != node->func_call->args.rend(); ++a) {
+            gen(*a);
+            ++nargs;
+        }
+        // 调用目标函数
+        printf("  call %s\n", node->func_call->name);
+        // 将在栈中的参数弹出
+        if(nargs > 0)
+            printf("  addi sp, sp, %d\n", nargs * POINTER_WIDTH);
+        // 返回值压栈
+        push("a0");
+        break;
+    }
     default:
         gen_binary(node);
     }
@@ -305,7 +330,6 @@ void gen(NDPtr node) {
 
 void gen_text(std::list<FNPtr> &func) {
     printf("  .text\n");
-    assert(func.size() == 1);
     for (auto f = func.begin(); f != func.end(); ++f) {
         FNPtr fn = hot_func = *f;
         last_node = NULL;
@@ -317,11 +341,13 @@ void gen_text(std::list<FNPtr> &func) {
         printf("  sw fp, %d-8(sp)\n", fn->stack_size);
         printf("  addi fp, sp, %d\n", fn->stack_size);
 
-        gen(fn->stmts);
+        for (auto n = fn->stmts->body.begin(); n != fn->stmts->body.end(); ++n)
+            gen(*n);
         
         // Missing return
-        if(!last_node || last_node->kind != ND_RETURN)
+        if(!strncmp(fn->name, "main", 4) && (!last_node || last_node->kind != ND_RETURN)) {
             printf("  li a0, 0\n");
+        }
         // Epilogue
         printf(".L.%s.%s:\n", FUNC_EXIT, fn->name);
         printf("  lw fp, %d-8(sp)\n", fn->stack_size);

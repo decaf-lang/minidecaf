@@ -21,6 +21,10 @@ static std::list<int> lvar_stack_depth;
 static int max_stack_size = 0;
 // 当前作用域嵌套的深度
 static int scope_depth = 0;
+// 当前正在处理的函数
+FNPtr hot_func = NULL;
+// 记录已经声明的函数
+static std::list<FNPtr> funcs;
 
 void next_token() {   
     used_toks_.push_back(token_);
@@ -139,7 +143,22 @@ VarPtr search_varlist(char* name, std::list<VarPtr> &list) {
 }   
 
 VarPtr find_local_var(char* name) {
-    return search_varlist(name, lvar_stack);
+    VarPtr var;
+    if(var = search_varlist(name, lvar_stack)) {
+        return var;
+    }
+    return search_varlist(name, hot_func->args);
+}
+
+FNPtr find_func(char* name) {
+    int len = strnlen(name, 1000);
+    // 其实查找顺序无所谓，目前不支持局部函数
+    for(auto f = funcs.rbegin(); f != funcs.rend(); ++f) {
+        FNPtr func = *f;
+        if(strnlen(func->name, 1000) == len && !strncmp(func->name, name, len))
+            return func;
+    }
+    return NULL;
 }
 
 NDPtr expr();
@@ -166,6 +185,20 @@ NDPtr num() {
     return node;
 }
 
+std::shared_ptr<FuncCall> func_call(char* name) {
+    std::shared_ptr<FuncCall> fc = std::make_shared<FuncCall>();
+    fc->name = name;
+    parse_reserved("(");
+    if(parse_reserved(")"))
+        return fc;
+    fc->args.push_back(expr());
+    while(!parse_reserved(")")) {
+        assert(parse_reserved(","));
+        fc->args.push_back(expr());
+    }
+    return fc;
+}
+
 // 对应同名非终结符
 NDPtr primary() {
     TKPtr tok;
@@ -176,6 +209,17 @@ NDPtr primary() {
     }
     char* name;
     if (tok = parse_ident(name)) {
+        // function call
+        if(parse_reserved("(")) {
+            NDPtr node = new_node(tok, ND_FUNC_CALL);
+            assert(node->func_call = func_call(name));
+            // 调用未声明函数
+            FNPtr fn;
+            assert(fn = find_func(node->func_call->name));
+            // 参数相同
+            assert(fn->args.size() == node->func_call->args.size());
+            return node;
+        }
         return new_var(tok, find_local_var(name));
     }
     return num();
@@ -451,6 +495,40 @@ NDPtr compound_stmt() {
     }
     return NULL;
 }
+
+void decl_func_arg(std::list<VarPtr> &args) {
+    assert(type());
+    VarPtr var = std::make_shared<Var>();
+    var->is_arg = true;
+    parse_ident(var->name);
+    // assert(var->name);           //声明中参数可能没有名称
+    var->offset = args.size();
+    args.push_back(var);
+}
+
+int decl_func_args(std::list<VarPtr> &args) {
+    assert(parse_reserved("("));
+    if (parse_reserved(")")) {
+        return 0;
+    }
+    decl_func_arg(args);
+    while (!parse_reserved(")")) {
+        assert(parse_reserved(","));
+        decl_func_arg(args);
+    }
+    return 0;
+}
+
+// 如果函数不存在，则加入 funcs 并返回 NULL，否则直接返回同名的函数
+FNPtr add_func(FNPtr func) {
+    FNPtr f;
+    if(f = find_func(func->name)) {
+        return f;
+    }
+    funcs.push_back(func);
+    return NULL;
+}
+
 // 对应非终结符 function
 FNPtr function() {
     assert(type());
@@ -458,9 +536,29 @@ FNPtr function() {
     assert(parse_ident(name));
     FNPtr fn = std::make_shared<Function>();
     fn->name = name;
-
-    assert(parse_reserved("("));
-    assert(parse_reserved(")"));
+    // 解析函数参数
+    decl_func_args(fn->args);
+    FNPtr f;
+    // add_func 返回不是 NULL，表明已经有过声明
+    if(f = add_func(fn)) {
+        // 已有定义，则此项必须是一个声明。
+        if(f->is_complete) {
+            assert(parse_reserved(";"));
+            return NULL;
+        }
+        // 仅有声明，必须有相同的参数（目前只要求数量相同）
+        assert(f->args.size() == fn->args.size());
+        // 可能有参数重命名，以现有函数参数为准
+        f->args.clear();
+        f->args = std::move(fn->args);
+        fn = f;
+    }
+    // 这仅是一个声明，返回 NULL
+    if(parse_reserved(";")) {
+        return NULL;
+    }
+    fn->is_complete = true;
+    hot_func = fn;
     fn->stmts = compound_stmt();
     fn->stack_size = (max_stack_size + 2) * 4;
     return fn;
@@ -471,8 +569,16 @@ Program* parsing(std::list<TKPtr>* tokens) {
     toks_ = tokens;
     next_token();
     Program* prog = new Program();
-    FNPtr fn = function();
-    prog->funcs.push_back(fn);
-    assert(token_->kind == TK_EOF);
+    while (token_->kind != TK_EOF) {
+        FNPtr fn = function();
+        // 遇到声明先不加入函数列表
+        if(!fn)
+            continue;
+        prog->funcs.push_back(fn);
+        assert(scope_depth == 0);
+        lvar_stack.clear();
+        max_stack_size = 0;
+        hot_func = NULL;
+    }
     return prog;
 }

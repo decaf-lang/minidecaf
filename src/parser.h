@@ -37,7 +37,8 @@ enum NodeKind{
     ND_LOGOR,       // Binary ||
     ND_VAR,         // Local variable
     ND_ASSIGN,      // Binary =
-    ND_TERNARY      // Ternary a ? b : c
+    ND_TERNARY,     // Ternary a ? b : c
+    ND_FUNC_CALL,   // Function call
 };
 
 struct Node;
@@ -49,10 +50,16 @@ struct Var {
     int offset;         // Offset from %fp
     NDPtr init;
     int scope_depth;    // 变量声明时所在的作用域深度
+    bool is_arg;        // 函数参数还是局部变量
     TKPtr tok;
 };
 
 typedef std::shared_ptr<Var> VarPtr;
+
+struct FuncCall {
+    char* name;
+    std::list<NDPtr> args;
+};
 
 struct Node {
     NodeKind kind;
@@ -67,14 +74,19 @@ struct Node {
     NDPtr init;
     NDPtr inc;                      // For 循环使用
     std::list<NDPtr> body;          // Compound statement 的子语句
+    std::shared_ptr<FuncCall> func_call;
 };
 
 struct Function {
     char *name;
     // 语句, 一个 compound statement
     NDPtr stmts;
-    // 栈帧大小， 目前 = (locals.size()+2) * POINTER_WIDTH
+    // 栈帧大小
     int stack_size;
+    // 函数参数
+    std::list<VarPtr> args;
+    // 是一个声明还是包含完整定义
+    bool is_complete;
 };
 
 typedef std::shared_ptr<Function> FNPtr;
