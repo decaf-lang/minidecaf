@@ -24,13 +24,44 @@ void pop(const char* reg) {
     printf("  addi sp, sp, %d\n", POINTER_WIDTH);
 }
 
+void gen(NDPtr node);
+
+void gen_binary(NDPtr node) {
+    debug("BINARY\n");
+    gen(node->lexpr);
+    gen(node->rexpr);
+    pop("t1");
+    pop("t0");
+    switch (node->kind) {
+    case ND_ADD:
+        printf("  add t0, t0, t1\n");
+        break;
+    case ND_SUB:
+        printf("  sub t0, t0, t1\n");
+        break;
+    case ND_MUL:
+        printf("  mul t0, t0, t1\n");
+        break;
+    case ND_DIV:
+        printf("  div t0, t0, t1\n");
+        break;
+    case ND_MOD:
+        printf("  rem t0, t0, t1\n");
+        break;
+    default:
+        assert(false);
+    }
+    push("t0");
+    debug("BINARY END\n");
+}
+
 void gen(NDPtr node) {
     if(!node) 
         return;
     switch (node->kind) {
     case ND_RETURN:
         debug("RETURN\n");
-        gen(node->expr);
+        gen(node->lexpr);
         pop("a0");
         printf("  ret\n");
         return;
@@ -40,25 +71,28 @@ void gen(NDPtr node) {
         push("t0");
         return;
     case ND_NOT:
-        gen(node->expr);
+        debug("NOT\n");
+        gen(node->lexpr);
         pop("t0");
         printf("  seqz t0, t0\n");
         push("t0");
         return;
     case ND_BITNOT:
-        gen(node->expr);
+        debug("BITNOT\n");
+        gen(node->lexpr);
         pop("t0");
         printf("  not t0, t0\n");
         push("t0");
         break;
     case ND_NEG:
-        gen(node->expr);
+        debug("NEG\n");
+        gen(node->lexpr);
         pop("t0");
         printf("  neg t0, t0\n");
         push("t0");
         break;
     default:
-        assert(false);
+        gen_binary(node);
     }
 }
 

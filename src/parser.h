@@ -11,13 +11,18 @@ enum NodeKind{
     ND_NOT,         // Unary !
     ND_BITNOT,      // Unary ~
     ND_NEG,         // Unary -
+    ND_ADD,         // Binary +
+    ND_SUB,         // Binary -
+    ND_MUL,         // Binary *
+    ND_DIV,         // Binary /
+    ND_MOD          // Binary %
 };
 
 struct Node {
     NodeKind kind;
     int val;                        // ND_NUM 的值
-    std::shared_ptr<Node> expr;
-
+    std::shared_ptr<Node> lexpr;    // left expression
+    std::shared_ptr<Node> rexpr;    // right expr, 一个已经不够用了
     TKPtr tok;                      // 为了报错，不做要求，可以忽略
 };
 

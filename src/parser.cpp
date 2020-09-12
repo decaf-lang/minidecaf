@@ -37,7 +37,7 @@ NDPtr new_node(TKPtr tok, NodeKind kind) {
 // 相当于 unary 的构造函数
 NDPtr new_unary(TKPtr tok, NodeKind kind, NDPtr expr) {
     NDPtr node = new_node(tok, kind);
-    node->expr = expr;
+    node->lexpr = expr;
     return node;
 }
 
@@ -49,7 +49,14 @@ NDPtr new_num(TKPtr tok, int val) {
 
 NDPtr new_stmt(TKPtr tok, NodeKind kind, NDPtr expr) {
     NDPtr node = new_node(tok, kind);
-    node->expr = expr;
+    node->lexpr = expr;
+    return node;
+}
+
+NDPtr new_binary(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr) {
+    NDPtr node = new_node(tok, kind);
+    node->lexpr = lexpr;
+    node->rexpr = rexpr;
     return node;
 }
 
@@ -120,19 +127,62 @@ NDPtr num() {
 }
 
 // 对应同名非终结符
-NDPtr unary() {
-    TKPtr tok;
-    if (tok = parse_reserved("-"))
-        return new_unary(tok, ND_NEG, expr());
-    if (tok = parse_reserved("!"))
-        return new_unary(tok, ND_NOT, expr());
-    if (tok = parse_reserved("~"))
-        return new_unary(tok, ND_BITNOT, expr());
+NDPtr primary() {
+    if (parse_reserved("(")) {
+        NDPtr fac = expr();
+        parse_reserved(")");
+        return fac;
+    }
     return num();
 }
 
+// 对应同名非终结符
+NDPtr unary() {
+    TKPtr tok;
+    if (tok = parse_reserved("-"))
+        return new_unary(tok, ND_NEG, unary());
+    if (tok = parse_reserved("!"))
+        return new_unary(tok, ND_NOT, unary());
+    if (tok = parse_reserved("~"))
+        return new_unary(tok, ND_BITNOT, unary());
+    return primary();
+}
+
+// 对应同名非终结符
+NDPtr multiplicative() {
+    TKPtr tok;
+    NDPtr node = unary();
+    while(1) {
+        if (tok = parse_reserved("*"))
+            node = new_binary(tok, ND_MUL, node, unary());
+        else if (tok = parse_reserved("/"))
+            node = new_binary(tok, ND_DIV, node, unary());
+        else if (tok = parse_reserved("%"))
+            node = new_binary(tok, ND_MOD, node, unary());
+        else 
+            break;
+    }
+    return node;
+}
+
+// 对应同名非终结符
+NDPtr additive() {
+    TKPtr tok;
+    NDPtr node = multiplicative();
+    while(1) {
+        if (tok = parse_reserved("+"))
+            node = new_binary(tok, ND_ADD, node, multiplicative());
+        else if (tok = parse_reserved("-"))
+            node = new_binary(tok, ND_SUB, node, multiplicative());
+        else 
+            break;
+    }
+    return node;
+}
+
+// 对应非终结符 expression
 NDPtr expr() {
-    return unary();
+    return additive();
 }
 
 // 对应非终结符 statement
@@ -141,7 +191,7 @@ NDPtr stmt() {
     TKPtr tok;
     if (tok = parse_reserved("return")) {   
         node = new_stmt(tok, ND_RETURN, expr());
-        assert(node->expr);
+        assert(node->lexpr);
         assert(parse_reserved(";"));
         return node;
     }
