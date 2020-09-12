@@ -12,13 +12,13 @@ void debug(const char* fmt, ...) {
         printf(fmt, ap);
 }
 
-void gen_push(const char* reg) {
+void push(const char* reg) {
     debug("PUSH %s\n", reg);
     printf("  addi sp, sp, -%d\n", POINTER_WIDTH);
     printf("  sw %s, 0(sp)\n", reg);
 }
 
-void gen_pop(const char* reg) {
+void pop(const char* reg) {
     debug("POP %s\n", reg);
     printf("  lw %s, 0(sp)\n", reg);
     printf("  addi sp, sp, %d\n", POINTER_WIDTH);
@@ -31,14 +31,32 @@ void gen(NDPtr node) {
     case ND_RETURN:
         debug("RETURN\n");
         gen(node->expr);
-        gen_pop("a0");
+        pop("a0");
         printf("  ret\n");
         return;
     case ND_NUM:
         debug("NUM\n");
         printf("  li t0, %d\n", node->val);
-        gen_push("t0");
+        push("t0");
         return;
+    case ND_NOT:
+        gen(node->expr);
+        pop("t0");
+        printf("  seqz t0, t0\n");
+        push("t0");
+        return;
+    case ND_BITNOT:
+        gen(node->expr);
+        pop("t0");
+        printf("  not t0, t0\n");
+        push("t0");
+        break;
+    case ND_NEG:
+        gen(node->expr);
+        pop("t0");
+        printf("  neg t0, t0\n");
+        push("t0");
+        break;
     default:
         assert(false);
     }

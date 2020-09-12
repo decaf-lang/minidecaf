@@ -34,6 +34,25 @@ NDPtr new_node(TKPtr tok, NodeKind kind) {
     return node;
 }
 
+// 相当于 unary 的构造函数
+NDPtr new_unary(TKPtr tok, NodeKind kind, NDPtr expr) {
+    NDPtr node = new_node(tok, kind);
+    node->expr = expr;
+    return node;
+}
+
+NDPtr new_num(TKPtr tok, int val) {
+    NDPtr node = new_node(tok, ND_NUM);
+    node->val = val;
+    return node;
+}
+
+NDPtr new_stmt(TKPtr tok, NodeKind kind, NDPtr expr) {
+    NDPtr node = new_node(tok, kind);
+    node->expr = expr;
+    return node;
+}
+
 // 判断当前 token 是否为指定保留字
 bool expect_reserved(const char *s) {
     return token_->kind == TK_RESERVED && strlen(s) == token_->len && !strncmp(token_->str, s, token_->len);
@@ -76,6 +95,8 @@ TKPtr parse_ident(char* &name) {
     return last_token();
 }
 
+NDPtr expr();
+
 // 尝试解析一个非终结符，由于目前没有 type system, 返回值仅表示成功或者失败
 // 类似名称的函数与 NodeKind 基本一一对应，与非终结符大致一一对应
 bool type() {
@@ -93,10 +114,25 @@ NDPtr num() {
     TKPtr tok;
     
     if(tok = parse_int_literal(val)) {
-        node = new_node(tok, ND_NUM);
-        node->val = val;
+        node = new_num(tok, val);
     }
     return node;
+}
+
+// 对应同名非终结符
+NDPtr unary() {
+    TKPtr tok;
+    if (tok = parse_reserved("-"))
+        return new_unary(tok, ND_NEG, expr());
+    if (tok = parse_reserved("!"))
+        return new_unary(tok, ND_NOT, expr());
+    if (tok = parse_reserved("~"))
+        return new_unary(tok, ND_BITNOT, expr());
+    return num();
+}
+
+NDPtr expr() {
+    return unary();
 }
 
 // 对应非终结符 statement
@@ -104,8 +140,8 @@ NDPtr stmt() {
     NDPtr node = NULL;
     TKPtr tok;
     if (tok = parse_reserved("return")) {   
-        node = new_node(tok, ND_RETURN);
-        assert(node->expr = num());
+        node = new_stmt(tok, ND_RETURN, expr());
+        assert(node->expr);
         assert(parse_reserved(";"));
         return node;
     }

@@ -8,14 +8,17 @@
 enum NodeKind{
     ND_RETURN,      // Return 语句
     ND_NUM,         // 数字字面量
+    ND_NOT,         // Unary !
+    ND_BITNOT,      // Unary ~
+    ND_NEG,         // Unary -
 };
 
 struct Node {
     NodeKind kind;
-    int val;        // ND_NUM 的值
-    std::shared_ptr<Node> expr; // return 语句的返回值对应的节点
+    int val;                        // ND_NUM 的值
+    std::shared_ptr<Node> expr;
 
-    TKPtr tok;      // 为了报错，不做要求，可以忽略
+    TKPtr tok;                      // 为了报错，不做要求，可以忽略
 };
 
 typedef std::shared_ptr<Node> NDPtr;
