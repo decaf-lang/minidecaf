@@ -13,6 +13,8 @@ static TKPtr token_ = NULL;
 const int POINTER_WIDTH = 4;
 // LOG_2(字长)
 const int POINTER_WIDTH_LOG = 2;
+// 某个函数全部的局部变量
+static std::list<VarPtr> local_vars;
 
 void next_token() {   
     used_toks_.push_back(token_);
@@ -60,6 +62,12 @@ NDPtr new_binary(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr) {
     return node;
 }
 
+NDPtr new_var(TKPtr tok, VarPtr var) {
+    NDPtr node = new_node(tok, ND_VAR);
+    node->var = var;
+    return node;
+}
+
 // 判断当前 token 是否为指定保留字
 bool expect_reserved(const char *s) {
     return token_->kind == TK_RESERVED && strlen(s) == token_->len && !strncmp(token_->str, s, token_->len);
@@ -102,6 +110,16 @@ TKPtr parse_ident(char* &name) {
     return last_token();
 }
 
+VarPtr find_local_var(char* name) {
+    int len = strnlen(name, 1000);
+    for(auto v = local_vars.begin(); v != local_vars.end(); ++v) {
+        VarPtr var = *v;
+        if(strnlen(var->name, 1000) == len && !strncmp(var->name, name, len))
+            return var;
+    }
+    return NULL;
+}
+
 NDPtr expr();
 
 // 尝试解析一个非终结符，由于目前没有 type system, 返回值仅表示成功或者失败
@@ -128,10 +146,15 @@ NDPtr num() {
 
 // 对应同名非终结符
 NDPtr primary() {
+    TKPtr tok;
     if (parse_reserved("(")) {
         NDPtr fac = expr();
         parse_reserved(")");
         return fac;
+    }
+    char* name;
+    if (tok = parse_ident(name)) {
+        return new_var(tok, find_local_var(name));
     }
     return num();
 }
@@ -180,6 +203,7 @@ NDPtr additive() {
     return node;
 }
 
+// 对应同名非终结符
 NDPtr relational() {
     TKPtr tok;
     NDPtr node = additive();
@@ -194,6 +218,7 @@ NDPtr relational() {
     return node;
 }
 
+// 对应同名非终结符
 NDPtr equality() {
     TKPtr tok;
     NDPtr node = relational();
@@ -204,6 +229,7 @@ NDPtr equality() {
     return node;
 }
 
+// 对应同名非终结符
 NDPtr logand() {
     TKPtr tok;
     NDPtr node = equality();
@@ -213,6 +239,7 @@ NDPtr logand() {
     return node;
 }
 
+// 对应同名非终结符
 NDPtr logor() {
     TKPtr tok;
     NDPtr node = logand();
@@ -222,22 +249,65 @@ NDPtr logor() {
     return node;
 }
 
+NDPtr assign() {
+    TKPtr tok;
+    NDPtr node = logor();
+    while(tok = parse_reserved("=")) {
+        node = new_binary(tok, ND_ASSIGN, node, assign());
+    }
+    return node;
+}
 
 NDPtr expr() {
-    return logor();
+    return assign();
+}
+
+void add_local(VarPtr var, TKPtr tok) {
+    if(find_local_var(var->name)) {
+        error_tok(tok, "variable redefined\n");
+    }
+    var->offset = local_vars.size();
+    local_vars.push_front(var);
+}
+
+NDPtr declaration() {
+    TKPtr tok;
+    char* name;
+    // type() 已经在 stmt() 中完成
+    tok = parse_ident(name);
+    VarPtr var = std::make_shared<Var>();
+    var->name = name;
+    var->tok = tok;
+    add_local(var, tok);
+    if (tok = parse_reserved("=")) {
+        var->init = expr();
+    }
+    assert(parse_reserved(";"));
+    NDPtr node = new_stmt(tok, ND_DECL, NULL);
+    node->var = var;
+    return node;
 }
 
 // 对应非终结符 statement
 NDPtr stmt() {
     NDPtr node = NULL;
     TKPtr tok;
+    // Return statement
     if (tok = parse_reserved("return")) {   
         node = new_stmt(tok, ND_RETURN, expr());
         assert(node->lexpr);
         assert(parse_reserved(";"));
         return node;
     }
-    return node;
+    // Local var declaration
+    if (type()) {
+        return declaration();
+    }
+    // Unused expr
+    node = expr();
+    tok = node == NULL ? token_ : node->tok;
+    assert(parse_reserved(";"));
+    return new_stmt(tok, ND_UNUSED_EXPR, node);
 }
 
 // 对应非终结符 function
@@ -254,8 +324,10 @@ FNPtr function() {
 
     // Read function body
     while (!parse_reserved("}")) {
-        fn->nodes.push_back(stmt());
+        fn->stmts.push_back(stmt());
     }
+    fn->locals = std::move(local_vars);
+    fn->stack_size = (fn->locals.size() + 2) * 4;
     return fn;
 }
 

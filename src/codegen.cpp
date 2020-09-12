@@ -4,6 +4,9 @@
 #include "codegen.h"
 
 static bool debug_ = false;
+const char* FUNC_EXIT = "function_exit";
+static FNPtr hot_func;
+static NDPtr last_node;
 
 void debug(const char* fmt, ...) {
     va_list ap;
@@ -22,6 +25,30 @@ void pop(const char* reg) {
     debug("POP %s\n", reg);
     printf("  lw %s, 0(sp)\n", reg);
     printf("  addi sp, sp, %d\n", POINTER_WIDTH);
+}
+
+inline int var_offset(VarPtr var) {
+    return -(3+var->offset);
+}
+
+inline void store(const char* reg, int offset) {
+    printf("  sw %s, %d(fp)\n", reg, offset * POINTER_WIDTH);
+}
+
+inline void load(const char* reg, int offset) {
+    printf("  lw %s, %d(fp)\n", reg, offset * POINTER_WIDTH);
+}
+
+void store_var(const char* reg, VarPtr var) {
+    store(reg, var_offset(var));
+}
+
+void load_var(const char* reg, VarPtr var) {
+    load(reg, var_offset(var));
+}
+
+inline bool check_lvalue(NDPtr node) {
+    return node->kind == ND_VAR;
 }
 
 void gen(NDPtr node);
@@ -83,24 +110,38 @@ void gen(NDPtr node) {
     if(!node) 
         return;
     switch (node->kind) {
+    // Statement
     case ND_RETURN:
         debug("RETURN\n");
         gen(node->lexpr);
         pop("a0");
-        printf("  ret\n");
-        return;
+        printf("  j .L.%s.%s\n", FUNC_EXIT, hot_func->name);
+        break;
+    case ND_DECL:
+        assert(node->var);
+        if(node->var->init) {
+            gen(node->var->init);
+            pop("t0");
+            store_var("t0", node->var);
+        }
+        break;
+    case ND_UNUSED_EXPR:    
+        gen(node->lexpr);
+        pop("t0");
+        break;
+    // Expression
     case ND_NUM:
         debug("NUM\n");
         printf("  li t0, %d\n", node->val);
         push("t0");
-        return;
+        break;
     case ND_NOT:
         debug("NOT\n");
         gen(node->lexpr);
         pop("t0");
         printf("  seqz t0, t0\n");
         push("t0");
-        return;
+        break;
     case ND_BITNOT:
         debug("BITNOT\n");
         gen(node->lexpr);
@@ -115,21 +156,53 @@ void gen(NDPtr node) {
         printf("  neg t0, t0\n");
         push("t0");
         break;
+    case ND_VAR:
+        debug("VAR\n");
+        assert(node->var);
+        load_var("t0", node->var);
+        push("t0");
+        break;
+    case ND_ASSIGN:
+        debug("ASSIGN\n");
+        assert(check_lvalue(node->lexpr));
+        // Left expr must be a variable
+        gen(node->rexpr);
+        pop("t0");
+        store_var("t0", node->lexpr->var);
+        push("t0");
+        break;
     default:
         gen_binary(node);
     }
+    last_node = node;
 }
 
 void gen_text(std::list<FNPtr> &func) {
     printf("  .text\n");
     assert(func.size() == 1);
     for (auto f = func.begin(); f != func.end(); ++f) {
-        FNPtr fn = *f;
+        FNPtr fn = hot_func = *f;
+        last_node = NULL;
         printf("  .global %s\n", fn->name);
         printf("%s:\n", fn->name);
-        // Emit code
-        for (auto n = fn->nodes.begin(); n != fn->nodes.end(); ++n)
+        // Prelogue
+        printf("  addi sp, sp, -%d\n", fn->stack_size);
+        printf("  sw ra, %d-4(sp)\n", fn->stack_size);
+        printf("  sw fp, %d-8(sp)\n", fn->stack_size);
+        printf("  addi fp, sp, %d\n", fn->stack_size);
+
+        for (auto n = fn->stmts.begin(); n != fn->stmts.end(); ++n)
             gen(*n);
+        
+        // Missing return
+        if(!last_node || last_node->kind != ND_RETURN)
+            printf("  li a0, 0\n");
+        // Epilogue
+        printf(".L.%s.%s:\n", FUNC_EXIT, fn->name);
+        printf("  lw fp, %d-8(sp)\n", fn->stack_size);
+        printf("  lw ra, %d-4(sp)\n", fn->stack_size);
+        printf("  addi sp, sp, %d\n", fn->stack_size);
+        printf("  ret\n");
     }
 }
 
