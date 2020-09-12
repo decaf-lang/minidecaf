@@ -13,8 +13,14 @@ static TKPtr token_ = NULL;
 const int POINTER_WIDTH = 4;
 // LOG_2(字长)
 const int POINTER_WIDTH_LOG = 2;
-// 某个函数全部的局部变量
-static std::list<VarPtr> local_vars;
+// 局部变量栈，保存当前存活的局部变量
+static std::list<VarPtr> lvar_stack;
+// 局部变量栈中的变量对应的作用域深度，其实可以和局部变量栈写成一个栈
+static std::list<int> lvar_stack_depth;
+// 局部变量栈曾达到的最大长度
+static int max_stack_size = 0;
+// 当前作用域嵌套的深度
+static int scope_depth = 0;
 
 void next_token() {   
     used_toks_.push_back(token_);
@@ -26,6 +32,18 @@ void next_token() {
 inline TKPtr last_token() {
     assert(!used_toks_.empty());
     return used_toks_.back();
+}
+
+inline void push_scope() {
+    ++scope_depth;
+}
+
+inline void pop_scope() {
+    --scope_depth;
+    while(!lvar_stack.empty() && lvar_stack_depth.front() > scope_depth) {
+        lvar_stack.pop_front();
+        lvar_stack_depth.pop_front();
+    }
 }
 
 // 相当于 Node 的构造函数
@@ -110,14 +128,18 @@ TKPtr parse_ident(char* &name) {
     return last_token();
 }
 
-VarPtr find_local_var(char* name) {
+VarPtr search_varlist(char* name, std::list<VarPtr> &list) {
     int len = strnlen(name, 1000);
-    for(auto v = local_vars.begin(); v != local_vars.end(); ++v) {
+    for(auto v = list.begin(); v != list.end(); ++v) {
         VarPtr var = *v;
         if(strnlen(var->name, 1000) == len && !strncmp(var->name, name, len))
             return var;
     }
     return NULL;
+}   
+
+VarPtr find_local_var(char* name) {
+    return search_varlist(name, lvar_stack);
 }
 
 NDPtr expr();
@@ -275,12 +297,19 @@ NDPtr expr() {
     return assign();
 }
 
+#define max(a, b) (a > b ? a : b)
+
 void add_local(VarPtr var, TKPtr tok) {
-    if(find_local_var(var->name)) {
+    VarPtr v;
+    // 注意更改变量重定义的条件
+    if((v = find_local_var(var->name)) && v->scope_depth == scope_depth) {
         error_tok(tok, "variable redefined\n");
     }
-    var->offset = local_vars.size();
-    local_vars.push_front(var);
+    var->offset = lvar_stack.size();
+    // 注意 push 顺序和查找顺序的对应
+    lvar_stack.push_front(var);
+    lvar_stack_depth.push_front(scope_depth);
+    max_stack_size = max(max_stack_size, lvar_stack.size());
 }
 
 NDPtr declaration() {
@@ -290,6 +319,7 @@ NDPtr declaration() {
     tok = parse_ident(name);
     VarPtr var = std::make_shared<Var>();
     var->name = name;
+    var->scope_depth = scope_depth;
     var->tok = tok;
     add_local(var, tok);
     if (tok = parse_reserved("=")) {
@@ -300,6 +330,8 @@ NDPtr declaration() {
     node->var = var;
     return node;
 }
+
+NDPtr compound_stmt();
 
 // 对应非终结符 statement
 NDPtr stmt() {
@@ -323,6 +355,9 @@ NDPtr stmt() {
             node->els = stmt();
         return node;
     }
+    // Compound stmt
+    if(expect_reserved("{"))
+        return compound_stmt();
     // Unused expr
     node = expr();
     tok = node == NULL ? token_ : node->tok;
@@ -339,6 +374,22 @@ NDPtr block_item() {
     return stmt();
 }
 
+NDPtr compound_stmt() {
+    TKPtr tok;
+    // Compound statement
+    if (tok = parse_reserved("{")) {
+        std::list<NDPtr> block_stmts;
+        push_scope();
+        while (!parse_reserved("}")) {
+            block_stmts.push_back(block_item());
+        }
+        pop_scope();
+        NDPtr node = new_node(tok, ND_BLOCK);
+        node->body = std::move(block_stmts);
+        return node;
+    }
+    return NULL;
+}
 // 对应非终结符 function
 FNPtr function() {
     assert(type());
@@ -349,14 +400,8 @@ FNPtr function() {
 
     assert(parse_reserved("("));
     assert(parse_reserved(")"));
-    assert(parse_reserved("{"));
-
-    // Read function body
-    while (!parse_reserved("}")) {
-        fn->stmts.push_back(block_item());
-    }
-    fn->locals = std::move(local_vars);
-    fn->stack_size = (fn->locals.size() + 2) * 4;
+    fn->stmts = compound_stmt();
+    fn->stack_size = (max_stack_size + 2) * 4;
     return fn;
 }
 

@@ -11,6 +11,7 @@ enum NodeKind{
     ND_DECL,        // Local variable declaration
     ND_UNUSED_EXPR, // Statements := <expr> ";"
     ND_IF,          // If statement
+    ND_BLOCK,       // Block statement
     // Expression
     ND_NUM,         // 数字字面量
     ND_NOT,         // Unary !
@@ -40,8 +41,9 @@ typedef std::shared_ptr<Node> NDPtr;
 
 struct Var {
     char *name;
-    int offset;     // Offset from %fp
+    int offset;         // Offset from %fp
     NDPtr init;
+    int scope_depth;    // 变量声明时所在的作用域深度
     TKPtr tok;
 };
 
@@ -50,21 +52,20 @@ typedef std::shared_ptr<Var> VarPtr;
 struct Node {
     NodeKind kind;
     int val;                        // ND_NUM 的值
-    NDPtr lexpr;                    // left expression
-    NDPtr rexpr;                    // right expr, 一个已经不够用了
+    NDPtr lexpr;                    // Left expression
+    NDPtr rexpr;                    // Right expr, 一个已经不够用了
     VarPtr var;                     // ND_VAR 对应的变量
     TKPtr tok;                      // 为了报错，不做要求，可以忽略
     NDPtr cond;
     NDPtr then;
-    NDPtr els;
+    NDPtr els;                      // 各种条件语句使用
+    std::list<NDPtr> body;          // Compound statement 的子语句
 };
 
 struct Function {
     char *name;
-    // 语句
-    std::list<NDPtr> stmts;
-    // 局部变量，目前没什么用
-    std::list<VarPtr> locals;
+    // 语句, 一个 compound statement
+    NDPtr stmts;
     // 栈帧大小， 目前 = (locals.size()+2) * POINTER_WIDTH
     int stack_size;
 };

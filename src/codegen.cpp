@@ -169,6 +169,10 @@ void gen(NDPtr node) {
         }
         label(EXIT, seq);
         break;
+    case ND_BLOCK:
+        for (auto n = node->body.begin(); n != node->body.end(); ++n)
+            gen(*n);
+        break;
     // Expression
     case ND_NUM:
         debug("NUM\n");
@@ -243,8 +247,7 @@ void gen_text(std::list<FNPtr> &func) {
         printf("  sw fp, %d-8(sp)\n", fn->stack_size);
         printf("  addi fp, sp, %d\n", fn->stack_size);
 
-        for (auto n = fn->stmts.begin(); n != fn->stmts.end(); ++n)
-            gen(*n);
+        gen(fn->stmts);
         
         // Missing return
         if(!last_node || last_node->kind != ND_RETURN)
