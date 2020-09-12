@@ -48,6 +48,30 @@ void gen_binary(NDPtr node) {
     case ND_MOD:
         printf("  rem t0, t0, t1\n");
         break;
+    case ND_LT:
+        printf("  slt t0, t0, t1\n");
+        break;        
+    case ND_LTE:
+        printf("  sgt t0, t0, t1\n");
+        printf("  seqz t0, t0\n");
+        break;        
+    case ND_EQ:
+        printf("  sub t0, t0, t1\n");
+        printf("  seqz t0, t0\n");
+        break;        
+    case ND_NEQ: 
+        printf("  sub t0, t0, t1\n");
+        printf("  snez t0, t0\n");
+        break;       
+    case ND_LOGAND:
+        printf("  snez t0, t0\n");
+        printf("  snez t1, t1\n");
+        printf("  and t0, t0, t1\n");
+        break;
+    case ND_LOGOR:
+        printf("  or t0, t0, t1\n");
+        printf("  snez t0, t0\n");
+        break;
     default:
         assert(false);
     }

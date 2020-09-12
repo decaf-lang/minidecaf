@@ -180,9 +180,51 @@ NDPtr additive() {
     return node;
 }
 
-// 对应非终结符 expression
+NDPtr relational() {
+    TKPtr tok;
+    NDPtr node = additive();
+    if (tok = parse_reserved(">"))
+        return new_binary(tok, ND_LT, additive(), node);
+    if (tok = parse_reserved(">="))
+        return new_binary(tok, ND_LTE, additive(), node);
+    if (tok = parse_reserved("<"))
+        return new_binary(tok, ND_LT, node, additive());
+    if (tok = parse_reserved("<="))
+        return new_binary(tok, ND_LTE, node, additive());
+    return node;
+}
+
+NDPtr equality() {
+    TKPtr tok;
+    NDPtr node = relational();
+    if (tok = parse_reserved("=="))
+        return new_binary(tok, ND_EQ, node, relational());
+    if (tok = parse_reserved("!="))
+        return new_binary(tok, ND_NEQ, node, relational());
+    return node;
+}
+
+NDPtr logand() {
+    TKPtr tok;
+    NDPtr node = equality();
+    while(tok = parse_reserved("&&")) {
+        node = new_binary(tok, ND_LOGAND, node, equality());
+    }
+    return node;
+}
+
+NDPtr logor() {
+    TKPtr tok;
+    NDPtr node = logand();
+    while(tok = parse_reserved("||")) {
+        node = new_binary(tok, ND_LOGOR, node, logand());
+    }
+    return node;
+}
+
+
 NDPtr expr() {
-    return additive();
+    return logor();
 }
 
 // 对应非终结符 statement

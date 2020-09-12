@@ -15,7 +15,15 @@ enum NodeKind{
     ND_SUB,         // Binary -
     ND_MUL,         // Binary *
     ND_DIV,         // Binary /
-    ND_MOD          // Binary %
+    ND_MOD,         // Binary %
+    // ND_GT,       // Binary >     // 为啥被注释了？
+    // ND_GTE,      // Binary >=
+    ND_LT,          // Binary <
+    ND_LTE,         // Binary <=
+    ND_EQ,          // Binary ==
+    ND_NEQ,         // Binary !=
+    ND_LOGAND,      // Binary &&
+    ND_LOGOR,       // Binary ||
 };
 
 struct Node {
