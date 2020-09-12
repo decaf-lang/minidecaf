@@ -10,6 +10,7 @@ enum NodeKind{
     ND_RETURN,      // Return statement
     ND_DECL,        // Local variable declaration
     ND_UNUSED_EXPR, // Statements := <expr> ";"
+    ND_IF,          // If statement
     // Expression
     ND_NUM,         // 数字字面量
     ND_NOT,         // Unary !
@@ -30,6 +31,7 @@ enum NodeKind{
     ND_LOGOR,       // Binary ||
     ND_VAR,         // Local variable
     ND_ASSIGN,      // Binary =
+    ND_TERNARY      // Ternary a ? b : c
 };
 
 struct Node;
@@ -52,6 +54,9 @@ struct Node {
     NDPtr rexpr;                    // right expr, 一个已经不够用了
     VarPtr var;                     // ND_VAR 对应的变量
     TKPtr tok;                      // 为了报错，不做要求，可以忽略
+    NDPtr cond;
+    NDPtr then;
+    NDPtr els;
 };
 
 struct Function {

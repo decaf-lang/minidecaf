@@ -5,8 +5,12 @@
 
 static bool debug_ = false;
 const char* FUNC_EXIT = "function_exit";
+const char* ELSE = "else";
+const char* THEN = "then";
+const char* EXIT = "exit";
 static FNPtr hot_func;
 static NDPtr last_node;
+static int label_seq;
 
 void debug(const char* fmt, ...) {
     va_list ap;
@@ -45,6 +49,22 @@ void store_var(const char* reg, VarPtr var) {
 
 void load_var(const char* reg, VarPtr var) {
     load(reg, var_offset(var));
+}
+
+inline void label(const char* type, int seq) {
+    printf(".L.%s.%d:\n", type, seq);
+}
+
+inline void jmp(const char* type, int seq) {
+    printf("  j .L.%s.%d\n", type, seq);
+}
+
+inline void beqz(const char* reg, const char* type, int seq) {
+    printf("  beqz %s, .L.%s.%d\n", reg, type, seq);
+}
+
+inline void bnez(const char* reg, const char* type, int seq) {
+    printf("  bnez %s, .L.%s.%d\n", reg, type, seq);
 }
 
 inline bool check_lvalue(NDPtr node) {
@@ -109,6 +129,7 @@ void gen_binary(NDPtr node) {
 void gen(NDPtr node) {
     if(!node) 
         return;
+    int seq;
     switch (node->kind) {
     // Statement
     case ND_RETURN:
@@ -118,6 +139,7 @@ void gen(NDPtr node) {
         printf("  j .L.%s.%s\n", FUNC_EXIT, hot_func->name);
         break;
     case ND_DECL:
+        debug("DECL\n");
         assert(node->var);
         if(node->var->init) {
             gen(node->var->init);
@@ -126,8 +148,26 @@ void gen(NDPtr node) {
         }
         break;
     case ND_UNUSED_EXPR:    
+        debug("UNUSED\n");
         gen(node->lexpr);
         pop("t0");
+        break;
+    case ND_IF: 
+        debug("ND_IF");
+        seq = label_seq++;
+        gen(node->cond);
+        pop("t0");
+        if (node->els) {
+            beqz("t0", ELSE, seq);
+            gen(node->then);
+            jmp(EXIT, seq);
+            label(ELSE, seq);
+            gen(node->els);
+        } else {
+            beqz("t0", EXIT, seq);
+            gen(node->then);
+        }
+        label(EXIT, seq);
         break;
     // Expression
     case ND_NUM:
@@ -170,6 +210,18 @@ void gen(NDPtr node) {
         pop("t0");
         store_var("t0", node->lexpr->var);
         push("t0");
+        break;
+    case ND_TERNARY:
+        debug("TERNARY\n");
+        seq = label_seq++;
+        gen(node->cond);
+        pop("t0");
+        beqz("t0", ELSE, seq);
+        gen(node->then);
+        jmp(EXIT, seq);
+        label(ELSE, seq);
+        gen(node->els);
+        label(EXIT, seq);
         break;
     default:
         gen_binary(node);

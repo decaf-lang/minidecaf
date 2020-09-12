@@ -249,9 +249,22 @@ NDPtr logor() {
     return node;
 }
 
-NDPtr assign() {
+NDPtr conditional() {
     TKPtr tok;
     NDPtr node = logor();
+    if(!(tok = parse_reserved("?")))
+        return node;
+    NDPtr tern = new_node(tok, ND_TERNARY);
+    tern->cond = node;
+    tern->then = expr();
+    assert(parse_reserved(":"));
+    tern->els = conditional();
+    return tern;
+}
+
+NDPtr assign() {
+    TKPtr tok;
+    NDPtr node = conditional();
     while(tok = parse_reserved("=")) {
         node = new_binary(tok, ND_ASSIGN, node, assign());
     }
@@ -299,15 +312,31 @@ NDPtr stmt() {
         assert(parse_reserved(";"));
         return node;
     }
-    // Local var declaration
-    if (type()) {
-        return declaration();
+    // IF statement
+    if (tok = parse_reserved("if")) {
+        assert(parse_reserved("("));
+        node = new_node(tok, ND_IF);
+        node->cond = expr();
+        assert(parse_reserved(")"));
+        node->then = stmt();
+        if(parse_reserved("else"))
+            node->els = stmt();
+        return node;
     }
     // Unused expr
     node = expr();
     tok = node == NULL ? token_ : node->tok;
     assert(parse_reserved(";"));
     return new_stmt(tok, ND_UNUSED_EXPR, node);
+}
+
+// 对应非终结符 statement
+NDPtr block_item() {
+    // Local var declaration
+    if (type()) {
+        return declaration();
+    }
+    return stmt();
 }
 
 // 对应非终结符 function
@@ -324,7 +353,7 @@ FNPtr function() {
 
     // Read function body
     while (!parse_reserved("}")) {
-        fn->stmts.push_back(stmt());
+        fn->stmts.push_back(block_item());
     }
     fn->locals = std::move(local_vars);
     fn->stack_size = (fn->locals.size() + 2) * 4;
