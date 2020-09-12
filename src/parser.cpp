@@ -315,7 +315,7 @@ void add_local(VarPtr var, TKPtr tok) {
 NDPtr declaration() {
     TKPtr tok;
     char* name;
-    // type() 已经在 stmt() 中完成
+    // type() 必须在之前完成
     tok = parse_ident(name);
     VarPtr var = std::make_shared<Var>();
     var->name = name;
@@ -332,6 +332,7 @@ NDPtr declaration() {
 }
 
 NDPtr compound_stmt();
+NDPtr block_item();
 
 // 对应非终结符 statement
 NDPtr stmt() {
@@ -358,10 +359,70 @@ NDPtr stmt() {
     // Compound stmt
     if(expect_reserved("{"))
         return compound_stmt();
+    // For statement
+    if (tok = parse_reserved("for")) {
+        NDPtr node = new_node(tok, ND_FOR);
+        assert(parse_reserved("("));
+        push_scope();
+        if(type())
+            node->init = declaration();
+        else {
+            // assign 语句是比较容易出错的一个语句，如果有不使用的 expr，一定要使用 UNUSED_EXPR 包装
+            node->init = new_stmt(tok, ND_UNUSED_EXPR, expr());
+            assert(parse_reserved(";"));
+        }
+        if (!parse_reserved(";")) {
+            node->cond = expr();
+            assert(parse_reserved(";"));
+        }
+        if (!parse_reserved(")")) {
+            // 使用 UNUSED_EXPR 包装，弹出无用的值
+            NDPtr inc = expr();
+            node->inc = new_stmt(inc->tok, ND_UNUSED_EXPR, inc);
+            assert(parse_reserved(")"));
+        }
+        push_scope();
+        node->then = stmt();
+        pop_scope();
+        pop_scope();
+        return node;
+    }
+    // do-while statement
+    if (tok = parse_reserved("do")) {
+        NDPtr node = new_node(tok, ND_DOWHILE);
+        node->then = stmt();
+        assert(parse_reserved("while"));
+        assert(parse_reserved("("));
+        node->cond = expr();
+        assert(parse_reserved(")"));
+        assert(parse_reserved(";"));
+        return node;
+    }
+    // while-do statement
+    if (tok = parse_reserved("while")) {
+        NDPtr node = new_node(tok, ND_WHILEDO);
+        assert(parse_reserved("("));
+        node->cond = expr();
+        assert(parse_reserved(")"));
+        node->then = stmt();
+        return node;
+    }
+    // Break
+    if (tok = parse_reserved("break")) {
+        assert(parse_reserved(";"));
+        return new_node(tok, ND_BREAK);
+    }
+    // Continue
+    if (tok = parse_reserved("continue")) {
+        assert(parse_reserved(";"));
+        return new_node(tok, ND_CONTINUE);
+    }
     // Unused expr
     node = expr();
     tok = node == NULL ? token_ : node->tok;
-    assert(parse_reserved(";"));
+    if(!parse_reserved(";")) {
+        error_tok(tok, "unknown error\n");
+    }
     return new_stmt(tok, ND_UNUSED_EXPR, node);
 }
 

@@ -20,7 +20,7 @@ statement
     | 'if' '(' expression ')' statement ('else' statement)?
     | compound_statement
     | 'for' '(' expression? ';' expression? ';' expression? ')' statement
-    | 'for' '(' declaration expression? ';' expression? ')' statement
+    | 'for' '(' declaration ';' expression? ';' expression? ')' statement
     | 'while' '(' expression ')' statement
     | 'do' statement 'while' '(' expression ')' ';'
     | 'break' ';'

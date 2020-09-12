@@ -33,7 +33,7 @@ bool is_alnum(char c) {
 // 暴力比较是否为保留字
 const char* read_reserved(char *p) {
     // Keyword
-    static const char *kw[] = {"return", "int", "if", "else"};
+    static const char *kw[] = {"return", "int", "if", "else", "for", "do", "while", "break", "continue"};
 
     for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
         int len = strlen(kw[i]);

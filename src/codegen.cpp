@@ -8,9 +8,11 @@ const char* FUNC_EXIT = "function_exit";
 const char* ELSE = "else";
 const char* THEN = "then";
 const char* EXIT = "exit";
+const char* BEGIN = "begin";
+const char* CONTINUE = "continue";
 static FNPtr hot_func;
 static NDPtr last_node;
-static int label_seq;
+static int label_seq, brk_seq, cont_seq;
 
 void debug(const char* fmt, ...) {
     va_list ap;
@@ -129,7 +131,7 @@ void gen_binary(NDPtr node) {
 void gen(NDPtr node) {
     if(!node) 
         return;
-    int seq;
+    int seq, brk, cont;
     switch (node->kind) {
     // Statement
     case ND_RETURN:
@@ -149,8 +151,10 @@ void gen(NDPtr node) {
         break;
     case ND_UNUSED_EXPR:    
         debug("UNUSED\n");
-        gen(node->lexpr);
-        pop("t0");
+        if(node->lexpr) {
+            gen(node->lexpr);
+            pop("t0");
+        }
         break;
     case ND_IF: 
         debug("ND_IF");
@@ -172,6 +176,72 @@ void gen(NDPtr node) {
     case ND_BLOCK:
         for (auto n = node->body.begin(); n != node->body.end(); ++n)
             gen(*n);
+        break;
+    case ND_FOR:
+        seq = label_seq++;
+        // 使用局部变量备份　brk_seq, cont_seq, 便于后续恢复
+        brk = brk_seq;
+        cont = cont_seq;
+        // brk_seq／cont_seq　总表示当前 break/continue 语句需要跳转到的序号
+        // 在进入一个需要处理 break/continue 的结构时，需要更新。在上一步做了备份。
+        brk_seq = cont_seq = seq;
+        // 约定 for 语句结构如下
+        // for (<init>; <condition>; <inc>)
+        //     <statement>
+        gen(node->init);
+        // begin label，位于判断之前，inc 之后回到这里
+        label(BEGIN, seq);
+        // 如果没有条件语句，直接跳过这一部分，相当于 true
+        if (node->cond) {
+            gen(node->cond);
+            pop("t0");
+            // 判断为否则跳转到出口
+            beqz("t0", EXIT, seq);
+        }
+        gen(node->then);
+        // continue label, 位于 inc 语句之前, continue 跳转到这里
+        label(CONTINUE, seq);
+        if (node->inc)
+            gen(node->inc);
+        jmp(BEGIN, seq);
+        label(EXIT, seq);
+        // 恢复　brk_seq, cont_seq，使其仍表示当前 break/continue 语句需要跳转到的序号
+        brk_seq = brk;
+        cont_seq = cont;
+        break;
+    case ND_WHILEDO:
+        seq = label_seq++;
+        brk = brk_seq;
+        cont = cont_seq;
+        brk_seq = cont_seq = seq;
+        label(CONTINUE, seq);
+        gen(node->cond);
+        pop("t0");
+        beqz("t0", EXIT, seq);
+        gen(node->then);
+        jmp(CONTINUE, seq);
+        label(EXIT, seq);
+        brk_seq = brk;
+        cont_seq = cont;
+        break;
+    case ND_DOWHILE:
+        seq = label_seq++;
+        brk = brk_seq;
+        cont = cont_seq;
+        brk_seq = cont_seq = seq;
+        label(CONTINUE, seq);
+        gen(node->then);
+        gen(node->cond);
+        pop("t0");
+        bnez("t0", CONTINUE, seq);
+        brk_seq = brk;
+        cont_seq = cont;
+        break;
+    case ND_BREAK:
+        jmp(EXIT, brk_seq);
+        break;
+    case ND_CONTINUE:
+        jmp(CONTINUE, cont_seq);
         break;
     // Expression
     case ND_NUM:

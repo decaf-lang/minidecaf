@@ -12,6 +12,11 @@ enum NodeKind{
     ND_UNUSED_EXPR, // Statements := <expr> ";"
     ND_IF,          // If statement
     ND_BLOCK,       // Block statement
+    ND_FOR,         // For statement
+    ND_DOWHILE,     // Do-while statement
+    ND_WHILEDO,     // While-do statement
+    ND_BREAK,       // Break statement
+    ND_CONTINUE,    // Continue statement
     // Expression
     ND_NUM,         // 数字字面量
     ND_NOT,         // Unary !
@@ -58,7 +63,9 @@ struct Node {
     TKPtr tok;                      // 为了报错，不做要求，可以忽略
     NDPtr cond;
     NDPtr then;
-    NDPtr els;                      // 各种条件语句使用
+    NDPtr els;                      // 各种条件语句、循环语句使用
+    NDPtr init;
+    NDPtr inc;                      // For 循环使用
     std::list<NDPtr> body;          // Compound statement 的子语句
 };
 
