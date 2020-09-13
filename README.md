@@ -21,7 +21,6 @@
   - `pip install antlr4-python3-runtime`
   - 或者 `pip install -r minidecaf/requirements.txt`
 
-
 # 用法
 ```
 # 运行编译，生成源代码（默认 i.c）对应的汇编（默认 o.s）
@@ -32,6 +31,10 @@ make cst [i=i.c]
 ```
 
 # 常见问题
+## 运行测例 minidecaf-tests 不通过
+1. 改 `gen_asm` 了嘛？
+2. 运行测例之前，先在本项目下 `make grammar-py`
+
 ## 没找到 python
 ```
 make: python: Command not found
