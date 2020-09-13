@@ -14,6 +14,8 @@
   - ubuntu 下安装命令是 `sudo apt install python3-pip`
 
 * ANTLR 工具：按照 https://www.antlr.org/ 的 Quick Start 安装即可
+  - 因为网络原因可能 Quick Start 那块加载不出来，那么请看[实验指导书](https://decaf-lang.github.io/minidecaf-tutorial/docs/lab1/part2.html)的截图。
+  - 如果你没有完全按照官网指导把 antlr 的 jar 放到系统目录，你还需要在 `~/.bashrc`（或 `~/.zshrc`）中 `export ANTLR_JAR=/path/to/your/antlr.jar`。
 
 * Python 的 ANTLR API：
   - `pip install antlr4-python3-runtime`
@@ -28,6 +30,33 @@ make [i=i.c] [o=o.s]
 # 显示源代码的具体语法树
 make cst [i=i.c]
 ```
+
+# 常见问题
+## 没找到 python
+```
+make: python: Command not found
+```
+
+先确认你安装了 python 3：
+```
+$ python3 -V
+Python 3.8.2
+```
+
+然后
+```
+$ sudo ln -s /usr/bin/python3 /usr/bin/python
+$ make
+cd minidecaf && java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
+python -m minidecaf  i.c o.s
+riscv64-unknown-elf-gcc  -march=rv32im -mabi=ilp32 o.s
+qemu-riscv32 a.out ; echo $?
+233
+```
+
+## No such file or directory: 'i.c'
+你得自己建立 `i.c` 文件，内容是你的输入 MiniDecaf 程序。
+
 
 # 代码结构
 多遍编译器，支持输出中间结果。pass 有：
@@ -47,3 +76,4 @@ make cst [i=i.c]
 
 * asmgen：从 IR 生成汇编
   - `make asm` 然后看 `o.s`（或者 `make o=OUTFILE` 的输出文件）
+
