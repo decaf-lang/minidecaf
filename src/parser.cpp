@@ -25,6 +25,8 @@ static int scope_depth = 0;
 FNPtr hot_func = NULL;
 // 记录已经声明的函数
 static std::list<FNPtr> funcs;
+// 记录全局变量
+static std::list<VarPtr> global_vars;
 
 void next_token() {   
     used_toks_.push_back(token_);
@@ -150,6 +152,17 @@ VarPtr find_local_var(char* name) {
     return search_varlist(name, hot_func->args);
 }
 
+VarPtr find_global_var(char* name) {
+    return search_varlist(name, global_vars);
+}
+
+VarPtr find_var(char* name) {
+    VarPtr var;
+    if(var = find_local_var(name))
+        return var;
+    return find_global_var(name);
+}
+
 FNPtr find_func(char* name) {
     int len = strnlen(name, 1000);
     // 其实查找顺序无所谓，目前不支持局部函数
@@ -171,7 +184,6 @@ bool type() {
     }
     return false;
 }
-
 
 // 对应 Integer，返回一个 TK_NUM 的节点
 NDPtr num() {
@@ -220,7 +232,7 @@ NDPtr primary() {
             assert(fn->args.size() == node->func_call->args.size());
             return node;
         }
-        return new_var(tok, find_local_var(name));
+        return new_var(tok, find_var(name));
     }
     return num();
 }
@@ -530,12 +542,12 @@ FNPtr add_func(FNPtr func) {
 }
 
 // 对应非终结符 function
-FNPtr function() {
-    assert(type());
-    char *name;
-    assert(parse_ident(name));
+FNPtr function(char* name, TKPtr tok) {
+    // type()
+    // parse_ident() 已经在外部完成
     FNPtr fn = std::make_shared<Function>();
     fn->name = name;
+    fn->tok = tok;
     // 解析函数参数
     decl_func_args(fn->args);
     FNPtr f;
@@ -564,21 +576,52 @@ FNPtr function() {
     return fn;
 }
 
+bool is_func() {
+    // 判断是函数还是全局变量：看 ident 之后是否紧跟 '('
+    return expect_reserved("(");
+}
+
+VarPtr global_var(char* name, TKPtr tok) {
+    // 不允许重定义
+    assert(find_global_var(name) == NULL);
+    VarPtr gvar = std::make_shared<Var>();
+    gvar->name = name;
+    gvar->tok = tok;
+    gvar->is_global = true;
+    // 全局变量只允许使用字面量优化
+    if(parse_reserved("=")) {
+        gvar->init = num();
+    }
+    assert(parse_reserved(";"));
+    return gvar;
+}
+
 // 顶层解析函数，其实也对应 program 的解析 
 Program* parsing(std::list<TKPtr>* tokens) {
     toks_ = tokens;
     next_token();
     Program* prog = new Program();
+    TKPtr tok;
     while (token_->kind != TK_EOF) {
-        FNPtr fn = function();
-        // 遇到声明先不加入函数列表
-        if(!fn)
-            continue;
-        prog->funcs.push_back(fn);
-        assert(scope_depth == 0);
-        lvar_stack.clear();
-        max_stack_size = 0;
-        hot_func = NULL;
+        assert(type());
+        char *name;
+        assert(tok = parse_ident(name));
+        if(is_func()) {
+            FNPtr fn = function(name, tok);
+            // 遇到声明先不加入函数列表
+            if(!fn)
+                continue;
+            prog->funcs.push_back(fn);
+            assert(scope_depth == 0);
+            lvar_stack.clear();
+            lvar_stack_depth.clear();
+            max_stack_size = 0;
+            hot_func = NULL;
+        } else {
+            VarPtr gvar = global_var(name, tok);
+            global_vars.push_back(gvar);
+        }
     }
+    prog->gvars = std::move(global_vars);
     return prog;
 }

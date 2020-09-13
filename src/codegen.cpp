@@ -47,11 +47,25 @@ inline void load(const char* reg, int offset) {
 }
 
 void store_var(const char* reg, VarPtr var) {
-    store(reg, var_offset(var));
+    assert(strncmp("t2", reg, 2));
+    if(var->is_global) {
+        printf("  lui t2, %%hi(%s)\n", var->name);
+        printf("  sw %s, %%lo(%s)(t2)\n", reg, var->name);
+    }
+    else {
+        store(reg, var_offset(var));
+    }
 }
 
 void load_var(const char* reg, VarPtr var) {
-    load(reg, var_offset(var));
+    assert(strncmp("t2", reg, 2));
+    if(var->is_global) {
+        printf("  lui t2, %%hi(%s)\n", var->name);
+        printf("  lw %s, %%lo(%s)(t2)\n", reg, var->name);
+    }
+    else {
+        load(reg, var_offset(var));
+    }
 }
 
 inline void label(const char* type, int seq) {
@@ -357,7 +371,22 @@ void gen_text(std::list<FNPtr> &func) {
     }
 }
 
+void gen_data(std::list<VarPtr> &gvars) {
+    printf("  .data\n");
+    for(auto v = gvars.begin(); v != gvars.end(); ++v) {
+        VarPtr var = *v;
+        printf("  .globl %s\n", var->name);
+        printf("  .align %d\n", 2);
+        printf("%s:\n", var->name);
+        if(var->init)
+            printf("  .word %d\n", var->init->val);
+        else
+            printf("  .word %d\n", 0);
+    }
+}
+
 void codegen(Program* prog, bool debug) {
     debug_ = debug;
+    gen_data(prog->gvars);
     gen_text(prog->funcs);
 }

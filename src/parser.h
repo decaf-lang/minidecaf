@@ -50,7 +50,8 @@ struct Var {
     int offset;         // Offset from %fp
     NDPtr init;
     int scope_depth;    // 变量声明时所在的作用域深度
-    bool is_arg;        // 函数参数还是局部变量
+    bool is_arg;        // 是否为函数参数
+    bool is_global;     // 是否为局部变量
     TKPtr tok;
 };
 
@@ -87,12 +88,15 @@ struct Function {
     std::list<VarPtr> args;
     // 是一个声明还是包含完整定义
     bool is_complete;
+
+    TKPtr tok;
 };
 
 typedef std::shared_ptr<Function> FNPtr;
 
 struct Program {
     std::list<FNPtr> funcs;
+    std::list<VarPtr> gvars;
 };
 
 Program* parsing(std::list<TKPtr>* toks);
