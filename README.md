@@ -2,6 +2,13 @@
 
 ------------------------------------------------------------------------------
 
+# 网页部署
+很简单
+
+1. 使用已经有的 brython master 的 `brython.js` 和 `brython_stdlib.js`。
+2. 直接复制 `minidecaf/minidecaf` 到 `minidecaf-web/Lib/site-packages/minidecaf`
+3. 适当修改 `MiniDecafParser.py`（似乎 brython 还没有修好 bug）
+
 # 环境配置
 * OS: *nix（Mac 或 Linux）
 

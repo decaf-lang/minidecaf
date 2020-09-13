@@ -50,6 +50,7 @@ usage: grammar-py
 
 grammar-py:
 	cd minidecaf && java -jar $(ANTLR_JAR) -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
+	echo >minidecaf/generated/__init__.py -n "from .MiniDecafLexer import MiniDecafLexer\nfrom .MiniDecafParser import MiniDecafParser\nfrom .MiniDecafVisitor import MiniDecafVisitor"
 
 grammar-java:
 	cd minidecaf && java -jar $(ANTLR_JAR) -o ../generated MiniDecaf.g4
