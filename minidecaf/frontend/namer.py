@@ -184,10 +184,11 @@ class Namer(MiniDecafVisitor):
             raise MiniDecafLocatedError(f"redefinition of function {func}")
         funcNameInfo = FuncNameInfo(hasDef=True)
         self._curFuncNameInfo = self.nameInfo.funcs[func] = funcNameInfo
-        self.enterScope(ctx)
+        self.enterScope(ctx.block())
         ctx.paramList().accept(self)
-        ctx.block().accept(self)
-        self.exitScope(ctx)
+        # skip the enter/exitScope of the block because we've already done it.
+        self.visitChildren(ctx.block())
+        self.exitScope(ctx.block())
         self._curFuncNameInfo = None
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
