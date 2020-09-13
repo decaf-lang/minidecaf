@@ -22,6 +22,8 @@ enum NodeKind{
     ND_NOT,         // Unary !
     ND_BITNOT,      // Unary ~
     ND_NEG,         // Unary -
+    ND_REF,         // Unary &
+    ND_DEREF,       // Unary *
     ND_ADD,         // Binary +
     ND_SUB,         // Binary -
     ND_MUL,         // Binary *
@@ -39,6 +41,7 @@ enum NodeKind{
     ND_ASSIGN,      // Binary =
     ND_TERNARY,     // Ternary a ? b : c
     ND_FUNC_CALL,   // Function call
+    ND_TYPE_CAST,   // Type cast
 };
 
 struct Node;
@@ -47,6 +50,7 @@ typedef std::shared_ptr<Node> NDPtr;
 
 struct Var {
     char *name;
+    TYPtr type;
     int offset;         // Offset from %fp
     NDPtr init;
     int scope_depth;    // 变量声明时所在的作用域深度
@@ -76,6 +80,7 @@ struct Node {
     NDPtr inc;                      // For 循环使用
     std::list<NDPtr> body;          // Compound statement 的子语句
     std::shared_ptr<FuncCall> func_call;
+    TYPtr type;                     // 节点的类型是类型检查的关键
 };
 
 struct Function {
@@ -88,7 +93,7 @@ struct Function {
     std::list<VarPtr> args;
     // 是一个声明还是包含完整定义
     bool is_complete;
-
+    TYPtr ret_type;
     TKPtr tok;
 };
 

@@ -3,6 +3,7 @@
 
 #include <list>
 #include <memory>
+#include "type.h"
 
 enum TokenKind {
     TK_RESERVED, // 保留字与符号

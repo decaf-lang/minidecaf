@@ -38,34 +38,13 @@ inline int var_offset(VarPtr var) {
     return var->is_arg ? var->offset : -(var->offset + 3);
 }
 
-inline void store(const char* reg, int offset) {
-    printf("  sw %s, %d(fp)\n", reg, offset * POINTER_WIDTH);
+// 注意这里不再以 fp 为基准
+inline void store(const char* src, const char* addr) {
+    printf("  sw %s, 0(%s)\n", src, addr);
 }
 
-inline void load(const char* reg, int offset) {
-    printf("  lw %s, %d(fp)\n", reg, offset * POINTER_WIDTH);
-}
-
-void store_var(const char* reg, VarPtr var) {
-    assert(strncmp("t2", reg, 2));
-    if(var->is_global) {
-        printf("  lui t2, %%hi(%s)\n", var->name);
-        printf("  sw %s, %%lo(%s)(t2)\n", reg, var->name);
-    }
-    else {
-        store(reg, var_offset(var));
-    }
-}
-
-void load_var(const char* reg, VarPtr var) {
-    assert(strncmp("t2", reg, 2));
-    if(var->is_global) {
-        printf("  lui t2, %%hi(%s)\n", var->name);
-        printf("  lw %s, %%lo(%s)(t2)\n", reg, var->name);
-    }
-    else {
-        load(reg, var_offset(var));
-    }
+inline void load(const char* src, const char* addr) {
+    printf("  lw %s, 0(%s)\n", src, addr);
 }
 
 inline void label(const char* type, int seq) {
@@ -84,11 +63,38 @@ inline void bnez(const char* reg, const char* type, int seq) {
     printf("  bnez %s, .L.%s.%d\n", reg, type, seq);
 }
 
-inline bool check_lvalue(NDPtr node) {
-    return node->kind == ND_VAR;
+bool lvalue_check(NDPtr node) {
+    return node && (node->kind == ND_VAR || node->kind == ND_DEREF);
 }
 
 void gen(NDPtr node);
+
+void gen_addr(NDPtr node) {
+    VarPtr var;
+    switch (node->kind)
+    {
+    case ND_DECL:
+    case ND_VAR:
+        var = node->var;
+        if(var->is_global) {
+            printf("  lui t1, %%hi(%s)\n", var->name);
+            printf("  addi t0, t1, %%lo(%s)\n", var->name);
+        } else {
+            printf("  addi t0, fp, %d\n", var_offset(var) * POINTER_WIDTH);
+        }
+        push("t0");
+        break;
+    case ND_DEREF:
+        gen(node->lexpr);
+        break;
+    // 一般而言，type-cast 不影响汇编实际行为
+    case ND_TYPE_CAST:
+        gen_addr(node->lexpr);
+        break;
+    default:
+        assert(false);
+    }
+}
 
 void gen_binary(NDPtr node) {
     debug("BINARY\n");
@@ -158,9 +164,12 @@ void gen(NDPtr node) {
         debug("DECL\n");
         assert(node->var);
         if(node->var->init) {
+            // 赋值的方式完全变了
+            gen_addr(node);
             gen(node->var->init);
             pop("t0");
-            store_var("t0", node->var);
+            pop("t1");
+            store("t0", "t1");
         }
         break;
     case ND_UNUSED_EXPR:    
@@ -290,19 +299,20 @@ void gen(NDPtr node) {
         push("t0");
         break;
     case ND_VAR:
-        debug("VAR\n");
         assert(node->var);
-        load_var("t0", node->var);
-        push("t0");
+        gen_addr(node);
+        pop("t0");
+        load("t1", "t0");
+        push("t1");
         break;
     case ND_ASSIGN:
-        debug("ASSIGN\n");
-        assert(check_lvalue(node->lexpr));
-        // Left expr must be a variable
+        assert(lvalue_check(node->lexpr));
         gen(node->rexpr);
+        gen_addr(node->lexpr);
         pop("t0");
-        store_var("t0", node->lexpr->var);
-        push("t0");
+        pop("t1");
+        store("t1", "t0");
+        push("t1");
         break;
     case ND_TERNARY: {
         debug("TERNARY\n");
@@ -317,6 +327,15 @@ void gen(NDPtr node) {
         label(EXIT, seq);
         break;
     }
+    case ND_REF:
+        gen_addr(node->lexpr);
+        break;
+    case ND_DEREF:
+        gen(node->lexpr);
+        pop("t0");
+        load("t1", "t0");
+        push("t1");
+        break;
     case ND_FUNC_CALL: {
         debug("FUNC CALL\n");
         assert(node->func_call);
@@ -336,6 +355,10 @@ void gen(NDPtr node) {
         push("a0");
         break;
     }
+    // 一般而言，type-cast 不影响汇编实际行为
+    case ND_TYPE_CAST:
+        gen(node->lexpr);
+        break;
     default:
         gen_binary(node);
     }
