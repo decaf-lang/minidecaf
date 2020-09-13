@@ -24,7 +24,6 @@ ty
 
 stmt
     : 'return' expr ';' # returnStmt
-    | decl ';' # declStmt
     | expr ';' # exprStmt
     | ';' # nullStmt
     | 'if' '(' expr ')' th=stmt ('else' el=stmt)? # IfStmt
@@ -45,8 +44,13 @@ decl
     : ty Ident ('[' Integer ']')* ('=' expr)?
     ;
 
+blockItem
+    : stmt # blockItemStmt
+    | decl ';' # blockItemDecl
+    ;
+
 block
-    : '{' stmt* '}'
+    : '{' blockItem* '}'
     ;
 
 paramList
