@@ -182,14 +182,17 @@ class Namer(MiniDecafVisitor):
             raise MiniDecafLocatedError(f"redefinition of function {func}")
         funcNameInfo = FuncNameInfo(hasDef=True)
         self._curFuncNameInfo = self.nameInfo.funcs[func] = funcNameInfo
-        self.enterScope(ctx)
+        self.enterScope(ctx.block())
         ctx.paramList().accept(self)
-        ctx.block().accept(self)
-        self.exitScope(ctx)
+        # skip the enter/exitScope of the block because we've already done it.
+        self.visitChildren(ctx.block())
+        self.exitScope(ctx.block())
         self._curFuncNameInfo = None
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
         func = text(ctx.Ident())
+        if func in self.nameInfo.globs:
+            raise MiniDecafLocatedError(ctx, f"global variable {func} redeclared as function")
         funcNameInfo = FuncNameInfo(hasDef=False)
         if func not in self.nameInfo.funcs:
             self.nameInfo.funcs[func] = funcNameInfo
@@ -207,6 +210,8 @@ class Namer(MiniDecafVisitor):
         ctx = ctx.decl()
         init = self.globalInitializer(ctx.expr())
         varStr = text(ctx.Ident())
+        if varStr in self.nameInfo.funcs:
+            raise MiniDecafLocatedError(ctx, f"function {varStr} redeclared as global variable")
         var = Variable(varStr, None, INT_BYTES * self.declNElems(ctx))
         globInfo = GlobInfo(var, INT_BYTES, init)
         if varStr in self._v.peek():

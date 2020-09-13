@@ -62,8 +62,8 @@ class StackIRGen(MiniDecafVisitor):
         self.visitChildren(ctx)
         self._E([Pop()])
 
-    def visitDeclStmt(self, ctx:MiniDecafParser.DeclStmtContext):
-        self._E([Comment("[ir-stmt] Decl")])
+    def visitBlockItemDecl(self, ctx:MiniDecafParser.BlockItemDeclContext):
+        self._E([Comment("[ir-decl] Decl")])
         self.visitChildren(ctx)
 
     def visitIfStmt(self, ctx:MiniDecafParser.IfStmtContext):

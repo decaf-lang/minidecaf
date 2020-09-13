@@ -52,6 +52,10 @@ def Lexer(inputStream):
 
 def Parser(tokenStream):
     parser = MiniDecafParser(tokenStream)
+    # BailErrorStrategy halts execution rather than try to recover on any parser error.
+    # The Python antlr4 API has not yet exposed a get/set interface,
+    # so we just assign to the error handler.
+    parser._errHandler = BailErrorStrategy()
     tree = parser.prog()
     if args.parse:
         print(tree.toStringTree(recog=parser))
