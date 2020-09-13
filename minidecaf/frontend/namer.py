@@ -193,6 +193,8 @@ class Namer(MiniDecafVisitor):
 
     def visitFuncDecl(self, ctx:MiniDecafParser.FuncDeclContext):
         func = text(ctx.Ident())
+        if func in self.nameInfo.globs:
+            raise MiniDecafLocatedError(ctx, f"global variable {func} redeclared as function")
         funcNameInfo = FuncNameInfo(hasDef=False)
         if func not in self.nameInfo.funcs:
             self.nameInfo.funcs[func] = funcNameInfo
@@ -210,6 +212,8 @@ class Namer(MiniDecafVisitor):
         ctx = ctx.decl()
         init = self.globalInitializer(ctx.expr())
         varStr = text(ctx.Ident())
+        if varStr in self.nameInfo.funcs:
+            raise MiniDecafLocatedError(ctx, f"function {varStr} redeclared as global variable")
         var = Variable(varStr, None, INT_BYTES * self.declNElems(ctx))
         globInfo = GlobInfo(var, INT_BYTES, init)
         if varStr in self._v.peek():
