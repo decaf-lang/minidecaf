@@ -8,6 +8,7 @@ enum TypeKind {
     TY_INVAILD = 0,
     TY_INT,
     TY_PTR,
+    TY_ARR,
 };
 
 struct Type {
@@ -15,6 +16,14 @@ struct Type {
     int size;
     int align;
     std::shared_ptr<Type> base;
+    // 如果是数组，其长度
+    int arr_len;
+    // 数组元素大小, = base->size
+    int elem_size;
+    // 指针重数
+    int pointer_depth;
+    // 数组维度
+    int arr_dim;
 };
 
 typedef std::shared_ptr<Type> TYPtr;
@@ -27,6 +36,7 @@ inline TYPtr int_type() {
 }
 
 TYPtr pointer_to(TYPtr base);
+TYPtr arr_of(TYPtr base, int arr_len);
 
 inline bool is_integer(TYPtr ty) {
     assert(ty);

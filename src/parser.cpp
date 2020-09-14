@@ -18,7 +18,9 @@ static std::list<VarPtr> lvar_stack;
 // 局部变量栈中的变量对应的作用域深度，其实可以和局部变量栈写成一个栈
 static std::list<int> lvar_stack_depth;
 // 局部变量栈曾达到的最大长度
-static int max_stack_size = 0;
+static int max_stack_size = 0;  // 注意这个变量含义变了
+// 局部变量栈中当前变量累计长度
+static int stack_size = 0;
 // 当前作用域嵌套的深度
 static int scope_depth = 0;
 // 当前正在处理的函数
@@ -55,6 +57,7 @@ inline void push_scope() {
 inline void pop_scope() {
     --scope_depth;
     while(!lvar_stack.empty() && lvar_stack_depth.front() > scope_depth) {
+        stack_size -= lvar_stack.front()->type->size / POINTER_WIDTH;
         lvar_stack.pop_front();
         lvar_stack_depth.pop_front();
     }
@@ -89,6 +92,36 @@ NDPtr new_unary_ptr(TKPtr tok, NodeKind kind, NDPtr expr) {
         node->type = pointer_to(expr->type);
     }
     return node;
+}
+
+NDPtr new_binary_ptr(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr, TYPtr ty) {
+    NDPtr node = new_node(tok, kind);
+    node->lexpr = lexpr;
+    node->rexpr = rexpr;
+    node->type = ty;
+    return node;
+}
+
+NDPtr new_add(TKPtr tok, NDPtr lexpr, NDPtr rexpr) {
+    if (is_integer(lexpr->type) && is_integer(rexpr->type))
+        return new_binary_ptr(tok, ND_ADD, lexpr, rexpr, int_type());
+    if (is_ptr(lexpr->type) && is_integer(rexpr->type))
+        return new_binary_ptr(tok, ND_PTR_ADD, lexpr, rexpr, lexpr->type);
+    if (is_integer(lexpr->type) && is_ptr(rexpr->type))
+        return new_binary_ptr(tok, ND_PTR_ADD, rexpr, lexpr, rexpr->type);
+    assert(false);
+    return NULL;
+}
+
+NDPtr new_sub(TKPtr tok, NDPtr lexpr, NDPtr rexpr) {
+    if (is_integer(lexpr->type) && is_integer(rexpr->type))
+        return new_binary_ptr(tok, ND_SUB, lexpr, rexpr, int_type());
+    if (is_ptr(lexpr->type) && is_integer(rexpr->type))
+        return new_binary_ptr(tok, ND_PTR_SUB, lexpr, rexpr, lexpr->type);
+    if (is_ptr(lexpr->type) && is_ptr(rexpr->type))
+        return new_binary_ptr(tok, ND_PTR_DIFF, lexpr, rexpr, int_type());
+    assert(false);
+    return NULL;
 }
 
 NDPtr new_num(TKPtr tok, int val) {
@@ -312,6 +345,28 @@ NDPtr primary() {
 }
 
 // 对应同名非终结符
+NDPtr postfix() {
+    NDPtr node = primary();
+    if(node && (node->type->kind == TY_ARR || node->type->kind == TY_PTR) && expect_reserved("[")) {
+        TKPtr tok = node->tok;
+        NDPtr postfix = node->type->kind == TY_ARR ? new_node(tok, ND_ARR_INDEX) : new_node(tok, ND_PTR_INDEX);
+        postfix->lexpr = node;
+        while(parse_reserved("[")) {
+            postfix->arr_index.push_back(expr());
+            parse_reserved("]");
+        }
+        TYPtr ty = node->type;
+        for(int i = 0; i < postfix->arr_index.size(); i++) {
+            ty = ty->base;
+            assert(ty);
+        }
+        postfix->type = ty;
+        return postfix;
+    }
+    return node;
+}
+
+// 对应同名非终结符
 NDPtr unary() {
     TKPtr tok;
     if (tok = parse_reserved("-"))
@@ -335,7 +390,7 @@ NDPtr unary() {
         }
         checkout_token();
     }   
-    return primary();
+    return postfix();
 }
 
 // 对应同名非终结符
@@ -355,16 +410,16 @@ NDPtr multiplicative() {
     return node;
 }
 
-// 还不能指针加减，这就把好多任务推到 lab12 了
+// 还不能指针加减，这就把好多任务推到 lab1d2 了
 // 对应同名非终结符
 NDPtr additive() {
     TKPtr tok;
     NDPtr node = multiplicative();
     while(1) {
         if (tok = parse_reserved("+"))
-            node = new_binary(tok, ND_ADD, node, multiplicative());
+            node = new_add(tok, node, multiplicative());
         else if (tok = parse_reserved("-"))
-            node = new_binary(tok, ND_SUB, node, multiplicative());
+            node = new_sub(tok, node, multiplicative());
         else 
             break;
     }
@@ -452,11 +507,23 @@ void add_local(VarPtr var, TKPtr tok) {
     if((v = find_local_var(var->name)) && v->scope_depth == scope_depth) {
         error_tok(tok, "variable redefined\n");
     }
-    var->offset = lvar_stack.size();
+    var->offset = stack_size;
     // 注意 push 顺序和查找顺序的对应
     lvar_stack.push_front(var);
     lvar_stack_depth.push_front(scope_depth);
-    max_stack_size = max(max_stack_size, lvar_stack.size());
+    stack_size += var->type->size / POINTER_WIDTH;
+    max_stack_size = max(max_stack_size, stack_size);
+}
+
+TYPtr suffix(TYPtr base) {
+    if(parse_reserved("[")) {
+        int len;
+        assert(parse_int_literal(len));
+        assert(parse_reserved("]"));
+        TYPtr ty = suffix(base);
+        return arr_of(ty, len);
+    }
+    return base;
 }
 
 NDPtr declaration(TYPtr ty) {
@@ -464,6 +531,7 @@ NDPtr declaration(TYPtr ty) {
     char* name;
     // type() 必须在之前完成
     tok = parse_ident(name);
+    ty = suffix(ty);
     VarPtr var = std::make_shared<Var>();
     var->name = name;
     var->scope_depth = scope_depth;
@@ -681,6 +749,7 @@ bool is_func() {
 VarPtr global_var(char* name, TYPtr ty, TKPtr tok) {
     // 不允许重定义
     assert(find_global_var(name) == NULL);
+    ty = suffix(ty);
     VarPtr gvar = std::make_shared<Var>();
     gvar->name = name;
     gvar->tok = tok;
@@ -715,6 +784,7 @@ Program* parsing(std::list<TKPtr>* tokens) {
             lvar_stack.clear();
             lvar_stack_depth.clear();
             max_stack_size = 0;
+            stack_size = 0;
             hot_func = NULL;
         } else {
             VarPtr gvar = global_var(name, ty, tok);

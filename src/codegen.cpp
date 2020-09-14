@@ -28,6 +28,13 @@ void push(const char* reg) {
     printf("  sw %s, 0(sp)\n", reg);
 }
 
+inline void push(int val) {
+    debug("PUSH %d\n", val);
+    printf("  li t0, %d\n", val);
+    printf("  addi sp, sp, -%d\n", POINTER_WIDTH);
+    printf("  sw t0, 0(sp)\n");
+}
+
 void pop(const char* reg) {
     debug("POP %s\n", reg);
     printf("  lw %s, 0(sp)\n", reg);
@@ -35,7 +42,7 @@ void pop(const char* reg) {
 }
 
 inline int var_offset(VarPtr var) {
-    return var->is_arg ? var->offset : -(var->offset + 3);
+    return var->is_arg ? var->offset : -(var->offset + 2 + var->type->size / POINTER_WIDTH);
 }
 
 // 注意这里不再以 fp 为基准
@@ -64,13 +71,15 @@ inline void bnez(const char* reg, const char* type, int seq) {
 }
 
 bool lvalue_check(NDPtr node) {
-    return node && (node->kind == ND_VAR || node->kind == ND_DEREF);
+    return node && (node->kind == ND_VAR || node->kind == ND_DEREF || 
+                    node->kind == ND_ARR_INDEX || node->kind == ND_PTR_INDEX);
 }
 
 void gen(NDPtr node);
 
 void gen_addr(NDPtr node) {
     VarPtr var;
+    TYPtr ty;
     switch (node->kind)
     {
     case ND_DECL:
@@ -86,6 +95,40 @@ void gen_addr(NDPtr node) {
         break;
     case ND_DEREF:
         gen(node->lexpr);
+        break;
+    case ND_ARR_INDEX:
+        ty = node->lexpr->type;
+        gen_addr(node->lexpr);
+        for(auto e = node->arr_index.begin(); e != node->arr_index.end(); ++e) {
+            gen(*e);
+            push(ty->elem_size);
+            ty = ty->base;
+            // mul
+            pop("t0");
+            pop("t1");
+            printf("  mul t0, t0, t1\n");
+            // add
+            pop("t1");
+            printf("  add t0, t0, t1\n");
+            push("t0");
+        }
+        break;
+    case ND_PTR_INDEX:
+        gen(node->lexpr);
+        for(auto e = node->arr_index.begin(); e != node->arr_index.end();) {
+            gen(*e);
+            pop("t0");
+            printf("  slli t0, t0, %d\n", POINTER_WIDTH_LOG);
+            // add
+            pop("t1");
+            printf("  add t0, t0, t1\n");
+            push("t0");
+            if(++e == node->arr_index.end())
+                break;
+            pop("t0");
+            load("t1", "t0");
+            push("t1");
+        }
         break;
     // 一般而言，type-cast 不影响汇编实际行为
     case ND_TYPE_CAST:
@@ -103,11 +146,21 @@ void gen_binary(NDPtr node) {
     pop("t1");
     pop("t0");
     switch (node->kind) {
+    case ND_PTR_ADD:
+        printf("  slli t1, t1, %d\n", POINTER_WIDTH_LOG);
+        // Run straight through
     case ND_ADD:
         printf("  add t0, t0, t1\n");
         break;
+    case ND_PTR_SUB:
+        printf("  slli t1, t1, %d\n", POINTER_WIDTH_LOG);
+        // Run straight through
     case ND_SUB:
         printf("  sub t0, t0, t1\n");
+        break;
+    case ND_PTR_DIFF:
+        printf("  sub t0, t0, t1\n");
+        printf("  srai t0, t0, %d\n", POINTER_WIDTH_LOG);
         break;
     case ND_MUL:
         printf("  mul t0, t0, t1\n");
@@ -164,7 +217,6 @@ void gen(NDPtr node) {
         debug("DECL\n");
         assert(node->var);
         if(node->var->init) {
-            // 赋值的方式完全变了
             gen_addr(node);
             gen(node->var->init);
             pop("t0");
@@ -299,7 +351,16 @@ void gen(NDPtr node) {
         push("t0");
         break;
     case ND_VAR:
-        assert(node->var);
+    case ND_ARR_INDEX:
+        gen_addr(node);
+        // 数组变量总代表地址，不需要取出对应地址的值
+        if(node->type->kind == TY_ARR)
+            break;
+        pop("t0");
+        load("t1", "t0");
+        push("t1");
+        break;
+    case ND_PTR_INDEX:
         gen_addr(node);
         pop("t0");
         load("t1", "t0");
@@ -401,6 +462,10 @@ void gen_data(std::list<VarPtr> &gvars) {
         printf("  .globl %s\n", var->name);
         printf("  .align %d\n", 2);
         printf("%s:\n", var->name);
+        if(var->type->kind == TY_ARR) {
+            printf("  .zero %d\n", var->type->size);
+            continue;
+        }
         if(var->init)
             printf("  .word %d\n", var->init->val);
         else

@@ -26,6 +26,9 @@ enum NodeKind{
     ND_DEREF,       // Unary *
     ND_ADD,         // Binary +
     ND_SUB,         // Binary -
+    ND_PTR_ADD,     // Ptr + num
+    ND_PTR_SUB,     // Ptr - num
+    ND_PTR_DIFF,    // Ptr - ptr
     ND_MUL,         // Binary *
     ND_DIV,         // Binary /
     ND_MOD,         // Binary %
@@ -42,6 +45,8 @@ enum NodeKind{
     ND_TERNARY,     // Ternary a ? b : c
     ND_FUNC_CALL,   // Function call
     ND_TYPE_CAST,   // Type cast
+    ND_ARR_INDEX,   // Array ｀[｀ expr ｀]｀
+    ND_PTR_INDEX,   // Ptr `[` expr `]`
 };
 
 struct Node;
@@ -81,6 +86,7 @@ struct Node {
     std::list<NDPtr> body;          // Compound statement 的子语句
     std::shared_ptr<FuncCall> func_call;
     TYPtr type;                     // 节点的类型是类型检查的关键
+    std::list<NDPtr> arr_index;
 };
 
 struct Function {
