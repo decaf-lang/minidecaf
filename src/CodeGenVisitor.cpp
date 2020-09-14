@@ -4,6 +4,7 @@
 // @ret: Generated asm code
 antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_) {
     varTab = symbol_;
+    labelOrder = 0;
     code_ << ".section .text\n"
         << ".globl main\n";
     visitChildren(ctx);
@@ -239,13 +240,64 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
     return retType::INT;
 }
 
-//@brief:visit Assign node, eg. for expr "a = 3", we first find a's position in stack,
+//@brief: Visit Assign node, eg. for expr "a = 3", we first find a's position in stack,
 // then store 3 into specified memory.
 //@ret: Variable type
-
 antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
     std::string varName = ctx->Identifier()->getText();
     visit(ctx->expr());
     code_ << "\tsw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n";
     return retType::INT;
+}
+
+//@brief: Visit Ifstmt node, generate corresponding branch & jump instructions
+antlrcpp::Any CodeGenVisitor::visitIfStmt(MiniDecafParser::IfStmtContext *ctx) {
+    visit(ctx->expr());
+    // If statement with else branch
+    if (ctx->Else()) {
+        /* Different branch label, in RV-32 assembly, a branch operaion is like:
+            ...
+            beqz a0, label1
+            label0:
+                <instructions>
+            label1:
+                <instructions>
+            ...
+        */
+        int elseBranch = labelOrder++;
+        int endBranch = labelOrder++;
+        code_ << "\tbeqz a0, label_" << elseBranch << "\n";
+        visit(ctx->stmt(0));
+        code_ << "\tj label_" << endBranch << "\n";
+        code_ << "label_" << elseBranch << ":\n";
+        visit(ctx->stmt(1));
+        code_ << "label_" << endBranch << ":\n";
+    } else {
+        // If statement without else branch
+        int endBranch = labelOrder++;
+        code_ << "\tbeqz a0, label_" << endBranch << "\n";
+        visit(ctx->stmt(0));
+        code_ << "label_" << endBranch << ":\n";
+    }
+    return retType::UNDEF;
+}
+
+antlrcpp::Any CodeGenVisitor::visitCondExpr(MiniDecafParser::CondExprContext *ctx) {
+    /*
+        Conditional tenary expression (x = a : b ? c) can be translated as:
+        if (a) x = b; else x = c;
+        Noted that the tenary expression has short-circuit property, which means
+        if a is true, expression c cannot be reached.
+    */
+    // Code generation part is nearly the same as <ifStmt>
+    visit(ctx->expr(0));
+    int elseBranch = labelOrder++;
+    int endBranch = labelOrder++;
+    code_ << "\tbeqz a0, label_" << elseBranch << "\n";
+    visit(ctx->expr(1));
+    code_ << "\tj label_" << endBranch << "\n";
+    code_ << "label_" << elseBranch << ":\n";
+    visit(ctx->expr(2));
+    code_ << "label_" << endBranch << ":\n";
+    return retType::UNDEF;
 }

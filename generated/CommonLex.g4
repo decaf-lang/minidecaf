@@ -1,13 +1,10 @@
 lexer grammar CommonLex;
 
 // keyword
-Int 
-    : 'int'
-    ;
-
-Return
-    : 'return'
-    ;
+Int : 'int';
+Return : 'return';
+If : 'if';
+Else : 'else';
 
 // operator
 Lparen : '(' ;
@@ -17,7 +14,9 @@ Rbrkt : ']' ;
 Lbrace : '{' ;
 Rbrace : '}' ;
 Comma : ',' ;
-Semicolon : ';' ;
+Semicolon : ';';
+Question : '?';
+Colon : ':';
 
 Minus : '-';
 Exclamation : '!';

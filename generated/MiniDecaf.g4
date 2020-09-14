@@ -7,23 +7,33 @@ prog
     ;
 
 func
-    : type Identifier '(' ')' '{' stmt* '}'
+    : type Identifier '(' ')' '{' blockItem* '}'
     ;
 
+blockItem
+    : stmt
+    | decl
+    ;
+
+decl
+    : type Identifier ('=' expr)? ';'                               # varDef
+    ; 
+    
 stmt
     : 'return' expr ';'                                             # returnStmt
     | expr ';'                                                      # singleExpr
-    | type Identifier ('=' expr)? ';'                               # varDef
+    | 'if' '(' expr ')' stmt ('else' stmt)?                         # ifStmt
     ;
 
 expr
     : ('!' | '~' | '-') expr                                        # unaryOp
     | expr ('*' | '/' | '%') expr                                   # mulDiv
+    | expr ('+' | '-') expr                                         # addSub
     | expr ('<' | '<=' | '>' | '>=') expr                           # lessGreat
     | expr ('==' | '!=') expr                                       # equal
     | expr '&&' expr                                                # land
     | expr '||' expr                                                # lor
-    | expr ('+' | '-') expr                                         # addSub
+    | expr '?' expr ':' expr                                        # condExpr
     | '(' expr ')'                                                  # atomParen
     | Identifier '=' expr                                           # assign
     | Identifier                                                    # Identifier
