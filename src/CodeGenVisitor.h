@@ -4,9 +4,13 @@
 #include <string>
 #include <iostream>
 
+template<typename T>
+using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
+
 class CodeGenVisitor : public MiniDecafBaseVisitor {
 public:
-    antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx);
+    antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_);
+    antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
     antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
     antlrcpp::Any visitInteger(MiniDecafParser::IntegerContext *ctx);
 
@@ -20,11 +24,19 @@ public:
     antlrcpp::Any visitLand(MiniDecafParser::LandContext *ctx);
     antlrcpp::Any visitLor(MiniDecafParser::LorContext *ctx);
 
+    antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
+    antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
+    antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
+
 private:
     /*
         Stringstream used to store generated codes
     */
     std::ostringstream code_;
+
+    std::string curFunc;
+    symTab<int> varTab;
+    bool retState;
     /* 
         A simple stack machine model 
         Support basic push, pop1 & pop2 operations

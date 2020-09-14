@@ -3,6 +3,7 @@
 #include "MiniDecafLexer.h"
 #include "MiniDecafParser.h"
 #include "CodeGenVisitor.h"
+#include "Allocator.h"
 
 using namespace antlr4;
 using namespace std;
@@ -22,9 +23,12 @@ int main(int argc, const char* argv[]) {
     MiniDecafParser parser(&tokens);
 
     // customized pass: allocator, typer, codegen and etc.
+
     MiniDecafParser::ProgContext* treeNode = parser.prog();
+    Allocator allocatorVisitor;
     CodeGenVisitor codeGenVisitor;
-    string asmCode = codeGenVisitor.visitProg(treeNode);
+    symTab<int> varTab = allocatorVisitor.visitProg(treeNode);
+    string asmCode = codeGenVisitor.visitProg(treeNode, varTab);
 
     // We get the asm code!
     cout << asmCode << endl;

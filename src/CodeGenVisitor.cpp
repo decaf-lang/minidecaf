@@ -2,18 +2,52 @@
 
 // @brief: Start visiting the syntax tree from root node Prog
 // @ret: Generated asm code
-antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx) {
+antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_) {
+    varTab = symbol_;
     code_ << ".section .text\n"
-        << ".globl main\n"
-        << "main:\n"; 
+        << ".globl main\n";
     visitChildren(ctx);
     return code_.str();
+}
+
+// @brief: Visit Func node, in this step we only support function call with no parameters
+// @ret: Function return type
+antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
+    // Get function name
+    curFunc = ctx->Identifier()->getText();
+    retState = false;
+    // Calling convention: saving ra(return address), caller fp and allocating stack memory for local variable
+    code_ << curFunc << ":\n"
+          << "\tsw ra, -4(sp)\n"
+          << "\taddi sp, sp, -4\n"
+          << "\tsw fp, -4(sp)\n"
+          << "\taddi fp, sp, -4\n"
+          << "\taddi sp, fp, ";
+
+    int capacity = varTab[curFunc].size();
+    code_ << -4 * capacity << "\n";
+
+    visitChildren(ctx);
+
+    // Dealing with no return in main()
+    if (!retState) {
+        code_ << "\tli a0, 0\n"
+            << "\taddi sp, fp, 4\n"
+            << "\tlw ra, (sp)\n" 
+            << "\tlw fp, -4(sp)\n"
+            << "\tret\n";
+    }
+    return retType::INT;
 }
 
 // @brief: Visit ReturnStmt node, son of Stmt node
 antlrcpp::Any CodeGenVisitor::visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx) {
     visitChildren(ctx);
-    code_ << "\tret";
+    code_ << "\taddi sp, fp, 4\n"
+        << "\tlw ra, (sp)\n" 
+        << "\tlw fp, -4(sp)\n"
+        << "\tret\n";
+    retState = true;
     return retType::UNDEF;
 }
 
@@ -180,5 +214,38 @@ antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
     code_ << pop2
           << "\tor a0, t0, t1\n"
           << push;
+    return retType::INT;
+}
+
+//@brief: visit VarDef node, using rvalue to initialize the defined variable 
+//@ret: Variable type
+antlrcpp::Any CodeGenVisitor::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
+    std::string varName = ctx->Identifier()->getText();
+    if (ctx->expr()) {
+        visit(ctx->expr());
+        // Store the rvalue to the address of current variable
+        code_ << "\tsw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n";
+    }
+    return retType::INT;
+}
+
+//@brief: visit Identifier node, we read the value of variable from stack 
+//@ret: Variable type
+antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext *ctx) {
+    std::string varName = ctx->Identifier()->getText();
+    // Load the value from stack
+    code_ << "\tlw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n"
+          << push;
+    return retType::INT;
+}
+
+//@brief:visit Assign node, eg. for expr "a = 3", we first find a's position in stack,
+// then store 3 into specified memory.
+//@ret: Variable type
+
+antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
+    std::string varName = ctx->Identifier()->getText();
+    visit(ctx->expr());
+    code_ << "\tsw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n";
     return retType::INT;
 }

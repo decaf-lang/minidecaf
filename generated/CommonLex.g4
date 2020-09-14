@@ -9,10 +9,6 @@ Return
     : 'return'
     ;
 
-Main
-    : 'main'
-    ;
-
 // operator
 Lparen : '(' ;
 Rparen : ')' ;
@@ -46,7 +42,7 @@ Interger
     ;
 
 Identifier
-    : [a-zA-Z_][a-zA-Z_0-9]
+    : [a-zA-Z_][a-zA-Z_0-9]*
     ;
 
 WS : 
