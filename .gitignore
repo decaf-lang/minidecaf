@@ -1,0 +1,25 @@
+# Ignore Gradle project-specific cache directory
+.gradle/
+.metals/
+
+# Ignore Gradle build output directory
+build/
+
+# Ignore antlr plugin cache directory
+*.antlr/
+
+# Ignore temporary output directory
+out/
+
+# Ignore my experimental files
+exp*
+
+# Ignore VS Code Java Extension cache directory
+.project
+.settings/
+.classpath
+.vscode/
+bin/
+
+# Ignore IntelliJ IDEA cache directory
+.idea/

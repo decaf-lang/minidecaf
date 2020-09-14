@@ -1,0 +1,48 @@
+plugins {
+    id 'java-library'
+    id 'antlr'
+    id 'eclipse'
+}
+
+group 'decaf'
+
+sourceCompatibility = 14
+
+repositories {
+    maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+    maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
+    mavenCentral()
+}
+
+dependencies {
+    antlr "org.antlr:antlr4:4.8"
+    implementation "org.antlr:antlr4-runtime:4.8"
+}
+
+generateGrammarSource {
+    arguments += ["-visitor", "-no-listener", "-package", "minidecaf"]
+}
+
+sourceSets.main.java.srcDirs += "${buildDir}/generated-src/antlr/main"
+
+compileJava.options.encoding = "UTF-8"
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'minidecaf.Main'
+    }
+
+    from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}
+
+allprojects {
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+        }
+    }
+}
