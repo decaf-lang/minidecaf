@@ -18,6 +18,8 @@ public:
     antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx);
     antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
+    antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
+    antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
 
 private:
     /*
