@@ -259,7 +259,10 @@ class Typer(MiniDecafVisitor):
         for decl in ctx.decl():
             if decl.expr() is not None:
                 raise MiniDecafLocatedError(decl, "parameter cannot have initializers")
-            res += [self._declTyp(decl)]
+            paramTy = self._declTyp(decl)
+            if isinstance(paramTy, ArrayType):
+                raise MiniDecafLocatedError(decl, "parameter cannot have array types")
+            res += [paramTy]
         return res
 
     def visitDeclExternalDecl(self, ctx:MiniDecafParser.DeclExternalDeclContext):

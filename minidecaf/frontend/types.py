@@ -150,6 +150,8 @@ def derefRule(ctx, ty):
 
 @TypeRule
 def addrofRule(ctx, ty):
+    if isinstance(ty, ArrayType):
+        return "cannot take address of array type"
     return PtrType(ty)
 
 @TypeRule
