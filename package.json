@@ -1,0 +1,35 @@
+{
+  "name": "minidecaf",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A simple C-like-language compiler can run in browser",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsc",
+    "cli": "node build/src/cli.js",
+    "cli-dev": "ts-node src/cli.ts",
+    "clean": "rm -rf build/",
+    "fmt": "prettier src/ --write"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/equation314/minidecaf.git"
+  },
+  "author": "eqution314 <equation618@gmail.com>",
+  "license": "MIT",
+  "keywords": [
+    "compiler",
+    "typescript",
+    "risc-v"
+  ],
+  "bugs": {
+    "url": "https://github.com/equation314/minidecaf/issues"
+  },
+  "homepage": "https://github.com/equation314/minidecaf",
+  "devDependencies": {
+    "prettier": "^2.0.5",
+    "ts-loader": "^8.0.1",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.7"
+  }
+}
