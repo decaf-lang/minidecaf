@@ -32,15 +32,14 @@ make cst [i=i.c]
 
 # 常见问题
 ## 运行测例 minidecaf-tests 不通过
-1. 改 `gen_asm` 了嘛？
-2. 运行测例之前，先在本项目下 `make grammar-py`
+1. 运行测例之前，先在本项目下 `make grammar-py`
 
 ## 没找到 python
 ```
 make: python: Command not found
 ```
 
-先确认你安装了 python 3：
+先确认你安装了 python 3，至少 3.6：
 ```
 $ python3 -V
 Python 3.8.2
@@ -60,6 +59,8 @@ qemu-riscv32 a.out ; echo $?
 ## No such file or directory: 'i.c'
 你得自己建立 `i.c` 文件，内容是你的输入 MiniDecaf 程序。
 
+## syntax error: '..' came as a complete surprise to me
+使用 WSL 或虚拟机的同学，请在 Linux 环境下执行 git clone 和 make。
 
 # 代码结构
 多遍编译器，支持输出中间结果。pass 有：
