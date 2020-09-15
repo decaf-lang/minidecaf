@@ -1,6 +1,6 @@
 {
   "name": "minidecaf",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "description": "A simple C-like-language compiler can run in browser",
   "scripts": {
@@ -12,7 +12,10 @@
     "build-web-dev": "webpack --mode development --watch",
     "serve": "http-server -c-1 web/",
     "clean": "rm -rf web/dist/ build/",
-    "fmt": "prettier src/ --write"
+    "fmt": "prettier src/ --write",
+    "test": "npm run build && node build/src/cli.js test/test.c",
+    "test-codegen": "npm run build && test/run.sh test/test.c codegen",
+    "test-all": "test/test_all.sh"
   },
   "repository": {
     "type": "git",

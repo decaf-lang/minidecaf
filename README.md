@@ -41,3 +41,24 @@ npm run serve
 ```
 
 Visit http://127.0.0.1:8080 to preview.
+
+### Test
+
+Test [one file](test/test.c):
+
+```sh
+npm run test    # or `npm run test-codegen`
+```
+
+Test all test cases in [test/minidecaf-tests](test/minidecaf-tests):
+
+```sh
+npm run test-all -- [options]
+```
+
+```
+Options:
+  -n <step>                   run all testcases starts from step1 to this step. default is `12`.
+  -s                          generate the assembly code (RISC-V) and run in the simulator instead
+                              of running as an interpreter.
+```

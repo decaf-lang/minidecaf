@@ -1,0 +1,43 @@
+name: Build & Test
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [interpreter, codegen]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
+      - name: Install RISCV toolchain
+        run: |
+          wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2020.04.0-x86_64-linux-ubuntu14.tar.gz && tar zxf riscv64-unknown-elf-gcc-8.3.0-2020.04.0-x86_64-linux-ubuntu14.tar.gz > /dev/null
+          echo "::add-path::$PWD/riscv64-unknown-elf-gcc-8.3.0-2020.04.0-x86_64-linux-ubuntu14/bin"
+
+      - name: Cache QEMU
+        uses: actions/cache@v1
+        with:
+          path: qemu-5.1.0
+          key: qemu-5.1.0-riscv32
+
+      - name: Install QEMU
+        run: |
+          [ ! -d qemu-5.1.0 ] && wget https://download.qemu.org/qemu-5.1.0.tar.xz && tar xJf qemu-5.1.0.tar.xz > /dev/null
+          cd qemu-5.1.0 && ./configure --target-list=riscv32-linux-user && sudo make install -j && cd ..
+
+      - name: Install dependencies and Build
+        run: |
+          npm install
+          npm run build
+
+      - name: Test ${{ matrix.target }}
+        run: |
+          if [ ${{ matrix.target }} == "codegen" ]; then
+            npm run test-all -- -n `cat step-until.txt` -s
+          else
+            npm run test-all -- -n `cat step-until.txt`
+          fi
