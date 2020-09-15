@@ -114,3 +114,14 @@ antlrcpp::Any Allocator::visitAssign(MiniDecafParser::AssignContext *ctx) {
     exit(1);
 }
 
+//@brief: A forloop is also a new scope
+antlrcpp::Any Allocator::visitForLoop(MiniDecafParser::ForLoopContext *ctx) {
+    curFunc += "@" + std::to_string(blockOrder) + std::to_string(++blockDep);
+    visitChildren(ctx);
+    if (--blockDep == 0) {
+        ++blockOrder;
+    }
+    int pos = curFunc.find_last_of('@');
+    curFunc = curFunc.substr(0, pos);
+    return retType::UNDEF;
+}

@@ -5,6 +5,11 @@ Int : 'int';
 Return : 'return';
 If : 'if';
 Else : 'else';
+For : 'for';
+While : 'while';
+Do : 'do';
+Break : 'break';
+Continue : 'continue'; 
 
 // operator
 Lparen : '(' ;

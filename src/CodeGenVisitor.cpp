@@ -353,3 +353,98 @@ antlrcpp::Any CodeGenVisitor::visitCondExpr(MiniDecafParser::CondExprContext *ct
     code_ << "label_" << endBranch << ":\n";
     return retType::UNDEF;
 }
+
+//@brief: Visit forloop node, generate branch model in RV32
+antlrcpp::Any CodeGenVisitor::visitForLoop(MiniDecafParser::ForLoopContext *ctx) {
+    // According to our SPEC, forloop is also a new scope
+    curFunc += "@" + std::to_string(blockOrder) + std::to_string(++blockDep);
+    int startBranch = labelOrder++, endBranch = labelOrder++, continueBranch = labelOrder++;
+    breakTarget.push_back(endBranch);
+    continueTarget.push_back(continueBranch);
+
+    int exprBase = -1;
+    // for (<decl|expr>; <expr>; <expr>) <stmt>
+    // The Branch model is nearly the same as Dowhile
+    if (ctx->decl()) {
+        visit(ctx->decl());
+    } else if (ctx->expr(0)) {
+        visit(ctx->expr(0));
+        exprBase = 0;
+    }
+    code_ << "label_" << startBranch << ":\n";
+    if (ctx->expr(exprBase+1)) {
+        visit(ctx->expr(exprBase+1));
+        code_ << "\tbeqz a0, label_" << endBranch << "\n";
+    } 
+    visit(ctx->stmt());
+    code_ << "label_" << continueBranch << ":\n";
+    if (ctx->expr(exprBase+2)) {
+        visit(ctx->expr(exprBase+2));
+    }
+    code_ << "\tj label_" << startBranch << "\n"
+                << "label_" << endBranch << ":\n";
+    breakTarget.pop_back();
+    continueTarget.pop_back();
+    // When exit for loop scope, maintain the block depth & block order
+    if (--blockDep == 0) {
+        ++blockOrder;
+    }
+    int pos = curFunc.find_last_of('@');
+    curFunc = curFunc.substr(0, pos);
+    return retType::UNDEF;
+}
+
+//@brief: Nearly the same as DoWhile
+antlrcpp::Any CodeGenVisitor::visitWhileLoop(MiniDecafParser::WhileLoopContext *ctx) {
+    int startBranch = labelOrder++, endBranch = labelOrder++;
+    breakTarget.push_back(endBranch);
+    continueTarget.push_back(startBranch);
+    code_ << "label_" << startBranch << ":\n";
+    visit(ctx->expr());
+    code_ << "\tbeqz a0, label_" << endBranch << "\n";
+    visit(ctx->stmt());
+    code_ << "\tj label_" << startBranch << "\n"
+                << "label_" << endBranch << ":\n";
+    breakTarget.pop_back();
+    continueTarget.pop_back();
+    return retType::UNDEF;
+}
+
+//@brief: do <some statements> while <expr>
+antlrcpp::Any CodeGenVisitor::visitDoWhile(MiniDecafParser::DoWhileContext *ctx) {
+    /*
+        A loop model in RV32 assembly is like:
+        ...
+        label_0:
+            <instructions>
+            bnez a0, label_0
+        label_1:
+        ...
+    */
+    int startBranch = labelOrder++, endBranch = labelOrder++;
+    breakTarget.push_back(endBranch);
+    continueTarget.push_back(startBranch);
+
+    code_ << "label_" << startBranch << ":\n";
+    visit(ctx->stmt());
+    visit(ctx->expr());
+    code_ << "\tbnez a0, label_" << startBranch << "\n";
+    code_ << "label_" << endBranch << ":\n";
+
+    // We push the label into vector to deal with nested loop
+    breakTarget.pop_back();
+    continueTarget.pop_back();
+    return retType::UNDEF;
+}
+
+//@brief: Break out of the current loop layer
+antlrcpp::Any CodeGenVisitor::visitBreak(MiniDecafParser::BreakContext *ctx) {
+    code_ << "\tj label_" << breakTarget.back() << "\n";
+    return retType::UNDEF;
+}
+
+//@brief: Jump to the tail of the current loop layer
+antlrcpp::Any CodeGenVisitor::visitContinue(MiniDecafParser::ContinueContext *ctx) {
+    code_ << "\tj label_" << continueTarget.back() << "\n";
+    return retType::UNDEF; 
+}

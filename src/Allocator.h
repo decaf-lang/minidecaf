@@ -23,6 +23,8 @@ public:
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
 
+    antlrcpp::Any visitForLoop(MiniDecafParser::ForLoopContext *ctx);
+    
 private:
     /*
         Symbol table, which stores function, scope & varible information.

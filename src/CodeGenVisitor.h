@@ -31,12 +31,20 @@ public:
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
 
-
+    antlrcpp::Any visitForLoop(MiniDecafParser::ForLoopContext *ctx);
+    antlrcpp::Any visitWhileLoop(MiniDecafParser::WhileLoopContext *ctx);
+    antlrcpp::Any visitDoWhile(MiniDecafParser::DoWhileContext *ctx);
+    antlrcpp::Any visitBreak(MiniDecafParser::BreakContext *ctx);
+    antlrcpp::Any visitContinue(MiniDecafParser::ContinueContext *ctx);
 private:
     /*
         Stringstream used to store generated codes
     */
     std::ostringstream code_;
+    /*
+        Deal with nested break & continue statements
+    */
+    std::vector<int> breakTarget, continueTarget;
 
     std::string curFunc;
     symTab<int> varTab;

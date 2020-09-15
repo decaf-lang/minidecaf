@@ -12,11 +12,11 @@ func
 
 blockItem
     : stmt
-    | decl
+    | decl ';'
     ;
 
 decl
-    : type Identifier ('=' expr)? ';'                               # varDef
+    : type Identifier ('=' expr)?                                   # varDef
     ; 
     
 stmt
@@ -24,6 +24,12 @@ stmt
     | expr ';'                                                      # singleExpr
     | 'if' '(' expr ')' stmt ('else' stmt)?                         # ifStmt
     | '{' blockItem* '}'                                            # block
+    | 'while' '(' expr ')' stmt                                     # whileLoop
+    | 'do' stmt 'while' '(' expr ')' ';'                            # doWhile
+    | 'for' '(' (decl | expr)? ';' (expr)? ';' (expr)? ')' stmt     # forLoop
+    | 'break' ';'                                                   # break
+    | 'continue' ';'                                                # continue
+    | ';'                                                           # nop
     ;
 
 expr
