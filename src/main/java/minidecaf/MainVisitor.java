@@ -47,22 +47,47 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     public Type visitStmt(StmtContext ctx) {
         visit(ctx.expr());
         // 函数返回，返回值存在 a0 中
+        sb.append("# ret\n");
+        pop("a0");
         sb.append("\tret\n");
         return new NoType();
     }
 
     @Override
     public Type visitExpr(ExprContext ctx) {
-        TerminalNode num = ctx.NUM();
+        return visit(ctx.unary());
+    }
 
-        // 数字字面量不能超过整型的最大值
-        if (compare(Integer.toString(Integer.MAX_VALUE), num.getText()) == -1)
-            reportError("too large number", ctx);
+    @Override
+    public Type visitUnary(UnaryContext ctx) {
+        if (ctx.children.size() == 1) { // 数字字面量
+            TerminalNode num = ctx.NUM();
 
-        sb.append("# number " + num.getText() + "\n")
-          .append("\tli a0, " + num.getText() + "\n");
+            // 数字字面量不能超过整型的最大值
+            if (compare(Integer.toString(Integer.MAX_VALUE), num.getText()) == -1)
+                reportError("too large number", ctx);
 
-        return new IntType();
+            sb.append("# number " + num.getText() + "\n")
+              .append("\tli t0, " + num.getText() + "\n");
+            push("t0");
+            return new IntType();
+        } else { // 被一个一元操作符操作的表达式
+            visit(ctx.unary());
+            String op = ctx.children.get(0).getText();
+            
+            sb.append("# " + op + " int\n");
+            pop("t0");
+            if (op.equals("-")) {
+                sb.append("\tneg t0, t0\n");
+            } else if (op.equals("!")) {
+                sb.append("\tseqz t0, t0\n");
+            } else {
+                assert(op.equals("~"));
+                sb.append("\tnot t0, t0\n");
+            }
+            push("t0");
+            return new IntType();
+        }
     }
 
     /* 函数相关 */
@@ -95,5 +120,27 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         throw new RuntimeException("Error("
             + ctx.getStart().getLine() + ", "
             + ctx.getStart().getCharPositionInLine() + "): " + s + ".\n");
+    }
+
+    /**
+     * 将寄存器的值压入栈中。
+     * 
+     * @param reg 待压栈的寄存器
+     */
+    private void push(String reg) {
+        sb.append("# push " + reg + "\n")
+          .append("\taddi sp, sp, -4\n")
+          .append("\tsw " + reg + ", 0(sp)\n");
+    }
+
+    /**
+     * 将栈顶的值弹出到寄存器中。
+     *
+     * @param reg 用于存储栈顶值的寄存器
+     */
+    private void pop(String reg) {
+        sb.append("# pop " + reg + "\n")
+          .append("\tlw " + reg + ", 0(sp)\n")
+          .append("\taddi sp, sp, 4\n");
     }
 }

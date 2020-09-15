@@ -9,7 +9,9 @@ type: 'int';
 
 stmt: 'return' expr ';';
 
-expr: NUM;
+expr: unary;
+
+unary: ('-' | '!' | '~') unary | NUM;
 
 /* lexer */
 WS: [ \t\r\n\u000C] -> skip;
