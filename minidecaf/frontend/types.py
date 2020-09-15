@@ -155,11 +155,19 @@ def addrofRule(ctx, ty):
     return PtrType(ty)
 
 @TypeRule
-def eqrelRule(ctx, lhs, rhs):
+def eqRule(ctx, lhs, rhs):
     if lhs != rhs:
         return f"cannot equate or compare {lhs} to {rhs}"
     if lhs != IntType() and not isinstance(lhs, PtrType):
         return f"expected integer or pointer types, found {lhs}"
+    return IntType()
+
+@TypeRule
+def relRule(ctx, lhs, rhs):
+    if lhs != IntType():
+        return f"int expected as relop lhs, found {lhs}"
+    if rhs != IntType():
+        return f"int expected as relop rhs, found {rhs}"
     return IntType()
 
 @TypeRule

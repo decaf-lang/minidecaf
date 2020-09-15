@@ -90,12 +90,20 @@ def prod(l):
         s *= i
     return s
 
+def expandIterableKey(d:list):
+    d2 = {}
+    for (keys, val) in d:
+        for key in keys:
+            d2[key] = val
+    return d2
+
 unaryOps = ['-', '!', '~', '&', '*']
 unaryOpStrs = ["neg", 'lnot', "not", "addrof", "deref"]
 strOfUnaryOp = {o: s for (o, s) in zip(unaryOps, unaryOpStrs)}
 
 arithOps = ['+', '-', '*', '/', '%']
-eqrelOps = ["==", "!=", "<", "<=", ">", ">="]
+eqOps = ["==", "!="]
+relOps = ["<", "<=", ">", ">="]
 logicOps = ["&&", "||"]
 binaryOps = ['+', '-', '*', '/', '%', "==", "!=", "<", "<=", ">", ">=", "&&", "||"]
 binaryOpStrs = ["add", "sub", "mul", "div", "rem", "eq", "ne", "lt", "le", "gt", "ge", "land", "lor"]

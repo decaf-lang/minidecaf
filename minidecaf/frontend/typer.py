@@ -119,25 +119,22 @@ class Typer(MiniDecafVisitor):
         self.typeInfo.setLvalueLoc(ctx, loc)
 
     def checkUnary(self, ctx, op:str, ty:Type):
-        if op in { '-', '!', '~' }:
-            rule = intUnaopRule
-        elif op == '&':
-            rule = addrofRule
-        elif op == '*':
-            rule = derefRule
+        rule = expandIterableKey([
+            (['-', '!', '~'],   intUnaopRule),
+            (['&'],             addrofRule),
+            (['*'],             derefRule),
+        ])[op]
         return rule(ctx, ty)
 
     def checkBinary(self, ctx, op:str, lhs:Type, rhs:Type):
-        if op in { '*', '/', '%', *logicOps }:
-            rule = intBinopRule
-        elif op in { *eqrelOps }:
-            rule = eqrelRule
-        elif op == '=':
-            rule = asgnRule
-        elif op == '+':
-            rule = tryEach('+', intBinopRule, ptrArithRule)
-        else:
-            rule = tryEach('-', intBinopRule, ptrArithRule, ptrDiffRule)
+        rule = expandIterableKey([
+            (['*', '/', '%'] + logicOps,    intBinopRule),
+            (eqOps,                         eqRule),
+            (relOps,                        relRule),
+            (['='],                         asgnRule),
+            (['+'],                         tryEach('+', intBinopRule, ptrArithRule)),
+            (['-'],                         tryEach('-', intBinopRule, ptrArithRule, ptrDiffRule)),
+        ])[op]
         return rule(ctx, lhs, rhs)
 
     @SaveType
