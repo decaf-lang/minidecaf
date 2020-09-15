@@ -25,3 +25,19 @@ Options:
   -d, --debug                 debug mode
   -h, --help                  display help for command
 ```
+
+### Build Website & Run in Browsers
+
+Build JavaScript files for browsers:
+
+```sh
+npm run build-web
+```
+
+Start a simple HTTP server:
+
+```sh
+npm run serve
+```
+
+Visit http://127.0.0.1:8080 to preview.
