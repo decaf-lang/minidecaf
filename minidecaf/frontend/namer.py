@@ -141,6 +141,8 @@ class Namer(MiniDecafVisitor):
         res = prod([int(text(x)) for x in ctx.Integer()])
         if res <= 0:
             raise MiniDecafLocatedError(ctx, "array size <= 0")
+        if res >= MAX_INT:
+            raise MiniDecafLocatedError(ctx, "array size too large")
         return res
 
     def enterScope(self, ctx):

@@ -166,6 +166,8 @@ def eqrelRule(ctx, lhs, rhs):
 def asgnRule(ctx, lhs, rhs):
     if lhs != rhs:
         return f"cannot assign {rhs} to {lhs}"
+    if isinstance(lhs, ArrayType):
+        return f"cannot assign to array type {lhs}"
     return lhs
 
 @TypeRule
