@@ -9,15 +9,43 @@ antlrcpp::Any Allocator::visitProg(MiniDecafParser::ProgContext *ctx) {
 
 antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
     // Update the function scope
-    curFunc = ctx->Identifier()->getText();
-    blockDep = 0; blockOrder = 0;
+    curFunc = ctx->Identifier(0)->getText();
+    blockDep = 0; blockOrder = 0; offset = 0;
     // Detect redefinition error
-    if (varTab.count(curFunc) > 0) {
-        std::cerr << "[ERROR] Redefinition of function " << curFunc << "\n";
+    if (!ctx->Semicolon()) {
+        if (varTab.count(curFunc) > 0 && varTab[curFunc]["###"] == 1) {
+            std::cerr << "[ERROR] Redefinition of function " << curFunc << "\n";
+            exit(1);
+        } else {
+            /* 
+                For the existence of current function in symbol table.
+                Note that in minidecaf we distinguish function decl from
+                definition (for detailed information, please read our tutorial),
+                so in symbol table, we add a non-variable symbol "###" to mark
+                the existence of current function, while 0 stands for declared
+                but not defined, 1 stands for already defined.
+            */
+            varTab[curFunc]["###"] = 1;
+            for (auto i = 1; i < ctx->Identifier().size(); ++i) {
+                std::string varName = ctx->Identifier(i)->getText();
+                varTab[curFunc][varName] = offset++;
+            }
+            visitChildren(ctx);
+        }
+    } else {
+        varTab[curFunc]["###"] = 0;
+    }
+    return retType::INT;
+}
+
+//@brief: Make sure functions are declared before calling them
+antlrcpp::Any Allocator::visitFuncCall(MiniDecafParser::FuncCallContext *ctx) {
+    std::string funcName = ctx->Identifier()->getText();
+    if (varTab.count(funcName) == 0) {
+        std::cerr << "[ERROR] Use of undefined function " << curFunc << "\n";
         exit(1);
     }
-    visitChildren(ctx);
-    return retType::INT;
+    return retType::UNDEF;
 }
 
 //@brief: Visit block statement, build a new scope in symbol table

@@ -12,6 +12,7 @@ class CodeGenVisitor : public MiniDecafBaseVisitor {
 public:
     antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_);
     antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
+    antlrcpp::Any visitFuncCall(MiniDecafParser::FuncCallContext *ctx);
     antlrcpp::Any visitBlock(MiniDecafParser::BlockContext *ctx);
     antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
     antlrcpp::Any visitIfStmt(MiniDecafParser::IfStmtContext *ctx);
