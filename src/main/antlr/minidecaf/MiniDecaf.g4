@@ -9,9 +9,18 @@ type: 'int';
 
 stmt: 'return' expr ';';
 
-expr: unary;
+expr: add;
 
-unary: ('-' | '!' | '~') unary | NUM;
+add: add ('+' | '-') add | mul;
+
+mul: mul ('*' | '/' | '%') mul | unary;
+
+unary: ('-' | '!' | '~') unary | primary;
+
+primary:
+	NUM # numPrimary
+	| '(' expr ')' # parenthesizedPrimary
+	;
 
 /* lexer */
 WS: [ \t\r\n\u000C] -> skip;

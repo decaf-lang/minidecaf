@@ -55,23 +55,47 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     @Override
     public Type visitExpr(ExprContext ctx) {
-        return visit(ctx.unary());
+        return visit(ctx.add());
+    }
+
+    @Override
+    public Type visitAdd(AddContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.add(0));
+            visit(ctx.add(1));
+            pop("t1");
+            pop("t0");
+            if (ctx.children.get(1).getText().equals("+")) {
+                sb.append("# int + int\n")
+                  .append("\tadd t0, t0, t1\n");
+            } else {
+                sb.append("# int - int\n")
+                  .append("\tsub t0, t0, t1\n");
+            }
+            push("t0");
+            return new IntType();
+        } else return visit(ctx.mul());
+    }
+
+    @Override
+    public Type visitMul(MulContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.mul(0));
+            visit(ctx.mul(1));
+            String op = ctx.children.get(1).getText();
+            op = op.equals("*") ? "mul" : op.equals("/") ? "div" : "rem";
+            pop("t1");
+            pop("t0");
+            sb.append("# " + op + "\n")
+              .append("\t" + op + " t0, t0, t1\n");
+            push("t0");
+            return new IntType();
+        } else return visit(ctx.unary());
     }
 
     @Override
     public Type visitUnary(UnaryContext ctx) {
-        if (ctx.children.size() == 1) { // 数字字面量
-            TerminalNode num = ctx.NUM();
-
-            // 数字字面量不能超过整型的最大值
-            if (compare(Integer.toString(Integer.MAX_VALUE), num.getText()) == -1)
-                reportError("too large number", ctx);
-
-            sb.append("# number " + num.getText() + "\n")
-              .append("\tli t0, " + num.getText() + "\n");
-            push("t0");
-            return new IntType();
-        } else { // 被一个一元操作符操作的表达式
+        if (ctx.children.size() > 1) {
             visit(ctx.unary());
             String op = ctx.children.get(0).getText();
             
@@ -87,7 +111,26 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
             }
             push("t0");
             return new IntType();
-        }
+        } else return visit(ctx.primary());
+    }
+
+    @Override
+    public Type visitNumPrimary(NumPrimaryContext ctx) {
+        TerminalNode num = ctx.NUM();
+
+        // 数字字面量不能超过整型的最大值
+        if (compare(Integer.toString(Integer.MAX_VALUE), num.getText()) == -1)
+            reportError("too large number", ctx);
+
+        sb.append("# number " + num.getText() + "\n")
+          .append("\tli t0, " + num.getText() + "\n");
+        push("t0");
+        return new IntType();
+    }
+
+    @Override
+    public Type visitParenthesizedPrimary(ParenthesizedPrimaryContext ctx) {
+        return visit(ctx.expr());
     }
 
     /* 函数相关 */
