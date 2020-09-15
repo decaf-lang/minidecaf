@@ -17,6 +17,7 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
     // Get function name
     curFunc = ctx->Identifier()->getText();
     retState = false;
+    blockDep = 0; blockOrder = 0;
     // Calling convention: saving ra(return address), caller fp and allocating stack memory for local variable
     code_ << curFunc << ":\n"
           << "\tsw ra, -4(sp)\n"
@@ -39,6 +40,23 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
             << "\tret\n";
     }
     return retType::INT;
+}
+
+//@brief: Visit BlockStmt node, update the scope information
+antlrcpp::Any CodeGenVisitor::visitBlock(MiniDecafParser::BlockContext *ctx) {
+    // When entering a new scope, update block depth
+    ++blockDep;
+    curFunc += "@" + std::to_string(blockOrder) + std::to_string(blockDep);
+    for (auto item : ctx->blockItem()) {
+        visit(item);
+    }
+    // When exiting a scope, update the block depth & block order(only top level)
+    if (--blockDep == 0) {
+        ++blockOrder;
+    }
+    int pos = curFunc.find_last_of('@');
+    curFunc = curFunc.substr(0, pos);
+    return retType::UNDEF;
 }
 
 // @brief: Visit ReturnStmt node, son of Stmt node
@@ -234,9 +252,26 @@ antlrcpp::Any CodeGenVisitor::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
 //@ret: Variable type
 antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext *ctx) {
     std::string varName = ctx->Identifier()->getText();
+    std::string tmpFunc = curFunc;
+    int tmpDep = blockDep;
+    if (varTab[curFunc].count(varName+"#") > 0) {
+        if (ctx->start->getLine() < varTab[curFunc][varName+"#"]) {
+            int pos = tmpFunc.find_last_of('@');
+            tmpFunc = tmpFunc.substr(0, pos);
+            --tmpDep;
+        }
+    }
+    for (int i = 0; i <= tmpDep; ++i) {
+        if (varTab[tmpFunc].count(varName) == 0) {
+            int pos = tmpFunc.find_last_of('@');
+            tmpFunc = tmpFunc.substr(0, pos);
+            continue;
+        }
+        code_ << "\tlw a0, " << -4 - 4 * varTab[tmpFunc][varName] << "(fp)\n"
+              << push;
+        return retType::INT;
+    }
     // Load the value from stack
-    code_ << "\tlw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n"
-          << push;
     return retType::INT;
 }
 
@@ -246,7 +281,24 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
 antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
     std::string varName = ctx->Identifier()->getText();
     visit(ctx->expr());
-    code_ << "\tsw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n";
+    std::string tmpFunc = curFunc;
+    int tmpDep = blockDep;
+    if (varTab[curFunc].count(varName+"#") > 0) {
+        if (ctx->start->getLine() < varTab[curFunc][varName+"#"]) {
+            int pos = tmpFunc.find_last_of('@');
+            tmpFunc = tmpFunc.substr(0, pos);
+            --tmpDep;
+        }
+    }
+    for (int i = 0; i <= tmpDep; ++i) {
+        if (varTab[tmpFunc].count(varName) == 0) {
+            int pos = tmpFunc.find_last_of('@');
+            tmpFunc = tmpFunc.substr(0, pos);
+            continue;
+        }
+        code_ << "\tsw a0, " << -4 - 4 * varTab[tmpFunc][varName] << "(fp)\n";
+        return retType::INT;
+    }
     return retType::INT;
 }
 

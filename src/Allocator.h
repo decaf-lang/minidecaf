@@ -17,6 +17,8 @@ class Allocator : public MiniDecafBaseVisitor {
 public:
     antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx);
     antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
+    antlrcpp::Any visitBlock(MiniDecafParser::BlockContext *ctx);
+
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
@@ -37,4 +39,9 @@ private:
     // Current function scope
     std::string curFunc;
     int offset;
+    /* 
+        BlockOrder is used to distinguish different block statement
+        BlockDep is used to deal with nested block statement
+    */
+    int blockOrder, blockDep;
 };

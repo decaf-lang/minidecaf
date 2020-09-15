@@ -12,6 +12,7 @@ class CodeGenVisitor : public MiniDecafBaseVisitor {
 public:
     antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_);
     antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
+    antlrcpp::Any visitBlock(MiniDecafParser::BlockContext *ctx);
     antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
     antlrcpp::Any visitIfStmt(MiniDecafParser::IfStmtContext *ctx);
     antlrcpp::Any visitCondExpr(MiniDecafParser::CondExprContext *ctx);
@@ -41,6 +42,7 @@ private:
     symTab<int> varTab;
     bool retState;
     int labelOrder;
+    int blockDep, blockOrder;
     /* 
         A simple stack machine model 
         Support basic push, pop1 & pop2 operations

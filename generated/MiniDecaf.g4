@@ -23,6 +23,7 @@ stmt
     : 'return' expr ';'                                             # returnStmt
     | expr ';'                                                      # singleExpr
     | 'if' '(' expr ')' stmt ('else' stmt)?                         # ifStmt
+    | '{' blockItem* '}'                                            # block
     ;
 
 expr
