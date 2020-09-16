@@ -1,9 +1,11 @@
 grammar MiniDecaf;
 
 prog:
-	func EOF;
+	func* EOF;
 
-func: type IDENT '(' ')' '{' blockItem* '}';
+func:
+	type IDENT '(' (type IDENT (',' type IDENT)*)? ')' '{' blockItem* '}'	# definedFunc
+	| type IDENT '(' (type IDENT (',' type IDENT)*)? ')' ';'				# declaredFunc;
 
 type: 'int';
 
@@ -39,7 +41,9 @@ add: add ('+' | '-') add | mul;
 
 mul: mul ('*' | '/' | '%') mul | unary;
 
-unary: ('-' | '!' | '~') unary | primary;
+unary: ('-' | '!' | '~') unary | postfix;
+
+postfix: IDENT '(' (expr (',' expr)*)? ')' | primary;
 
 primary:
 	NUM # numPrimary

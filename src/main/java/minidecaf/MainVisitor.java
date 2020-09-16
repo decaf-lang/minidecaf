@@ -25,21 +25,57 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     @Override
     public Type visitProg(ProgContext ctx) {
-        visit(ctx.func());
+        for (var child: ctx.children)
+            visit(child);
 
         if (!containsMain) reportError("no main function", ctx);
 
         return new NoType();
     }
+
+    @Override
+    public Type visitDeclaredFunc(DeclaredFuncContext ctx) {
+        String name = ctx.IDENT(0).getText();
+
+        Type returnType = visit(ctx.type(0));
+        List<Type> paramTypes = new ArrayList<>();
+        for (int i = 1; i < ctx.type().size(); ++i)
+            paramTypes.add(visit(ctx.type(i)));
+        FunType funType = new FunType(returnType, paramTypes);
+
+        if (declaredFuncTable.get(name) != null && !declaredFuncTable.get(name).equals(funType))
+            reportError("declare a function with two different signatures", ctx);
+        
+        // 这里我们与 gcc 保持一致，同样签名的函数可以声明任意多次
+
+        declaredFuncTable.put(name, funType);
+
+        return new NoType();
+    }
     
     @Override
-    public Type visitFunc(FuncContext ctx) {
-        currentFunc = ctx.IDENT().getText();
+    public Type visitDefinedFunc(DefinedFuncContext ctx) {
+        currentFunc = ctx.IDENT(0).getText();
         if (currentFunc.equals("main")) containsMain = true;
 
         sb.append("\t.text\n") // 表示以下内容在 text 段中
           .append("\t.global " + currentFunc + "\n") // 让该 label 对链接器可见
           .append(currentFunc + ":\n");
+        if (definedFuncTable.get(currentFunc) != null)
+            reportError("define two functions as a same name", ctx);
+        
+        // 计算函数的签名
+        Type returnType = visit(ctx.type(0));
+        List<Type> paramTypes = new ArrayList<>();
+        for (int i = 1; i < ctx.type().size(); ++i)
+            paramTypes.add(visit(ctx.type(i)));
+        FunType funType = new FunType(returnType, paramTypes);
+
+        if (declaredFuncTable.get(currentFunc) != null && !declaredFuncTable.get(currentFunc).equals(funType))
+            reportError("the number of parameters of the defined function is not the same as declared", ctx);
+        
+        declaredFuncTable.put(currentFunc, funType);
+        definedFuncTable.put(currentFunc, funType);
         
         sb.append("# prologue\n");
         push("ra");
@@ -51,6 +87,27 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         // 为这个函数体开启一个新的作用域
         symbolTable.add(new HashMap<>());
 
+        // 将函数的参数作为局部变量取出
+        // 这里参数的存储方式遵循 riscv gcc 的调用约定
+        for (int i = 1; i < ctx.IDENT().size(); ++i) {
+            String paraName = ctx.IDENT().get(i).getText();
+            if (symbolTable.peek().get(paraName) != null)
+                reportError("two parameters have the same name", ctx);
+            
+            if (i < 9) {
+                ++localCount;
+                sb.append("\tsw a" + (i - 1) + ", " + (-4 * i) + "(fp)\n");
+                symbolTable.peek().put(paraName,
+                    new Symbol(paraName, -4 * i,
+                        funType.paramTypes.get(i - 1)));
+            } else {
+                symbolTable.peek().put(paraName,
+                    new Symbol(paraName, 4 * (i - 9 + 2),
+                        funType.paramTypes.get(i - 1)));
+            }
+        }
+
+        // 发射函数体
         for (var blockItem: ctx.blockItem())
             visit(blockItem);
         
@@ -452,6 +509,34 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
             }
             push("t0");
             return new IntType();
+        } else return visit(ctx.postfix());
+    }
+
+    @Override
+    public Type visitPostfix(PostfixContext ctx) {
+        if (ctx.children.size() > 1) {
+            String name = ctx.IDENT().getText();
+            if (declaredFuncTable.get(name) == null)
+                reportError("try calling an undeclared function", ctx);
+            FunType funType = declaredFuncTable.get(name);
+            if (funType.paramTypes.size() != ctx.expr().size())
+                reportError("the number of arguments is not equal to the number of parameters", ctx);
+            
+            // 这里我们遵循 riscv gcc 的调用约定
+            sb.append("# prepare arguments\n");
+            for (int i = ctx.expr().size() - 1; i >= 0; --i) {
+                visit(ctx.expr().get(i));
+                if (i < 8) pop("a" + i); // 前 8 个参数使用寄存器 a0 - a7 传递
+            }
+
+            sb.append("\tcall " + name + "\n");
+            
+            // 弹出栈里的参数
+            if (ctx.expr().size() > 8)
+                sb.append("\taddi sp, sp, " + (4 * (ctx.expr().size() - 8)) + "\n");
+
+            push("a0"); // 函数的返回值存储在 a0 中
+            return new IntType();
         } else return visit(ctx.primary());
     }
 
@@ -490,7 +575,14 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         return visit(ctx.expr());
     }
 
+    @Override
+    public Type visitType(TypeContext ctx) {
+        return new IntType();
+    }
+
     /* 函数相关 */
+    private Map<String, FunType> declaredFuncTable = new HashMap<>();
+    private Map<String, FunType> definedFuncTable = new HashMap<>();
     private String currentFunc;
     private boolean containsMain = false;
 
