@@ -147,6 +147,119 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
+    public Type visitWhileStmt(WhileStmtContext ctx) {
+        int currentLoopNo = loopNo++;
+        sb.append("# while\n")
+          .append(".beforeLoop" + currentLoopNo + ":\n")
+          .append(".continueLoop" + currentLoopNo + ":\n"); // continue 指令需要跳转到这里
+        visit(ctx.expr());
+        pop("t0");
+        sb.append("\tbeqz t0, .afterLoop" + currentLoopNo + "\n");
+
+        // 访问循环体
+        loopNos.push(currentLoopNo);
+        visit(ctx.stmt());
+        loopNos.pop();
+
+        sb.append("\tj .beforeLoop" + currentLoopNo + "\n")
+          .append(".afterLoop" + currentLoopNo + ":\n");
+        return new NoType();
+    }
+
+    @Override
+    public Type visitForStmt(ForStmtContext ctx) {
+        int currentLoopNo = loopNo++;
+        sb.append("# for\n");
+        
+        // for 循环里的表达式均可能为空，故这里先把各个表达式照出来
+        ExprContext initExpr = null;
+        ExprContext condExpr = null;
+        ExprContext afterExpr = null;
+        for (int i = 0; i < ctx.children.size(); ++i)
+            if (ctx.children.get(i) instanceof ExprContext) {
+                ExprContext expr = (ExprContext)(ctx.children.get(i));
+                if (ctx.children.get(i - 1).getText().equals("("))
+                    initExpr = expr;
+                else if (ctx.children.get(i + 1).getText().equals(";"))
+                    condExpr = expr;
+                else
+                    afterExpr = expr;
+            }
+        
+        // 开启一个新的作用域
+        symbolTable.add(new HashMap<>());
+        
+        // 由于语法限制，下面两种情况不会同时发生
+        if (initExpr != null) {
+            visit(initExpr);
+            sb.append("\taddi sp, sp, 4\n");
+        }
+        if (ctx.localDecl() != null) visit(ctx.localDecl());
+
+        sb.append(".beforeLoop" + currentLoopNo + ":\n");
+        if (condExpr != null) {
+            visit(condExpr);
+            sb.append("\tlw t1, 0(sp)\n")
+              .append("\taddi sp, sp, 4\n")
+              .append("\tbeqz t1, .afterLoop" + currentLoopNo + "\n");
+        }
+
+        // 访问循环体
+        loopNos.push(currentLoopNo);
+        symbolTable.add(new HashMap<>()); // 这里需要开一个新的作用域
+        visit(ctx.stmt());
+        symbolTable.pop();
+        loopNos.pop();
+
+        sb.append(".continueLoop" + currentLoopNo + ":\n"); // continue 指令需要跳转到这里
+        if (afterExpr != null) {
+            visit(afterExpr);
+            sb.append("\taddi sp, sp, 4\n");
+        }
+        symbolTable.pop();
+
+        sb.append("\tj .beforeLoop" + currentLoopNo + "\n")
+          .append(".afterLoop" + currentLoopNo + ":\n");
+        return new NoType();
+    }
+
+    @Override
+    public Type visitDoStmt(DoStmtContext ctx) {
+        int currentLoopNo = loopNo++;
+        sb.append("# do-while\n");
+
+        // 访问循环体
+        sb.append(".beforeLoop" + currentLoopNo + ":\n");
+        loopNos.push(currentLoopNo);
+        visit(ctx.stmt());
+        loopNos.pop();
+
+        sb.append(".continueLoop" + currentLoopNo + ":\n"); // continue 指令需要跳转到这里
+        visit(ctx.expr());
+        pop("t0");
+        sb.append("\tbnez t0, .beforeLoop" + currentLoopNo + "\n")
+          .append(".afterLoop" + currentLoopNo + ":\n");
+        
+        return new NoType();
+    }
+
+    @Override
+    public Type visitBreakStmt(BreakStmtContext ctx) {
+        if (loopNos.isEmpty())
+            reportError("break statement not within loop", ctx);
+        sb.append("\tj .afterLoop" + loopNos.peek() + "\n");
+        return new NoType();
+    }
+
+    @Override
+    public Type visitContinueStmt(ContinueStmtContext ctx) {
+        if (loopNos.isEmpty())
+            reportError("continue statement not within loop", ctx);
+        sb.append("\tj .continueLoop" + loopNos.peek() + "\n");
+        return new NoType();
+    }
+
+    @Override
     public Type visitExpr(ExprContext ctx) {
         if (ctx.children.size() > 1) {
             String name = ctx.IDENT().getText();
@@ -396,6 +509,8 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     /* 控制语句相关 */
+    private int loopNo = 0; // 用于给循环标号，避免 label 名称冲突
+    private Stack<Integer> loopNos = new Stack<>(); // 当前位置的循环标号，因为可能有多层循环嵌套，所以需要用栈来维护
     private int condNo = 0; // 用于给条件语句和条件表达式所用的 label 编号，避免 label 名称冲突
 
     /* 一些工具方法 */

@@ -16,6 +16,11 @@ stmt:
 	| 'return' expr ';' # returnStmt
 	| 'if' '(' expr ')' stmt ('else' stmt)? # ifStmt
 	| '{' blockItem* '}' # blockStmt
+	| 'while' '(' expr ')' stmt # whileStmt
+	| 'for' '(' (localDecl | expr? ';') expr? ';' expr? ')' stmt	# forStmt
+	| 'do' stmt 'while' '(' expr ')' ';' # doStmt
+	| 'break' ';' # breakStmt
+	| 'continue' ';' # continueStmt
 	;
 
 expr: IDENT '=' expr | ternary;
