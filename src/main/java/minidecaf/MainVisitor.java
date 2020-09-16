@@ -6,6 +6,8 @@ import minidecaf.Type.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 
+import java.util.*;
+
 /**
  * 这里实现了编译器的主要逻辑。为了简单，本框架仅通过在分析树上单次遍历来生成目标汇编代码。
  *
@@ -38,24 +40,100 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         sb.append("\t.text\n") // 表示以下内容在 text 段中
           .append("\t.global " + currentFunc + "\n") // 让该 label 对链接器可见
           .append(currentFunc + ":\n");
-        visit(ctx.stmt());
+        
+        sb.append("# prologue\n");
+        push("ra");
+        push("fp");
+        sb.append("\tmv fp, sp\n");
+        int backtracePos = sb.length();
+        localCount = 0;
+
+        for (var blockItem: ctx.blockItem())
+            visit(blockItem);
+        
+        // 为了实现方便，我们默认 return 0
+        sb.append("# return 0 as default\n")
+          .append("\tli t1, 0\n")
+          .append("\taddi sp, sp, -4\n")
+          .append("\tsw t1, 0(sp)\n");
+        
+        // 根据局部变量的数量，回填所需的栈空间
+        sb.insert(backtracePos, "\taddi sp, sp, " + (-4 * localCount) + "\n");
+
+        sb.append("# epilogue\n")
+          .append(".exit." + currentFunc + ":\n")
+          .append("\tlw a0, 0(sp)\n")
+          .append("\tmv sp, fp\n");
+        pop("fp");
+        pop("ra");
+        sb.append("\tret\n\n");
 
         return new NoType();
     }
 
     @Override
-    public Type visitStmt(StmtContext ctx) {
+    public Type visitLocalDecl(LocalDeclContext ctx) {
+        String name = ctx.IDENT().getText();
+        if (symbolTable.get(name) != null)
+            reportError("try declaring a declared variable", ctx);
+        
+        // 加入符号表
+        symbolTable.put(name,
+            new Symbol(name, -4 * ++localCount, new IntType()));
+        
+        // 如果有初始化表达式的话，求出初始化表达式的值
+        var expr = ctx.expr();
+        if (expr != null) {
+            visit(expr);
+            pop("t0");
+            sb.append("\tsw t0, " + (-4 * localCount) + "(fp)\n");
+        }
+        
+        return new NoType();
+    }
+
+    @Override
+    public Type visitExprStmt(ExprStmtContext ctx) {
+        var expr = ctx.expr();
+        if (expr != null) {
+            visit(ctx.expr());
+            pop("t0"); // 这个表达式不再会被使用，需要将其从栈里弹出
+        }
+        return new NoType();
+    }
+
+    @Override
+    public Type visitReturnStmt(ReturnStmtContext ctx) {
         visit(ctx.expr());
         // 函数返回，返回值存在 a0 中
-        sb.append("# ret\n");
-        pop("a0");
-        sb.append("\tret\n");
+        sb.append("\tj .exit." + currentFunc + "\n");
         return new NoType();
     }
 
     @Override
     public Type visitExpr(ExprContext ctx) {
-        return visit(ctx.lor());
+        return visit(ctx.assign());
+    }
+
+    @Override
+    public Type visitAssign(AssignContext ctx) {
+        if (ctx.children.size() > 1) {
+            String name = ctx.IDENT().getText();
+            Optional<Symbol> optionSymbol = lookupSymbol(name);
+            if (!optionSymbol.isEmpty()) {
+                visit(ctx.expr());
+                Symbol symbol = optionSymbol.get();
+
+                pop("t0");
+                sb.append("# read variable\n")
+                  .append("\tsw t0, " + symbol.offset + "(fp)\n");
+                push("t0");
+                return symbol.type;
+            } else {
+                reportError("use variable that is not defined", ctx);
+                return new NoType();
+            }
+        } else return visit(ctx.lor());
     }
 
     @Override
@@ -228,6 +306,22 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
+    public Type visitIdentPrimary(IdentPrimaryContext ctx) {
+        String name = ctx.IDENT().getText();
+        Optional<Symbol> optionSymbol = lookupSymbol(name);
+        if (!optionSymbol.isEmpty()) {
+            Symbol symbol = optionSymbol.get();
+            sb.append("# read variable\n")
+              .append("\tlw t0, " + symbol.offset + "(fp)\n");
+            push("t0");
+            return symbol.type;
+        } else {
+            reportError("use variable that is not defined", ctx);
+            return new NoType();
+        }
+    }
+
+    @Override
     public Type visitParenthesizedPrimary(ParenthesizedPrimaryContext ctx) {
         return visit(ctx.expr());
     }
@@ -235,6 +329,17 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     /* 函数相关 */
     private String currentFunc;
     private boolean containsMain = false;
+
+    /* 符号相关 */
+    private int localCount;
+    private Map<String, Symbol> symbolTable = new HashMap<>(); // 符号表，目前我们只有一个符号域
+
+    private Optional<Symbol> lookupSymbol(String v) {
+        if (symbolTable.containsKey(v))
+            return Optional.of(symbolTable.get(v));
+        else
+            return Optional.empty();
+    }
 
     /* 一些工具方法 */
     /**

@@ -3,13 +3,22 @@ grammar MiniDecaf;
 prog:
 	func EOF;
 
-func: type IDENT '(' ')' '{' stmt '}';
+func: type IDENT '(' ')' '{' blockItem* '}';
 
 type: 'int';
 
-stmt: 'return' expr ';';
+blockItem: localDecl | stmt;
 
-expr: lor;
+localDecl: type IDENT ('=' expr)? ';';
+
+stmt:
+	expr? ';' # exprStmt
+	| 'return' expr ';' # returnStmt
+	;
+
+expr: assign;
+
+assign: IDENT '=' expr | lor;
 
 lor: lor '||' lor | land;
 
@@ -27,6 +36,7 @@ unary: ('-' | '!' | '~') unary | primary;
 
 primary:
 	NUM # numPrimary
+	| IDENT # identPrimary
 	| '(' expr ')' # parenthesizedPrimary
 	;
 
