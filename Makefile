@@ -10,7 +10,7 @@ else
 	EXTRA_ARGS =
 endif
 
-RUNMD = python -m minidecaf $(EXTRA_ARGS)
+RUNMD = python3 -m minidecaf $(EXTRA_ARGS)
 
 CLASSPATH = $(ANTLR_JAR):generated
 

@@ -7,7 +7,7 @@
 
 * make: 因为有 Makefile
 
-* Python 至少 3.6，运行 `python --version` 检查
+* Python 至少 3.6，运行 `python3 --version` 检查
   - ubuntu 下安装命令是 `sudo apt install python3`
 
 * pip 版本随意，但须是 python3 的。运行 `pip --version`，最后应该是 python 3.x。
@@ -34,23 +34,23 @@ make cst [i=i.c]
 ## 运行测例 minidecaf-tests 不通过
 1. 运行测例之前，先在本项目下 `make grammar-py`
 
-## 没找到 python
+## 没找到 python3
 ```
-make: python: Command not found
+make: python3: Command not found
 ```
 
 先确认你安装了 python 3，至少 3.6：
 ```
-$ python3 -V
+$ python -V
 Python 3.8.2
 ```
 
-然后
+然后如果你没有 python3，可以手动建立一个软连接
 ```
-$ sudo ln -s /usr/bin/python3 /usr/bin/python
+$ sudo ln -s /usr/bin/python /usr/bin/python3
 $ make
 cd minidecaf && java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Python3 -visitor -o generated MiniDecaf.g4
-python -m minidecaf  i.c o.s
+python3 -m minidecaf  i.c o.s
 riscv64-unknown-elf-gcc  -march=rv32im -mabi=ilp32 o.s
 qemu-riscv32 a.out ; echo $?
 233
