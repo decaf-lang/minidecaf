@@ -111,12 +111,26 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
-    public Type visitExpr(ExprContext ctx) {
-        return visit(ctx.assign());
+    public Type visitIfStmt(IfStmtContext ctx) {
+        int currentCondNo = condNo++;
+        sb.append("# # if\n"); // "#if" 是宏，所以这里需要多给一个"#"
+
+        // 根据条件表达式的值判断是否要直接跳转至 else 分支
+        visit(ctx.expr());
+        pop("t0");
+        sb.append("\tbeqz t0, .else" + currentCondNo + "\n");
+
+        visit(ctx.stmt(0));
+        sb.append("\tj .afterCond" + currentCondNo + "\n") // 在 then 分支结束后直接跳至分支语句末尾
+          .append(".else" + currentCondNo + ":\n"); // 标记 else 分支开始部分的 label
+        if (ctx.stmt().size() > 1)
+            visit(ctx.stmt(1));
+        sb.append(".afterCond" + currentCondNo + ":\n");
+        return new NoType();
     }
 
     @Override
-    public Type visitAssign(AssignContext ctx) {
+    public Type visitExpr(ExprContext ctx) {
         if (ctx.children.size() > 1) {
             String name = ctx.IDENT().getText();
             Optional<Symbol> optionSymbol = lookupSymbol(name);
@@ -133,6 +147,26 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
                 reportError("use variable that is not defined", ctx);
                 return new NoType();
             }
+        } else return visit(ctx.ternary());
+    }
+
+    @Override
+    public Type visitTernary(TernaryContext ctx) {
+        if (ctx.children.size() > 1) {
+            int currentCondNo = condNo++;
+            sb.append("# ternary conditional\n");
+            visit(ctx.lor());
+
+            // 根据条件表达式判断是否要跳转至 else 分支
+            pop("t0");
+            sb.append("\tbeqz t0, .else" + currentCondNo + "\n");
+            visit(ctx.expr());
+            sb.append("\tj .afterCond" + currentCondNo + "\n") // 在 then 分支结束后直接跳至分支语句末尾
+              .append(".else" + currentCondNo + ":\n"); // 在 else 分支结束后直接跳至分支语句末尾
+            visit(ctx.ternary());
+            sb.append(".afterCond" + currentCondNo + ":\n");
+
+            return new IntType();
         } else return visit(ctx.lor());
     }
 
@@ -340,6 +374,9 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         else
             return Optional.empty();
     }
+
+    /* 控制语句相关 */
+    private int condNo = 0; // 用于给条件语句和条件表达式所用的 label 编号，避免 label 名称冲突
 
     /* 一些工具方法 */
     /**
