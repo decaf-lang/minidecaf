@@ -15,6 +15,7 @@ stmt:
 	expr? ';' # exprStmt
 	| 'return' expr ';' # returnStmt
 	| 'if' '(' expr ')' stmt ('else' stmt)? # ifStmt
+	| '{' blockItem* '}' # blockStmt
 	;
 
 expr: IDENT '=' expr | ternary;

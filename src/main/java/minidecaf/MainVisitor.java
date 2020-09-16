@@ -48,8 +48,14 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         int backtracePos = sb.length();
         localCount = 0;
 
+        // 为这个函数体开启一个新的作用域
+        symbolTable.add(new HashMap<>());
+
         for (var blockItem: ctx.blockItem())
             visit(blockItem);
+        
+        // 关闭这个函数体的作用域
+        symbolTable.pop();
         
         // 为了实现方便，我们默认 return 0
         sb.append("# return 0 as default\n")
@@ -74,11 +80,11 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitLocalDecl(LocalDeclContext ctx) {
         String name = ctx.IDENT().getText();
-        if (symbolTable.get(name) != null)
+        if (symbolTable.peek().get(name) != null)
             reportError("try declaring a declared variable", ctx);
         
         // 加入符号表
-        symbolTable.put(name,
+        symbolTable.peek().put(name,
             new Symbol(name, -4 * ++localCount, new IntType()));
         
         // 如果有初始化表达式的话，求出初始化表达式的值
@@ -130,6 +136,17 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
+    public Type visitBlockStmt(BlockStmtContext ctx) {
+        // 开启一个新的作用域
+        symbolTable.add(new HashMap<>());
+        for (var blockItem: ctx.blockItem())
+            visit(blockItem);
+        // 关闭作用域
+        symbolTable.pop();
+        return new NoType();
+    }
+
+    @Override
     public Type visitExpr(ExprContext ctx) {
         if (ctx.children.size() > 1) {
             String name = ctx.IDENT().getText();
@@ -139,7 +156,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
                 Symbol symbol = optionSymbol.get();
 
                 pop("t0");
-                sb.append("# read variable\n")
+                sb.append("# assign variable\n")
                   .append("\tsw t0, " + symbol.offset + "(fp)\n");
                 push("t0");
                 return symbol.type;
@@ -157,7 +174,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
             sb.append("# ternary conditional\n");
             visit(ctx.lor());
 
-            // 根据条件表达式判断是否要跳转至 else 分支
+            // 根据条件表达式的值判断是否要跳转至 else 分支
             pop("t0");
             sb.append("\tbeqz t0, .else" + currentCondNo + "\n");
             visit(ctx.expr());
@@ -366,13 +383,16 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     /* 符号相关 */
     private int localCount;
-    private Map<String, Symbol> symbolTable = new HashMap<>(); // 符号表，目前我们只有一个符号域
+    private Stack<Map<String, Symbol>> symbolTable = new Stack<>(); // 符号表，所有作用域构成一个栈
 
     private Optional<Symbol> lookupSymbol(String v) {
-        if (symbolTable.containsKey(v))
-            return Optional.of(symbolTable.get(v));
-        else
-            return Optional.empty();
+        // 优先在内层作用域中寻找对应的符号
+        for (int i = symbolTable.size() - 1; i >= 0; --i) {
+            var map = symbolTable.elementAt(i);
+            if (map.containsKey(v))
+                return Optional.of(map.get(v));
+        }
+        return Optional.empty();
     }
 
     /* 控制语句相关 */
