@@ -55,7 +55,106 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     @Override
     public Type visitExpr(ExprContext ctx) {
-        return visit(ctx.add());
+        return visit(ctx.lor());
+    }
+
+    @Override
+    public Type visitLor(LorContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.lor(0));
+            visit(ctx.lor(1));
+            
+            pop("t1");
+            pop("t0");
+            sb.append("\tsnez t0, t0\n")
+              .append("\tsnez t1, t1\n")
+              .append("\tor t0, t0, t1\n");
+            push("t0");
+            
+            return new IntType();
+        } else {
+            return visit(ctx.land());
+        }
+    }
+
+    @Override
+    public Type visitLand(LandContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.land(0));
+            visit(ctx.land(1));
+
+            pop("t1");
+            pop("t0");
+            sb.append("\tsnez t0, t0\n")
+              .append("\tsnez t1, t1\n")
+              .append("\tand t0, t0, t1\n");
+            push("t0");
+            
+            return new IntType();
+        } else {
+            return visit(ctx.equ());
+        }
+    }
+
+    @Override
+    public Type visitEqu(EquContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.equ(0));
+            visit(ctx.equ(1));
+            
+            pop("t1");
+            pop("t0");
+            String op = ctx.children.get(1).getText();
+            if (op.equals("==")) {
+                sb.append("# eq\n")
+                  .append("\tsub t0, t0, t1\n")
+                  .append("\tseqz t0, t0\n");
+                push("t0");
+            } else {
+                assert op.equals("!=");
+                sb.append("# ne\n")
+                  .append("\tsub t0, t0, t1\n")
+                  .append("\tsnez t0, t0\n");
+                push("t0");
+            }
+
+            return new IntType();
+        } else {
+            return visit(ctx.rel());
+        }
+    }
+
+    @Override
+    public Type visitRel(RelContext ctx) {
+        if (ctx.children.size() > 1) {
+            visit(ctx.rel(0));
+            visit(ctx.rel(1));
+
+            pop("t1");
+            pop("t0");
+            String op = ctx.children.get(1).getText();
+            if (op.equals("<")) {
+                sb.append("# <\n")
+                  .append("\tslt t0, t0, t1\n");
+            } else if (op.equals("<=")) {
+                sb.append("# <=\n")
+                  .append("\tsgt t0, t0, t1\n")
+                  .append("\txori t0, t0, 1\n");
+            } else if (op.equals(">")) {
+                sb.append("# >\n")
+                  .append("\tsgt t0, t0, t1\n");
+            } else {
+                assert op.equals(">=");
+                sb.append("# >=\n")
+                  .append("\tslt t0, t0, t1\n")
+                  .append("\txori t0, t0, 1\n");
+            }
+            push("t0");
+
+            return new IntType();
+        } else {
+            return visit(ctx.add());
+        }
     }
 
     @Override

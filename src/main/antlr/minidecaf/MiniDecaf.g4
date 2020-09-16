@@ -9,7 +9,15 @@ type: 'int';
 
 stmt: 'return' expr ';';
 
-expr: add;
+expr: lor;
+
+lor: lor '||' lor | land;
+
+land: land '&&' land | equ;
+
+equ: equ ('==' | '!=') equ | rel;
+
+rel: rel ('<'|'>'|'<='|'>=') rel | add;
 
 add: add ('+' | '-') add | mul;
 
