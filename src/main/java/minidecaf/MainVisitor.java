@@ -27,6 +27,13 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     public Type visitProg(ProgContext ctx) {
         for (var child: ctx.children)
             visit(child);
+        
+        // 将未初始化的全局变量发送到 bss 段
+        for (String global: declaredGlobalTable.keySet())
+            if (initializedGlobalTable.get(global) == null) {
+                sb.append("\t.comm " + global + ", " + 
+                    declaredGlobalTable.get(global).getSize() + ", 4\n"); // 大小为 4，对齐字节数也为 4
+            }
 
         if (!containsMain) reportError("no main function", ctx);
 
@@ -35,7 +42,9 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     @Override
     public Type visitDeclaredFunc(DeclaredFuncContext ctx) {
-        String name = ctx.IDENT(0).getText();
+        String funcName = ctx.IDENT(0).getText();
+        if (declaredGlobalTable.get(funcName) != null)
+            reportError("a global variable and a function have the same funcName", ctx);
 
         Type returnType = visit(ctx.type(0));
         List<Type> paramTypes = new ArrayList<>();
@@ -43,12 +52,12 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
             paramTypes.add(visit(ctx.type(i)));
         FunType funType = new FunType(returnType, paramTypes);
 
-        if (declaredFuncTable.get(name) != null && !declaredFuncTable.get(name).equals(funType))
+        if (declaredFuncTable.get(funcName) != null && !declaredFuncTable.get(funcName).equals(funType))
             reportError("declare a function with two different signatures", ctx);
         
         // 这里我们与 gcc 保持一致，同样签名的函数可以声明任意多次
 
-        declaredFuncTable.put(name, funType);
+        declaredFuncTable.put(funcName, funType);
 
         return new NoType();
     }
@@ -56,6 +65,8 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitDefinedFunc(DefinedFuncContext ctx) {
         currentFunc = ctx.IDENT(0).getText();
+        if (declaredGlobalTable.get(currentFunc) != null)
+            reportError("a global variable and a function have the same name", ctx);
         if (currentFunc.equals("main")) containsMain = true;
 
         sb.append("\t.text\n") // 表示以下内容在 text 段中
@@ -131,6 +142,32 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         pop("ra");
         sb.append("\tret\n\n");
 
+        return new NoType();
+    }
+
+    @Override
+    public Type visitGlobalDecl(GlobalDeclContext ctx) {
+        // 这里我们与 gcc 保持一致，全局变量可以多次声明，但只能被初始化一次。
+        String name = ctx.IDENT().getText();
+        if (declaredFuncTable.get(name) != null)
+            reportError("a global variable and a function have the same name", ctx);
+        
+        Type type = visit(ctx.type());
+        if (declaredGlobalTable.get(name) != null && !declaredGlobalTable.get(name).equals(type))
+            reportError("different global variables with same name are declared", ctx);
+        declaredGlobalTable.put(name, type);
+
+        var num = ctx.NUM();
+        if (num != null) {
+            if (initializedGlobalTable.get(name) != null)
+                reportError("try initializing a global variable twice", ctx);
+            initializedGlobalTable.put(name, type);
+
+            sb.append("\t.data\n") // 全局变量要放在 data 段中
+              .append("\t.align 4\n") // 4 字节对齐
+              .append(name + ":\n")
+              .append("\t.word " + num.getText() + "\n"); // word 表示一个 32 位字
+        }
         return new NoType();
     }
 
@@ -321,15 +358,23 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         if (ctx.children.size() > 1) {
             String name = ctx.IDENT().getText();
             Optional<Symbol> optionSymbol = lookupSymbol(name);
+            visit(ctx.expr());
             if (!optionSymbol.isEmpty()) {
-                visit(ctx.expr());
                 Symbol symbol = optionSymbol.get();
-
                 pop("t0");
                 sb.append("# assign variable\n")
                   .append("\tsw t0, " + symbol.offset + "(fp)\n");
                 push("t0");
                 return symbol.type;
+            } else if (declaredGlobalTable.get(name) != null) {
+                pop("t0");
+                // 由于 32 位地址超过了长度为 4 字节的 riscv 指令的表示能力，
+                // 所以这里需要用两条指令。
+                sb.append("# assign global variable\n")
+                  .append("\tlui t1, %hi(" + name + ")\n") // 读出全局变量地址的高 20 位
+                  .append("\tsw t0, %lo(" + name + ")(t1)\n"); // 读出全局变量地址的低 12 位
+                push("t0");
+                return declaredGlobalTable.get(name);
             } else {
                 reportError("use variable that is not defined", ctx);
                 return new NoType();
@@ -564,6 +609,14 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
               .append("\tlw t0, " + symbol.offset + "(fp)\n");
             push("t0");
             return symbol.type;
+        } else if (declaredGlobalTable.get(name) != null) { // 全局变量
+            // 由于 32 位地址超过了长度为 4 字节的 riscv 指令的表示能力，
+            // 所以这里需要用两条指令。
+            sb.append("# read global variable\n")
+              .append("\tlui t1, %hi(" + name + ")\n") // 读出全局变量地址的高 20 位
+              .append("\tlw t0, %lo(" + name + ")(t1)\n"); // 读出全局变量地址的低 12 位
+            push("t0");
+            return declaredGlobalTable.get(name);
         } else {
             reportError("use variable that is not defined", ctx);
             return new NoType();
@@ -589,6 +642,8 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     /* 符号相关 */
     private int localCount;
     private Stack<Map<String, Symbol>> symbolTable = new Stack<>(); // 符号表，所有作用域构成一个栈
+    private Map<String, Type> declaredGlobalTable = new HashMap<>();
+    private Map<String, Type> initializedGlobalTable = new HashMap<>();
 
     private Optional<Symbol> lookupSymbol(String v) {
         // 优先在内层作用域中寻找对应的符号

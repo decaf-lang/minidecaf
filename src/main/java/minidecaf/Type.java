@@ -20,6 +20,8 @@ public abstract class Type {
 
     abstract public boolean equals(Type type); // 判断两个 Type 是否相等
 
+    abstract public int getSize(); // 类型所占内存空间的大小
+
     /**
      * 用于语句、声明等没有类型的分析树节点
      */ 
@@ -31,6 +33,11 @@ public abstract class Type {
         @Override
         public boolean equals(Type type) {
             return type instanceof NoType;
+        }
+
+        @Override
+        public int getSize() {
+            throw new UnsupportedOperationException("Error: trying getting the size of NoType.");
         }
     }
 
@@ -45,6 +52,11 @@ public abstract class Type {
         @Override
         public boolean equals(Type type) {
             return type instanceof IntType;
+        }
+
+        @Override
+        public int getSize() {
+            return 4;
         }
     }
 }
