@@ -83,7 +83,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         FunType funType = new FunType(returnType, paramTypes);
 
         if (declaredFuncTable.get(currentFunc) != null && !declaredFuncTable.get(currentFunc).equals(funType))
-            reportError("the number of parameters of the defined function is not the same as declared", ctx);
+            reportError("the signature of the defined function is not the same as it is declared", ctx);
         
         declaredFuncTable.put(currentFunc, funType);
         definedFuncTable.put(currentFunc, funType);
@@ -110,11 +110,11 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
                 sb.append("\tsw a" + (i - 1) + ", " + (-4 * i) + "(fp)\n");
                 symbolTable.peek().put(paraName,
                     new Symbol(paraName, -4 * i,
-                        funType.paramTypes.get(i - 1)));
+                        funType.paramTypes.get(i - 1).valueCast(ValueCat.LVALUE)));
             } else {
                 symbolTable.peek().put(paraName,
                     new Symbol(paraName, 4 * (i - 9 + 2),
-                        funType.paramTypes.get(i - 1)));
+                        funType.paramTypes.get(i - 1).valueCast(ValueCat.LVALUE)));
             }
         }
 
@@ -146,7 +146,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
-    public Type visitGlobalDecl(GlobalDeclContext ctx) {
+    public Type visitGlobalIntOrPointerDecl(GlobalIntOrPointerDeclContext ctx) {
         // 这里我们与 gcc 保持一致，全局变量可以多次声明，但只能被初始化一次。
         String name = ctx.IDENT().getText();
         if (declaredFuncTable.get(name) != null)
@@ -155,13 +155,13 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         Type type = visit(ctx.type());
         if (declaredGlobalTable.get(name) != null && !declaredGlobalTable.get(name).equals(type))
             reportError("different global variables with same name are declared", ctx);
-        declaredGlobalTable.put(name, type);
+        declaredGlobalTable.put(name, type.valueCast(ValueCat.LVALUE));
 
         var num = ctx.NUM();
         if (num != null) {
             if (initializedGlobalTable.get(name) != null)
                 reportError("try initializing a global variable twice", ctx);
-            initializedGlobalTable.put(name, type);
+            initializedGlobalTable.put(name, type.valueCast(ValueCat.RVALUE));
 
             sb.append("\t.data\n") // 全局变量要放在 data 段中
               .append("\t.align 4\n") // 4 字节对齐
@@ -172,23 +172,77 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
-    public Type visitLocalDecl(LocalDeclContext ctx) {
+    public Type visitGlobalArrayDecl(GlobalArrayDeclContext ctx) {
+        String name = ctx.IDENT().getText();
+        if (declaredFuncTable.get(name) != null)
+            reportError("a global variable and a function have the same name", ctx);
+
+        Deque<Type> types = new ArrayDeque<>();
+        types.add(visit(ctx.type()).valueCast(ValueCat.LVALUE));
+        for (int i = ctx.NUM().size() - 1; i >= 0; --i) {
+            int x = Integer.valueOf(ctx.NUM(i).getText());
+            if (x == 0)
+                reportError("the dimension of array cannot be 0", ctx);
+            types.addFirst(new ArrayType(types.getFirst(), x));
+        }
+        Type type = types.getFirst();
+
+        if (declaredGlobalTable.get(name) != null && !declaredGlobalTable.get(name).equals(type))
+            reportError("different global variables with same name are declared", ctx);
+        declaredGlobalTable.put(name, type);
+        
+        return new NoType();
+    }
+
+    @Override
+    public Type visitLocalIntOrPointerDecl(LocalIntOrPointerDeclContext ctx) {
         String name = ctx.IDENT().getText();
         if (symbolTable.peek().get(name) != null)
             reportError("try declaring a declared variable", ctx);
         
         // 加入符号表
+        Type type = visit(ctx.type());
         symbolTable.peek().put(name,
-            new Symbol(name, -4 * ++localCount, new IntType()));
+            new Symbol(name, -4 * ++localCount, type.valueCast(ValueCat.LVALUE)));
         
         // 如果有初始化表达式的话，求出初始化表达式的值
         var expr = ctx.expr();
         if (expr != null) {
-            visit(expr);
+            Type exprType = castToRValue(visit(expr), ctx);
+            if (!exprType.equals(type))
+                reportError("initialize value of type " + exprType + " to some variable of type " + type, ctx);
+
             pop("t0");
-            sb.append("\tsw t0, " + (-4 * localCount) + "(fp)\n");
+            sb.append("# initialize local variable\n")
+              .append("\tsw t0, " + (-4 * localCount) + "(fp)\n");
         }
         
+        return new NoType();
+    }
+
+    @Override
+    public Type visitLocalArrayDecl(LocalArrayDeclContext ctx) {
+        String name = ctx.IDENT().getText();
+        if (symbolTable.peek().get(name) != null)
+            reportError("try declaring a declared variable", ctx);
+
+        // 计算数组的类型
+        Deque<Type> types = new ArrayDeque<>();
+        types.add(visit(ctx.type()).valueCast(ValueCat.LVALUE));
+        for (int i = ctx.NUM().size() - 1; i >= 0; --i) {
+            int x = Integer.valueOf(ctx.NUM(i).getText());
+            if (x == 0)
+                reportError("the dimension of array cannot be 0", ctx);
+            types.addFirst(
+                new ArrayType(types.getFirst(), x));
+        }
+        assert types.getFirst() instanceof ArrayType;
+        ArrayType type = (ArrayType)types.getFirst();
+
+        // 数组等价于若干个全局变量
+        symbolTable.peek().put(name,
+            new Symbol(name, -4 * (localCount += type.getSize() / 4), type));
+
         return new NoType();
     }
 
@@ -204,7 +258,11 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
     @Override
     public Type visitReturnStmt(ReturnStmtContext ctx) {
-        visit(ctx.expr());
+        Type returnType = castToRValue(visit(ctx.expr()), ctx);
+        Type expectedType = definedFuncTable.get(currentFunc).returnType;
+        if (!expectedType.equals(returnType))
+            reportError("return type " + returnType + " is inconsitent with expected return type " + expectedType, ctx);
+
         // 函数返回，返回值存在 a0 中
         sb.append("\tj .exit." + currentFunc + "\n");
         return new NoType();
@@ -216,7 +274,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         sb.append("# # if\n"); // "#if" 是宏，所以这里需要多给一个"#"
 
         // 根据条件表达式的值判断是否要直接跳转至 else 分支
-        visit(ctx.expr());
+        typeCheck(visit(ctx.expr()), IntType.class, ctx);
         pop("t0");
         sb.append("\tbeqz t0, .else" + currentCondNo + "\n");
 
@@ -246,7 +304,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         sb.append("# while\n")
           .append(".beforeLoop" + currentLoopNo + ":\n")
           .append(".continueLoop" + currentLoopNo + ":\n"); // continue 指令需要跳转到这里
-        visit(ctx.expr());
+        typeCheck(visit(ctx.expr()), IntType.class, ctx);
         pop("t0");
         sb.append("\tbeqz t0, .afterLoop" + currentLoopNo + "\n");
 
@@ -292,7 +350,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
 
         sb.append(".beforeLoop" + currentLoopNo + ":\n");
         if (condExpr != null) {
-            visit(condExpr);
+            typeCheck(visit(condExpr), IntType.class, ctx);
             sb.append("\tlw t1, 0(sp)\n")
               .append("\taddi sp, sp, 4\n")
               .append("\tbeqz t1, .afterLoop" + currentLoopNo + "\n");
@@ -329,7 +387,7 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         loopNos.pop();
 
         sb.append(".continueLoop" + currentLoopNo + ":\n"); // continue 指令需要跳转到这里
-        visit(ctx.expr());
+        typeCheck(visit(ctx.expr()), IntType.class, ctx);
         pop("t0");
         sb.append("\tbnez t0, .beforeLoop" + currentLoopNo + "\n")
           .append(".afterLoop" + currentLoopNo + ":\n");
@@ -356,29 +414,16 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitExpr(ExprContext ctx) {
         if (ctx.children.size() > 1) {
-            String name = ctx.IDENT().getText();
-            Optional<Symbol> optionSymbol = lookupSymbol(name);
-            visit(ctx.expr());
-            if (!optionSymbol.isEmpty()) {
-                Symbol symbol = optionSymbol.get();
-                pop("t0");
-                sb.append("# assign variable\n")
-                  .append("\tsw t0, " + symbol.offset + "(fp)\n");
-                push("t0");
-                return symbol.type;
-            } else if (declaredGlobalTable.get(name) != null) {
-                pop("t0");
-                // 由于 32 位地址超过了长度为 4 字节的 riscv 指令的表示能力，
-                // 所以这里需要用两条指令。
-                sb.append("# assign global variable\n")
-                  .append("\tlui t1, %hi(" + name + ")\n") // 读出全局变量地址的高 20 位
-                  .append("\tsw t0, %lo(" + name + ")(t1)\n"); // 读出全局变量地址的低 12 位
-                push("t0");
-                return declaredGlobalTable.get(name);
-            } else {
-                reportError("use variable that is not defined", ctx);
-                return new NoType();
-            }
+            Type unaryType = typeCheck(visit(ctx.unary()), Type.class, ValueCat.LVALUE, ctx);
+            Type exprType = castToRValue(visit(ctx.expr()), ctx);
+            if (!exprType.equals(unaryType.valueCast(ValueCat.RVALUE)))
+                reportError("assign value of type " + exprType + " to some variable of type " + unaryType, ctx);
+            pop("t1");
+            pop("t0");
+            sb.append("# assign\n")
+              .append("\tsw t1, 0(t0)\n");
+            push("t0");
+            return unaryType;
         } else return visit(ctx.ternary());
     }
 
@@ -387,26 +432,28 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         if (ctx.children.size() > 1) {
             int currentCondNo = condNo++;
             sb.append("# ternary conditional\n");
-            visit(ctx.lor());
+            typeCheck(visit(ctx.lor()), IntType.class, ctx);
 
             // 根据条件表达式的值判断是否要跳转至 else 分支
             pop("t0");
             sb.append("\tbeqz t0, .else" + currentCondNo + "\n");
-            visit(ctx.expr());
+            Type thenType = castToRValue(visit(ctx.expr()), ctx);
             sb.append("\tj .afterCond" + currentCondNo + "\n") // 在 then 分支结束后直接跳至分支语句末尾
               .append(".else" + currentCondNo + ":\n"); // 在 else 分支结束后直接跳至分支语句末尾
-            visit(ctx.ternary());
+            Type elseType = castToRValue(visit(ctx.ternary()), ctx);
             sb.append(".afterCond" + currentCondNo + ":\n");
 
-            return new IntType();
+            if (!thenType.equals(elseType))
+                reportError("different types of branches of a ternary", ctx);
+            return thenType;
         } else return visit(ctx.lor());
     }
 
     @Override
     public Type visitLor(LorContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.lor(0));
-            visit(ctx.lor(1));
+            typeCheck(visit(ctx.lor(0)), IntType.class, ctx);
+            typeCheck(visit(ctx.lor(1)), IntType.class, ctx);
             
             pop("t1");
             pop("t0");
@@ -424,8 +471,8 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitLand(LandContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.land(0));
-            visit(ctx.land(1));
+            typeCheck(visit(ctx.land(0)), IntType.class, ctx);
+            typeCheck(visit(ctx.land(1)), IntType.class, ctx);
 
             pop("t1");
             pop("t0");
@@ -443,8 +490,14 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitEqu(EquContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.equ(0));
-            visit(ctx.equ(1));
+            Type leftType = castToRValue(visit(ctx.equ(0)), ctx);
+            Type rightType = castToRValue(visit(ctx.equ(1)), ctx);
+            if (!leftType.equals(rightType)) {
+                reportError("the types of the both sides of \"==\"/\"!=\" must be same", ctx);
+            }
+            if (leftType instanceof ArrayType || rightType instanceof ArrayType) {
+                reportError("array type cannot take part in equational operation", ctx);
+            }
             
             pop("t1");
             pop("t0");
@@ -471,8 +524,8 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitRel(RelContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.rel(0));
-            visit(ctx.rel(1));
+            typeCheck(visit(ctx.rel(0)), IntType.class, ctx);
+            typeCheck(visit(ctx.rel(1)), IntType.class, ctx);
 
             pop("t1");
             pop("t0");
@@ -504,27 +557,68 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     @Override
     public Type visitAdd(AddContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.add(0));
-            visit(ctx.add(1));
-            pop("t1");
-            pop("t0");
+            Type leftType = castToRValue(visit(ctx.add(0)), ctx);
+            Type rightType = castToRValue(visit(ctx.add(1)), ctx);
             if (ctx.children.get(1).getText().equals("+")) {
-                sb.append("# int + int\n")
-                  .append("\tadd t0, t0, t1\n");
+                pop("t1");
+                pop("t0");
+                if (leftType instanceof IntType && rightType instanceof IntType) {
+                    sb.append("# int + int\n")
+                      .append("\tadd t0, t0, t1\n");
+                    push("t0");
+                    return new IntType();
+                } else if (leftType instanceof PointerType && rightType instanceof IntType) {
+                    sb.append("# pointer + int\n")
+                      .append("\tslli t1, t1, 2\n")
+                      .append("\tadd t0, t0, t1\n");
+                    push("t0");
+                    return leftType;
+                } else if (leftType instanceof IntType && rightType instanceof PointerType) {
+                    sb.append("# int + pointer\n")
+                      .append("\tslli t0, t0, 2\n")
+                      .append("\tadd t0, t0, t1\n");
+                    push("t0");
+                    return rightType;
+                } else {
+                    reportError("only the followings are legal for addition operation: 1. pointer + integer 2. integer + pointer 3. integer + integer", ctx);
+                    return new NoType();
+                }
             } else {
-                sb.append("# int - int\n")
-                  .append("\tsub t0, t0, t1\n");
+                pop("t1");
+                pop("t0");
+                if (leftType instanceof IntType && rightType instanceof IntType) {
+                    sb.append("# int - int\n")
+                      .append("\tsub t0, t0, t1\n");
+                    push("t0");
+                    return new IntType();
+                }
+                else if (leftType instanceof PointerType && rightType instanceof IntType) {
+                    sb.append("# pointer - int\n")
+                      .append("\tslli t1, t1, 2\n")
+                      .append("\tsub t0, t0, t1\n");
+                    push("t0");
+                    return leftType;
+                }
+                else if (leftType instanceof PointerType && rightType.equals(leftType)) {
+                    sb.append("# pointer - pointer\n")
+                      .append("\tsub t0, t0, t1\n")
+                      .append("\tsrai t0, t0, 2\n");
+                    push("t0");
+                    return new IntType();
+                }
+                else {
+                    reportError("only the followings are legal for subtraction operation: 1. pointer - integer 2. integer - integer", ctx);
+                    return new NoType();
+                }
             }
-            push("t0");
-            return new IntType();
         } else return visit(ctx.mul());
     }
 
     @Override
     public Type visitMul(MulContext ctx) {
         if (ctx.children.size() > 1) {
-            visit(ctx.mul(0));
-            visit(ctx.mul(1));
+            typeCheck(visit(ctx.mul(0)), IntType.class, ctx);
+            typeCheck(visit(ctx.mul(1)), IntType.class, ctx);
             String op = ctx.children.get(1).getText();
             op = op.equals("*") ? "mul" : op.equals("/") ? "div" : "rem";
             pop("t1");
@@ -537,52 +631,103 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     }
 
     @Override
-    public Type visitUnary(UnaryContext ctx) {
-        if (ctx.children.size() > 1) {
-            visit(ctx.unary());
-            String op = ctx.children.get(0).getText();
-            
-            sb.append("# " + op + " int\n");
+    public Type visitOpUnary(OpUnaryContext ctx) {
+        Type type = visit(ctx.unary());
+        String op = ctx.children.get(0).getText();
+        
+        if (op.equals("*")) {
+            return castToRValue(type, ctx).dereferenced();
+        } if (op.equals("&")) {
+            return type.referenced();
+        } else {
+            typeCheck(type, IntType.class, ctx);
             pop("t0");
             if (op.equals("-")) {
-                sb.append("\tneg t0, t0\n");
+                sb.append("# " + op + " int\n")
+                  .append("\tneg t0, t0\n");
             } else if (op.equals("!")) {
-                sb.append("\tseqz t0, t0\n");
+                sb.append("# " + op + " int\n")
+                  .append("\tseqz t0, t0\n");
             } else {
                 assert(op.equals("~"));
-                sb.append("\tnot t0, t0\n");
+                sb.append("# " + op + " int\n")
+                  .append("\tnot t0, t0\n");
             }
             push("t0");
             return new IntType();
-        } else return visit(ctx.postfix());
+        }
     }
 
     @Override
-    public Type visitPostfix(PostfixContext ctx) {
-        if (ctx.children.size() > 1) {
-            String name = ctx.IDENT().getText();
-            if (declaredFuncTable.get(name) == null)
-                reportError("try calling an undeclared function", ctx);
-            FunType funType = declaredFuncTable.get(name);
-            if (funType.paramTypes.size() != ctx.expr().size())
-                reportError("the number of arguments is not equal to the number of parameters", ctx);
-            
-            // 这里我们遵循 riscv gcc 的调用约定
-            sb.append("# prepare arguments\n");
-            for (int i = ctx.expr().size() - 1; i >= 0; --i) {
-                visit(ctx.expr().get(i));
-                if (i < 8) pop("a" + i); // 前 8 个参数使用寄存器 a0 - a7 传递
-            }
+    public Type visitCastUnary(CastUnaryContext ctx) {
+        Type srcType = visit(ctx.unary());
+        Type dstType = visit(ctx.type());
+        return dstType.valueCast(srcType.valueCat);
+    }
 
-            sb.append("\tcall " + name + "\n");
-            
-            // 弹出栈里的参数
-            if (ctx.expr().size() > 8)
-                sb.append("\taddi sp, sp, " + (4 * (ctx.expr().size() - 8)) + "\n");
+    @Override
+    public Type visitPostfixUnary(PostfixUnaryContext ctx) {
+        Type type = visit(ctx.postfix());
+        return type;
+    }
 
-            push("a0"); // 函数的返回值存储在 a0 中
-            return new IntType();
-        } else return visit(ctx.primary());
+    @Override
+    public Type visitCallPostfix(CallPostfixContext ctx) {
+        String name = ctx.IDENT().getText();
+        if (declaredFuncTable.get(name) == null)
+            reportError("try calling an undeclared function", ctx);
+        FunType funType = declaredFuncTable.get(name);
+        if (funType.paramTypes.size() != ctx.expr().size())
+            reportError("the number of arguments is not equal to the number of parameters", ctx);
+        
+        // 这里我们遵循 riscv gcc 的调用约定
+        sb.append("# prepare arguments\n");
+        for (int i = ctx.expr().size() - 1; i >= 0; --i) {
+            Type type = castToRValue(visit(ctx.expr().get(i)), ctx);
+            if (!type.equals(funType.paramTypes.get(i)))
+                reportError("the type of argument " + i + " is different from the type of parameter " + i + " of function " + name, ctx);
+            if (i < 8) pop("a" + i); // 前 8 个参数使用寄存器 a0 - a7 传递
+        }
+
+        sb.append("\tcall " + name + "\n");
+        
+        // 弹出栈里的参数
+        if (ctx.expr().size() > 8)
+            sb.append("\taddi sp, sp, " + (4 * (ctx.expr().size() - 8)) + "\n");
+
+        push("a0"); // 函数的返回值存储在 a0 中
+        return funType.returnType;
+    }
+
+    @Override
+    public Type visitSubscriptPostfix(SubscriptPostfixContext ctx) {
+        Type postfixType = castToRValue(visit(ctx.postfix()), ctx);
+        typeCheck(visit(ctx.expr()), IntType.class, ValueCat.RVALUE, ctx);
+        pop("t1");
+        pop("t0");
+        if (postfixType instanceof PointerType) {
+            sb.append("# subscript applied to a pointer\n")
+              .append("\tslli t1, t1, 2\n")
+              .append("\tadd t0, t0, t1\n");
+            push("t0");
+            return postfixType.dereferenced();
+        } else if (postfixType instanceof ArrayType) {
+            Type baseType = ((ArrayType)postfixType).baseType;
+            sb.append("# subscript applied to an array\n")
+              .append("\tli t2, " + baseType.getSize() + "\n")
+              .append("\tmul t1, t1, t2\n")
+              .append("\tadd t0, t0, t1\n");
+            push("t0");
+            return baseType;
+        } else {
+            reportError("the subscript operator could only be applied to a pointer or an array", ctx);
+            return new NoType();
+        }
+    }
+
+    @Override
+    public Type visitPrimaryPostfix(PrimaryPostfixContext ctx) {
+        return visit(ctx.primary());
     }
 
     @Override
@@ -605,16 +750,16 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         Optional<Symbol> optionSymbol = lookupSymbol(name);
         if (!optionSymbol.isEmpty()) {
             Symbol symbol = optionSymbol.get();
-            sb.append("# read variable\n")
-              .append("\tlw t0, " + symbol.offset + "(fp)\n");
+            sb.append("# read variable " + name + " (as lvalue)\n")
+              .append("\taddi t0, fp, " + symbol.offset + "\n");
             push("t0");
             return symbol.type;
         } else if (declaredGlobalTable.get(name) != null) { // 全局变量
             // 由于 32 位地址超过了长度为 4 字节的 riscv 指令的表示能力，
             // 所以这里需要用两条指令。
-            sb.append("# read global variable\n")
-              .append("\tlui t1, %hi(" + name + ")\n") // 读出全局变量地址的高 20 位
-              .append("\tlw t0, %lo(" + name + ")(t1)\n"); // 读出全局变量地址的低 12 位
+            sb.append("# read global variable " + name + " (as lvalue)\n")
+              .append("\tlui t0, %hi(" + name + ")\n")
+              .append("\taddi t0, t0, %lo(" + name + ")\n");
             push("t0");
             return declaredGlobalTable.get(name);
         } else {
@@ -628,9 +773,13 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
         return visit(ctx.expr());
     }
 
+    // 这个方法与其他的访问函数不太一样，它的返回值是一个单纯的“类型”，
+    // 而不是“某一个表达式的类型”。
     @Override
     public Type visitType(TypeContext ctx) {
-        return new IntType();
+        int starNum = ctx.children.size() - 1;
+        if (starNum == 0) return new IntType();
+        else return new PointerType(starNum);
     }
 
     /* 函数相关 */
@@ -659,6 +808,40 @@ public final class MainVisitor extends MiniDecafBaseVisitor<Type> {
     private int loopNo = 0; // 用于给循环标号，避免 label 名称冲突
     private Stack<Integer> loopNos = new Stack<>(); // 当前位置的循环标号，因为可能有多层循环嵌套，所以需要用栈来维护
     private int condNo = 0; // 用于给条件语句和条件表达式所用的 label 编号，避免 label 名称冲突
+
+    /* 类型和值类别相关 */
+    /**
+     * 类型和值类别的转换，转换时检查是否可行。
+     *
+     * @param actualType 转换前的实际类型
+     * @param expectedType 期望被转换到的类型
+     * @param neededValueCat 所需的值类别
+     * @return 转换后的结果类型
+     */
+    private Type typeCheck(Type actualType, Class<?> expectedType, ValueCat neededValueCat, ParserRuleContext ctx) {
+        if (!expectedType.isAssignableFrom(actualType.getClass()))
+            reportError("type " + actualType + " appears, but " + expectedType.getName() + " is expected", ctx);
+        if (neededValueCat == ValueCat.LVALUE && actualType.valueCat == ValueCat.RVALUE)
+            reportError("an lvalue is needed here", ctx);
+        if (neededValueCat == ValueCat.RVALUE && actualType.valueCat == ValueCat.LVALUE) {
+            pop("t0");
+            sb.append("# cast lvalue to rvalue\n")
+              .append("\tlw t0, 0(t0)\n");
+            push("t0");
+            return actualType.valueCast(ValueCat.RVALUE);
+        }
+        return actualType.valueCast(neededValueCat);
+    }
+
+    // 缺省值类别，默认为右值
+    private Type typeCheck(Type actualType, Class<?> expectedType, ParserRuleContext ctx) {
+        return typeCheck(actualType, expectedType, ValueCat.RVALUE, ctx);
+    }
+
+    // 不作类型转换，仅仅要求右值
+    private Type castToRValue(Type actualType, ParserRuleContext ctx) {
+        return typeCheck(actualType, Type.class, ValueCat.RVALUE, ctx);
+    }
 
     /* 一些工具方法 */
     /**
