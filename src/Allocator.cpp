@@ -84,6 +84,17 @@ antlrcpp::Any Allocator::visitBlock(MiniDecafParser::BlockContext *ctx) {
     return retType::UNDEF;
 }
 
+antlrcpp::Any Allocator::visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx) {
+    // Global varibles are stored in global scope, the outermost scope 
+    std::string varName = ctx->Identifier()->getText();
+    if (varTab["global"].count(varName) > 0) {
+        std::cerr << "[ERROR] Redefinition of global variable " << varName << "\n";
+        exit(1);
+    }
+    varTab["global"][varName] = 0;
+    return retType::INT;
+}
+
 antlrcpp::Any Allocator::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
     // allocate the defined varible
     std::string varName = ctx->Identifier()->getText();
@@ -118,8 +129,12 @@ antlrcpp::Any Allocator::visitIdentifier(MiniDecafParser::IdentifierContext *ctx
         }
         return retType::INT;
     }
-    std::cerr << "[ERROR] Variable " << varName << " is used without definition\n";
-    exit(1);
+    // Search in global scope at last
+    if (varTab["global"].count(varName) == 0) {
+        std::cerr << "[ERROR] Variable " << varName << " is used without definition\n";
+        exit(1);
+    }
+    return retType::INT;
 }
 
 //@brief: Make sure that a variable must be defined before assigning it
@@ -138,8 +153,12 @@ antlrcpp::Any Allocator::visitAssign(MiniDecafParser::AssignContext *ctx) {
         }
         return retType::INT;
     }
-    std::cerr << "[ERROR] Variable " << varName << " is used without definition\n";
-    exit(1);
+    // Search in global scope at last
+    if (varTab["global"].count(varName) == 0) {
+        std::cerr << "[ERROR] Variable " << varName << " is used without definition\n";
+        exit(1);
+    }
+    return retType::INT;
 }
 
 //@brief: A forloop is also a new scope

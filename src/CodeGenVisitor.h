@@ -31,6 +31,7 @@ public:
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
+    antlrcpp::Any visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx);
 
     antlrcpp::Any visitForLoop(MiniDecafParser::ForLoopContext *ctx);
     antlrcpp::Any visitWhileLoop(MiniDecafParser::WhileLoopContext *ctx);
@@ -40,8 +41,11 @@ public:
 private:
     /*
         Stringstream used to store generated codes
+        .text, .data and .bss segments
     */
     std::ostringstream code_;
+    std::ostringstream data_;
+    std::ostringstream bss_;
     /*
         Deal with nested break & continue statements
     */

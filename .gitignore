@@ -68,5 +68,7 @@ generated/**
 *.interp
 
 a.out
-minidecaf-tests
+pk
+run.sh
+testcases
 out

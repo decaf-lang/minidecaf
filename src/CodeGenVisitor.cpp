@@ -7,8 +7,10 @@ antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx, symTa
     labelOrder = 0;
     code_ << ".section .text\n"
         << ".globl main\n";
+    data_ << ".section .data\n";
+    bss_ << ".section .bss\n";
     visitChildren(ctx);
-    return code_.str();
+    return code_.str() + data_.str() + bss_.str();
 }
 
 // @brief: Visit Func node, in this step we only support function call with no parameters
@@ -273,6 +275,24 @@ antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
     return retType::INT;
 }
 
+//@brief: visit GlobalVar node
+antlrcpp::Any CodeGenVisitor::visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx) {
+    /*
+       Global varibles are stored in .bss or .data segments
+       Initialized: .data; Uninitialized: .bss
+       They can be accessed by their label
+    */
+    std::string varName = ctx->Identifier()->getText();
+    if (ctx->Interger()) {
+        data_ << ".globl " << varName << "\n"
+              << varName << ":\n" << "\t.word " << ctx->Interger()->getText() << "\n";
+    } else {
+        bss_ << ".globl " << varName << "\n"
+             << varName << ":\n" << ".space 4\n";
+    }
+    return retType::INT;
+}
+
 //@brief: visit VarDef node, using rvalue to initialize the defined variable 
 //@ret: Variable type
 antlrcpp::Any CodeGenVisitor::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
@@ -308,6 +328,13 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
               << push;
         return retType::INT;
     }
+    // Finally, we retrieve target varible from global scope
+    // "la t0, <label>", load the label address to the register
+    if (varTab["global"].count(varName) > 0) {
+        code_ << "\tla t0, " << varName << "\n"
+              << "\tlw a0, (t0)\n"
+              << push;
+    }
     // Load the value from stack
     return retType::INT;
 }
@@ -335,6 +362,12 @@ antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
         }
         code_ << "\tsw a0, " << -4 - 4 * varTab[tmpFunc][varName] << "(fp)\n";
         return retType::INT;
+    }
+    // Finally, we retrieve target varible from global scope
+    // "la t0, <label>", load the label address to the register
+    if (varTab["global"].count(varName) > 0) {
+        code_ << "\tla t0, " << varName << "\n"
+              << "\tsw a0, (t0)\n";
     }
     return retType::INT;
 }

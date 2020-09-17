@@ -20,6 +20,7 @@ public:
     antlrcpp::Any visitFuncCall(MiniDecafParser::FuncCallContext *ctx);
     antlrcpp::Any visitBlock(MiniDecafParser::BlockContext *ctx);
 
+    antlrcpp::Any visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx);
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);

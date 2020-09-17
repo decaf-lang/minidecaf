@@ -21,21 +21,28 @@ file(GLOB antlr4-cpp-src
     ${PROJECT_SOURCE_DIR}/third_party/antlr4-runtime/tree/pattern/*.cpp
     ${PROJECT_SOURCE_DIR}/third_party/antlr4-runtime/tree/xpath/*.cpp
 )
+add_library(antlr4-cpp-runtime ${antlr4-cpp-src})
+
+execute_process(
+    WORKING_DIRECTORY
+        ${PROJECT_SOURCE_DIR}/generated/
+    # Note that this command runs in pure shell
+    COMMAND
+        java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
+)
 
 file(GLOB src_dir
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafLexer.cpp
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafParser.cpp
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafVisitor.cpp
     ${PROJECT_SOURCE_DIR}/generated/MiniDecafBaseVisitor.cpp
-    ${PROJECT_SOURCE_DIR}/src/CodeGenVisitor.cpp
-    ${PROJECT_SOURCE_DIR}/src/Allocator.cpp
+    ${PROJECT_SOURCE_DIR}/src/*.cpp
 )
 
-add_library(antlr4-cpp-runtime ${antlr4-cpp-src})
-add_executable(MiniDecaf ${src_dir} src/main.cpp)
+add_executable(MiniDecaf ${src_dir})
 target_link_libraries(MiniDecaf antlr4-cpp-runtime)
 
-
+# Add custom target update_antlr, use `make update_antlr` to update your lexer & grammar rules anytime
 add_custom_target(update_antlr
     WORKING_DIRECTORY
         ${PROJECT_SOURCE_DIR}/generated/
@@ -44,13 +51,3 @@ add_custom_target(update_antlr
     COMMENT 
         "Auto updates for developing antlr grammar"
 )
-
-# add_custom_command(TARGET antlr4-cpp-runtime
-#     POST_BUILD
-#     WORKING_DIRECTORY
-#         ${PROJECT_SOURCE_DIR}/generated/
-#     COMMAND 
-#         java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
-#     COMMENT 
-#         "Auto updates for developing antlr grammar"
-# )

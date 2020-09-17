@@ -3,7 +3,7 @@ grammar MiniDecaf;
 import CommonLex;
 
 prog
-    : func* EOF
+    : (func | decl_global ';')* EOF
     ;
 
 func
@@ -13,6 +13,10 @@ func
 blockItem
     : stmt
     | decl ';'
+    ;
+
+decl_global
+    : type Identifier ('=' Interger)?                               # globalVar
     ;
 
 decl
