@@ -13,6 +13,9 @@
 * pip 版本随意，但须是 python3 的。运行 `pip --version`，最后应该是 python 3.x。
   - ubuntu 下安装命令是 `sudo apt install python3-pip`
 
+* Java 至少 11：用来运行 ANTLR 工具
+  - ubuntu 下安装命令是 `sudo apt install default-jdk`
+
 * ANTLR 工具：按照 https://www.antlr.org/ 的 Quick Start 安装即可
   - 因为网络原因可能 Quick Start 那块加载不出来，那么请看[实验指导书](https://decaf-lang.github.io/minidecaf-tutorial/docs/lab1/part2.html)的截图。
   - 如果你没有完全按照官网指导把 antlr 的 jar 放到系统目录，你还需要在 `~/.bashrc`（或 `~/.zshrc`）中 `export ANTLR_JAR=/path/to/your/antlr.jar`。
