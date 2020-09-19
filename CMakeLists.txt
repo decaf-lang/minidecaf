@@ -4,6 +4,8 @@ project(MiniDecaf)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+find_package(Java)
+
 include_directories(
     ${PROJECT_SOURCE_DIR}/generate/
     ${PROJECT_SOURCE_DIR}/third_party/

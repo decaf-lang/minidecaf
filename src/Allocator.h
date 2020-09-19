@@ -1,12 +1,7 @@
 #pragma once
 
 #include "MiniDecafBaseVisitor.h"
-#include <string>
-#include <unordered_map>
-#include <tuple>
-
-template<typename T>
-using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
+#include "utils.h"
 
 /*
     This is a unique pass apart from the code generation pass, we build the minidecaf

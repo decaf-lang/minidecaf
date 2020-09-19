@@ -159,7 +159,7 @@ antlrcpp::Any CodeGenVisitor::visitAtomParen(MiniDecafParser::AtomParenContext *
 //@ret: Expr type: depending on the left & right expressions
 antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->add(0)), rExpr = visit(ctx->add(1));
     /*
         The use of token ptr is the same as FUNC<visitUnaryOp>.
         In this step, stack machine first pops the 2 operators at the top of stack,
@@ -182,7 +182,7 @@ antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
 //@ret: Expr type: depending on the left & right expressions
 antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->mul(0)), rExpr = visit(ctx->mul(1));
     /*
         Totally the same as FUNC<visitAddSub>.
     */
@@ -207,7 +207,7 @@ antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
 //@ret: Expr type: INT
 antlrcpp::Any CodeGenVisitor::visitEqual(MiniDecafParser::EqualContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->equ(0)), rExpr = visit(ctx->equ(1));
     /*
         Nearly the same as FUNC<visitAddSub>
     */
@@ -226,7 +226,7 @@ antlrcpp::Any CodeGenVisitor::visitEqual(MiniDecafParser::EqualContext *ctx) {
 //@ret: Expr type: INT
 antlrcpp::Any CodeGenVisitor::visitLessGreat(MiniDecafParser::LessGreatContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->rel(0)), rExpr = visit(ctx->rel(1));
     /*
         Nearly the same as FUNC<visitAddSub>
     */
@@ -250,7 +250,7 @@ antlrcpp::Any CodeGenVisitor::visitLessGreat(MiniDecafParser::LessGreatContext *
 //@ret: Expr type: INT
 antlrcpp::Any CodeGenVisitor::visitLand(MiniDecafParser::LandContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->land_op(0)), rExpr = visit(ctx->land_op(1));
     /*
         Nearly the same as FUNC<visitAddSub>
     */
@@ -265,7 +265,7 @@ antlrcpp::Any CodeGenVisitor::visitLand(MiniDecafParser::LandContext *ctx) {
 //@ret: Expr type: INT
 antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
     // Get the type of left & right expressions
-    retType lExpr = visit(ctx->expr(0)), rExpr = visit(ctx->expr(1));
+    retType lExpr = visit(ctx->lor_op(0)), rExpr = visit(ctx->lor_op(1));
     /*
         Nearly the same as FUNC<visitAddSub>
     */
@@ -412,14 +412,14 @@ antlrcpp::Any CodeGenVisitor::visitCondExpr(MiniDecafParser::CondExprContext *ct
         if a is true, expression c cannot be reached.
     */
     // Code generation part is nearly the same as <ifStmt>
-    visit(ctx->expr(0));
+    visit(ctx->lor_op());
     int elseBranch = labelOrder++;
     int endBranch = labelOrder++;
     code_ << "\tbeqz a0, label_" << elseBranch << "\n";
-    visit(ctx->expr(1));
+    visit(ctx->expr());
     code_ << "\tj label_" << endBranch << "\n";
     code_ << "label_" << elseBranch << ":\n";
-    visit(ctx->expr(2));
+    visit(ctx->cond());
     code_ << "label_" << endBranch << ":\n";
     return retType::UNDEF;
 }

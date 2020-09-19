@@ -1,16 +1,12 @@
 #pragma once
 
 #include "MiniDecafBaseVisitor.h"
-#include <string>
-#include <iostream>
-
-template<typename T>
-using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
+#include "utils.h"
 
 // Code generation pass
 class CodeGenVisitor : public MiniDecafBaseVisitor {
 public:
-    antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_);
+    antlrcpp::Any visitProg(MiniDecafParser::ProgContext *ctx);
     antlrcpp::Any visitFunc(MiniDecafParser::FuncContext *ctx);
     antlrcpp::Any visitFuncCall(MiniDecafParser::FuncCallContext *ctx);
     antlrcpp::Any visitBlock(MiniDecafParser::BlockContext *ctx);

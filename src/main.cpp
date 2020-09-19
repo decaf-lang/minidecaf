@@ -2,8 +2,9 @@
 
 #include "MiniDecafLexer.h"
 #include "MiniDecafParser.h"
-#include "CodeGenVisitor.h"
+#include "Typer.h"
 #include "Allocator.h"
+#include "CodeGenVisitor.h"
 
 using namespace antlr4;
 using namespace std;
@@ -21,14 +22,16 @@ int main(int argc, const char* argv[]) {
     MiniDecafLexer lexer(&input);
     CommonTokenStream tokens(&lexer);
     MiniDecafParser parser(&tokens);
+    MiniDecafParser::ProgContext* treeNode = parser.prog();
 
     // customized pass: allocator, typer, codegen and etc.
-
-    MiniDecafParser::ProgContext* treeNode = parser.prog();
+    Typer typeVisitor;
     Allocator allocatorVisitor;
     CodeGenVisitor codeGenVisitor;
-    symTab<int> varTab = allocatorVisitor.visitProg(treeNode);
-    string asmCode = codeGenVisitor.visitProg(treeNode, varTab);
+
+    typeVisitor.visitProg(treeNode); 
+    allocatorVisitor.visitProg(treeNode);
+    string asmCode = codeGenVisitor.visitProg(treeNode);
 
     // We get the asm code!
     cout << asmCode << endl;

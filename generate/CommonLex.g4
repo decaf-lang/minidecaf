@@ -28,6 +28,7 @@ Exclamation : '!';
 Tilde : '~';
 Addition : '+';
 Multiplication : '*';
+AND : '&';
 Division : '/';
 Modulo : '%';
 LAND : '&&';

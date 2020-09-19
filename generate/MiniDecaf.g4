@@ -37,21 +37,53 @@ stmt
     ;
 
 expr
-    : Identifier '(' (expr ',')* (expr)? ')'                        # funcCall
-    | ('!' | '~' | '-') expr                                        # unaryOp
-    | expr ('*' | '/' | '%') expr                                   # mulDiv
-    | expr ('+' | '-') expr                                         # addSub
-    | expr ('<' | '<=' | '>' | '>=') expr                           # lessGreat
-    | expr ('==' | '!=') expr                                       # equal
-    | expr '&&' expr                                                # land
-    | expr '||' expr                                                # lor
-    | expr '?' expr ':' expr                                        # condExpr
+    : factor '=' expr                                               # assign
+    | cond                                                          # cond_nop
+    ;
+
+cond
+    : lor_op '?' expr ':' cond                                      # condExpr
+    | lor_op                                                        # lor_nop 
+    ;
+
+lor_op
+    : lor_op '||' lor_op                                            # lor
+    | land_op                                                       # land_nop
+    ;
+
+land_op
+    : land_op '&&' land_op                                          # land
+    | equ                                                           # equ_nop
+    ;
+
+equ
+    : equ ('==' | '!=') equ                                         # equal
+    | rel                                                           # rel_nop
+    ;
+
+rel
+    : rel ('<' | '<=' | '>' | '>=') rel                             # lessGreat
+    | add                                                           # add_nop
+    ;
+
+add
+    : add ('+' | '-') add                                           # addSub
+    | mul                                                           # mul_nop
+    ;
+
+mul
+    : mul ('*' | '/' | '%') mul                                     # mulDiv
+    | factor                                                        # factor_nop
+    ;
+
+factor
+    : ('!' | '~' | '-' | '*' | '&') factor                          # unaryOp
+    | Identifier '(' (expr ',')* (expr)? ')'                        # funcCall
     | '(' expr ')'                                                  # atomParen
-    | Identifier '=' expr                                           # assign
     | Identifier                                                    # Identifier
     | Interger                                                      # integer
     ;
 
 type
-    : 'int'
+    : 'int' '*'*                                                    # visitInt
     ;
