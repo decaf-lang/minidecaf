@@ -62,8 +62,8 @@ CTestTestfile.cmake
 _deps
 
 ## ANTLR IGNORE
-generated/**
-!generated/*.g4
+generate/**
+!generate/*.g4
 *.tokens
 *.interp
 

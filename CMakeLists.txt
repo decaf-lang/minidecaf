@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/generated/
+    ${PROJECT_SOURCE_DIR}/generate/
     ${PROJECT_SOURCE_DIR}/third_party/
     ${PROJECT_SOURCE_DIR}/third_party/antlr4-runtime/
     ${PROJECT_SOURCE_DIR}/src/
@@ -25,17 +25,17 @@ add_library(antlr4-cpp-runtime ${antlr4-cpp-src})
 
 execute_process(
     WORKING_DIRECTORY
-        ${PROJECT_SOURCE_DIR}/generated/
+        ${PROJECT_SOURCE_DIR}/generate/
     # Note that this command runs in pure shell
     COMMAND
-        java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
+        java -jar ${PROJECT_SOURCE_DIR}/third_party/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
 )
 
 file(GLOB src_dir
-    ${PROJECT_SOURCE_DIR}/generated/MiniDecafLexer.cpp
-    ${PROJECT_SOURCE_DIR}/generated/MiniDecafParser.cpp
-    ${PROJECT_SOURCE_DIR}/generated/MiniDecafVisitor.cpp
-    ${PROJECT_SOURCE_DIR}/generated/MiniDecafBaseVisitor.cpp
+    ${PROJECT_SOURCE_DIR}/generate/MiniDecafLexer.cpp
+    ${PROJECT_SOURCE_DIR}/generate/MiniDecafParser.cpp
+    ${PROJECT_SOURCE_DIR}/generate/MiniDecafVisitor.cpp
+    ${PROJECT_SOURCE_DIR}/generate/MiniDecafBaseVisitor.cpp
     ${PROJECT_SOURCE_DIR}/src/*.cpp
 )
 
@@ -45,9 +45,9 @@ target_link_libraries(MiniDecaf antlr4-cpp-runtime)
 # Add custom target update_antlr, use `make update_antlr` to update your lexer & grammar rules anytime
 add_custom_target(update_antlr
     WORKING_DIRECTORY
-        ${PROJECT_SOURCE_DIR}/generated/
+        ${PROJECT_SOURCE_DIR}/generate/
     COMMAND 
-        java -jar /usr/local/lib/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
+        java -jar ${PROJECT_SOURCE_DIR}/third_party/antlr-4.8-complete.jar -Dlanguage=Cpp -no-listener -visitor MiniDecaf.g4
     COMMENT 
         "Auto updates for developing antlr grammar"
 )
