@@ -18,11 +18,11 @@
 
 * ANTLR 工具：按照 https://www.antlr.org/ 的 Quick Start 安装即可
   - 因为网络原因可能 Quick Start 那块加载不出来，那么请看[实验指导书](https://decaf-lang.github.io/minidecaf-tutorial/docs/lab1/part2.html)的截图。
-  - 如果你没有完全按照官网指导把 antlr 的 jar 放到系统目录，你还需要在 `~/.bashrc`（或 `~/.zshrc`）中 `export ANTLR_JAR=/path/to/your/antlr.jar`。
+  - 如果你没有完全按照官网指导把 antlr 的 jar 放到系统目录，你还需要在 `~/.bashrc`（或 `~/.zshrc`）中 `export ANTLR_JAR="/path/to/your/antlr.jar"`，注意加上双引号。
 
 * Python 的 ANTLR API：
-  - `pip install antlr4-python3-runtime`
-  - 或者 `pip install -r minidecaf/requirements.txt`
+  - `pip3 install antlr4-python3-runtime`
+  - 或者 `pip3 install -r minidecaf/requirements.txt`
 
 # 用法
 ```
@@ -58,6 +58,15 @@ riscv64-unknown-elf-gcc  -march=rv32im -mabi=ilp32 o.s
 qemu-riscv32 a.out ; echo $?
 233
 ```
+
+## 没找到 pip3
+首先确认你安装了 python3 的 pip，检查：
+```
+$ pip -V
+pip 20.2.3 from /path/to/pip (python 3.8)
+```
+
+然后用 pip 安装依赖即可 `pip install antlr4-python3-runtime`。
 
 ## No such file or directory: 'i.c'
 你得自己建立 `i.c` 文件，内容是你的输入 MiniDecaf 程序。
