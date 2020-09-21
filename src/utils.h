@@ -9,13 +9,20 @@
 template<typename T>
 using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
 
+/*
+    Type Class used to construct the type system, inherit abstract class Type to define
+    different data type, such as Int, Intprt, None etc. 
+*/
 class Type {
 public:
     virtual std::string getType() = 0;
+    // Explicitly cast to dst type
     virtual std::shared_ptr<Type> typeCast(int _valueType) = 0;
+    // Distinguish different pointer type by counting thier number of "*"
     virtual int getStarNum() { return starNum; }
     void setValueType(int _valueType) { valueType = _valueType; }
     int getValueType() { return valueType; }
+    // When we define or assign to a varible, we need to check the src & dst type
     bool typeCheck(std::shared_ptr<Type> srcType) {
         if (srcType.get()->getType() == typeLiteral && srcType.get()->getStarNum() == starNum) {
             return true;
@@ -35,6 +42,9 @@ protected:
     std::string typeLiteral;
 };
 
+/*
+    Interger type
+*/
 class IntType : public Type {
 public:
     IntType() {
@@ -50,6 +60,9 @@ public:
     std::string getType() { return typeLiteral; }
 };
 
+/*
+    Pointer of integer type
+*/
 class IntptrType : public Type {
 public:
     IntptrType(int _starNum) {
@@ -59,12 +72,15 @@ public:
         starNum = _starNum; typeLiteral = "Intptr"; valueType = _valueType;
     }
     std::shared_ptr<Type> typeCast(int _valueType) {
-        std::shared_ptr<Type> type = std::make_shared<IntptrType>(_valueType);
+        std::shared_ptr<Type> type = std::make_shared<IntptrType>(starNum, _valueType);
         return type;
     }
     std::string getType() { return typeLiteral; }
 };
 
+/*
+    None type. eg. The return type of a for loop, if statement.
+*/
 class NoneType : public Type {
 public:
     NoneType() {
@@ -77,6 +93,10 @@ public:
     std::string getType() { return typeLiteral; }
 };
 
+/*
+    A symbol in the symbol table.
+    Symbol stores a variable's name, offset in stack (if local), defined in which line and typeinfo.
+*/
 class Symbol {
 public:
     Symbol(std::string _literal, int _offset, std::shared_ptr<Type> _type, int _line=-1) {
@@ -95,6 +115,10 @@ protected:
     std::shared_ptr<Type> type;
 };
 
+/*
+    FuncSymbol stores information of defined functions;
+    Function name, parameter's type, return type, initial state (used to differentiate declare & define) are considered.
+*/
 class FuncSymbol {
 public:
     FuncSymbol(std::string _literal, std::shared_ptr<Type> _retType, 
@@ -124,6 +148,10 @@ protected:
     ------------------------------------------------------
 */
 
+/*
+    Singleton mode, defining a static, global map used by all the files in the project.
+    We use map structure to store our symbol table.
+*/
 class Singleton {
 public:
     symTab<std::shared_ptr<Symbol> > symbolTable;

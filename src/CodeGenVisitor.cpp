@@ -134,31 +134,32 @@ antlrcpp::Any CodeGenVisitor::visitInteger(MiniDecafParser::IntegerContext *ctx)
 antlrcpp::Any CodeGenVisitor::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
     retType factorType = visit(ctx->factor());
     code_ << popReg("t0");
+    if (ctx->AND()) {
+        code_ << pushReg("t0");
+        return retType::RIGHT;
+    }
     if (factorType == retType::LEFT) {
-        code_ << "\tlw a0, (t0)\n";
+        code_ << "\tlw t0, (t0)\n";
     }
     /* 
         ctx-><token_name>() is a ptr point to the token
         ptr == nullptr indicates that the token is undeclared
     */
     if (ctx->Minus()) {
-        code_ << "\tsub a0, x0, a0\n"
+        code_ << "\tsub a0, x0, t0\n"
             << pushReg("a0");
         return retType::RIGHT;
     } else if(ctx->Exclamation()) {
-        code_ << "\tseqz a0, a0\n"
+        code_ << "\tseqz a0, t0\n"
             << pushReg("a0"); 
         return retType::RIGHT;
     } else if(ctx->Tilde()) {
-        code_ << "\tnot a0, a0\n"
+        code_ << "\tnot a0, t0\n"
             << pushReg("a0");
         return retType::RIGHT;
     } else if(ctx->Multiplication()) {
         code_ << pushReg("t0");
         return retType::LEFT;
-    } else if(ctx->AND()) {
-        code_ << pushReg("t0");
-        return retType::RIGHT;
     }
     return retType::UNDEF;
 }
@@ -574,6 +575,7 @@ antlrcpp::Any CodeGenVisitor::visitContinue(MiniDecafParser::ContinueContext *ct
     return retType::UNDEF; 
 }
 
+//@brief: Pop unused element at the top of stack
 antlrcpp::Any CodeGenVisitor::visitSingleExpr(MiniDecafParser::SingleExprContext *ctx) {
     if (ctx->expr()) {
         visit(ctx->expr());
@@ -582,9 +584,10 @@ antlrcpp::Any CodeGenVisitor::visitSingleExpr(MiniDecafParser::SingleExprContext
     return retType::UNDEF;
 }
 
+//@brief: Deal with cast operation
 antlrcpp::Any CodeGenVisitor::visitCast(MiniDecafParser::CastContext *ctx) {
-    visit(ctx->factor());
-    return retType::RIGHT;
+    retType type = visit(ctx->factor());
+    return type;
 }
 
 std::string CodeGenVisitor::pushReg(std::string reg) {

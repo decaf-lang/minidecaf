@@ -63,6 +63,11 @@ private:
 
     /*
         Specify return type of each operation (left value or right value)
+        Attention: There's a huge change migrating from step10 to step11, cause we have
+        to differentiate left value from right value. In order to meet the requirement
+        of assignment, we store the variable's address in the stack, but when we treat
+        the variable as left value (That means we are interested in the value of varible
+        rather than the address), we should load the varible from memory. 
     */
     enum retType {LEFT, RIGHT, UNDEF};
 };

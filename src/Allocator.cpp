@@ -10,6 +10,7 @@ antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
     if (!ctx->Semicolon()) {
         if (Singleton::getInstance().Singleton::getInstance().funcTable.count(curFunc) > 0) {
             if (Singleton::getInstance().Singleton::getInstance().funcTable[curFunc].get()->initialized()) {
+                std::cerr << "line " << ctx->start->getLine() << ": ";
                 std::cerr << "[ERROR] Redefinition of function " << curFunc << "\n";
                 exit(1);
             } else {
@@ -20,23 +21,31 @@ antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
                     so in function symbol table, we mark the existence of current function, 
                 */
                 Singleton::getInstance().Singleton::getInstance().funcTable[curFunc].get()->initialize();
+                // Initialize the parameter list & the return value 
                 for (auto i = 1; i < ctx->Identifier().size(); ++i) {
                     std::string varName = ctx->Identifier(i)->getText();
                     Singleton::getInstance().symbolTable[curFunc][varName] = std::make_shared<Symbol>(varName, offset++, Singleton::getInstance().funcTable[curFunc].get()->getArgType(i-1));
                 }
-                visitChildren(ctx);
+                for (auto item : ctx->blockItem()) {
+                    visit(item);
+                }
             }
         } else {
             std::vector<std::shared_ptr<Type> > argType;
+            // Initialize the parameter list & the return value 
             for (auto i = 1; i < ctx->Identifier().size(); ++i) {
                 std::string varName = ctx->Identifier(i)->getText();
                 argType.push_back(visit(ctx->type(i)));
                 Singleton::getInstance().symbolTable[curFunc][varName] = std::make_shared<Symbol>(varName, offset++, argType[i-1]);
             }
             Singleton::getInstance().funcTable[curFunc] = std::make_shared<FuncSymbol>(curFunc, visit(ctx->type(0)), argType, true);
-            visitChildren(ctx);
+            for (auto item : ctx->blockItem()) {
+                visit(item);
+            }
         }
     } else {
+        // Only declaraion is detected, eg. int add(int a, int b);
+        // So we only need to mark the existence of function and record the parameter list
         std::vector<std::shared_ptr<Type> > argType;
         for (auto i = 1; i < ctx->type().size(); ++i) {
             argType.push_back(visit(ctx->type(i)));
@@ -90,6 +99,7 @@ antlrcpp::Any Allocator::visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx) 
     // Global varibles are stored in global scope, the outermost scope 
     std::string varName = ctx->Identifier()->getText();
     if (Singleton::getInstance().symbolTable["global"].count(varName) > 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Redefinition of global variable " << varName << "\n";
         exit(1);
     }
@@ -103,6 +113,7 @@ antlrcpp::Any Allocator::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
     // allocate the defined varible
     std::string varName = ctx->Identifier()->getText();
     if (Singleton::getInstance().symbolTable[curFunc].count(varName) > 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Redefinition of variable " << varName << "\n";
         exit(1);
     }
@@ -114,6 +125,7 @@ antlrcpp::Any Allocator::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
     if (ctx->expr()) {
         std::shared_ptr<Type> rType = visit(ctx->expr());
         if (!lType.get()->typeCheck(rType)) {
+            std::cerr << "line " << ctx->start->getLine() << ": ";
             std::cerr << "[ERROR] Incompatible parameter type for vardef operation\n";
             exit(1);
         }
@@ -129,14 +141,16 @@ antlrcpp::Any Allocator::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
 //@brief: Make sure that a variable must be defined before assigning it
 antlrcpp::Any Allocator::visitAssign(MiniDecafParser::AssignContext *ctx) {
     std::string tmpFunc = curFunc;
-    // Search the symbol table from inner scope to the outer, for the target symbol
     std::shared_ptr<Type> lType = visit(ctx->factor());
     std::shared_ptr<Type> rType = visit(ctx->expr());
+    // The two operators must have the same data type.
     if (!lType.get()->typeCheck(rType)) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Incompatible parameter type for assign operation\n";
         exit(1);
     }
     if (lType.get()->getValueType() == 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Assign to right value is forbiddened\n";
         exit(1);
     }
@@ -157,10 +171,12 @@ antlrcpp::Any Allocator::visitForLoop(MiniDecafParser::ForLoopContext *ctx) {
     return type;
 }
 
+//@brief: Most of the work is type checking
 antlrcpp::Any Allocator::visitEqual(MiniDecafParser::EqualContext *ctx) {
     std::shared_ptr<Type> ltype = visit(ctx->equ(0));
     std::shared_ptr<Type> rtype = visit(ctx->equ(1));
     if (!ltype.get()->typeCheck(rtype)) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Incompatible parameter type for equal operation\n";
         exit(1);
     } 
@@ -168,12 +184,14 @@ antlrcpp::Any Allocator::visitEqual(MiniDecafParser::EqualContext *ctx) {
     return type;
 }
 
+//@brief: Most of the work is type checking
 antlrcpp::Any Allocator::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
     // Undef behavior
     // if (ctx->Exclamation() || ctx->Minus() || ctx->Tilde()) 
     std::shared_ptr<Type> src = visit(ctx->factor());
     std::shared_ptr<Type> type = std::make_shared<IntType>();
     int starNum = src.get()->getStarNum();
+    // '*' operator must operate on pointer type
     if (ctx->Multiplication()) {
         if (src.get()->typeCheckLiteral("Intptr")) {
             if (starNum == 1) {
@@ -182,11 +200,14 @@ antlrcpp::Any Allocator::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
                 type = std::make_shared<IntptrType>(starNum-1, 1);
             }
         } else {
+            std::cerr << "line " << ctx->start->getLine() << ": ";
             std::cerr << "[ERROR] Invalid operation '*' on non-pointer type\n";
             exit(1);
         }
     } else if (ctx->AND()) {
+        // '&' operator must operate on left value 
         if (src.get()->getValueType() == 0) {
+            std::cerr << "line " << ctx->start->getLine() << ": ";
             std::cerr << "[ERROR] Invalid operation '&' on right value\n";
         } else {
             type = std::make_shared<IntptrType>(starNum+1);
@@ -205,11 +226,13 @@ antlrcpp::Any Allocator::visitCast(MiniDecafParser::CastContext *ctx) {
 antlrcpp::Any Allocator::visitFuncCall(MiniDecafParser::FuncCallContext *ctx) {
     std::string funcName = ctx->Identifier()->getText();
     if (Singleton::getInstance().funcTable.count(funcName) == 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Use of undeclared function " << funcName << "\n";
         exit(1);
     }
     for (auto i = 0; i < ctx->expr().size(); ++i) {
         if (!Singleton::getInstance().funcTable[funcName].get()->getArgType(i).get()->typeCheck(visit(ctx->expr(i)))) {
+            std::cerr << "line " << ctx->start->getLine() << ": ";
             std::cerr << "[ERROR] Incompatible parameter type for function " << funcName << "\n";
             exit(1);
         }
@@ -237,6 +260,7 @@ antlrcpp::Any Allocator::visitIdentifier(MiniDecafParser::IdentifierContext *ctx
     }
     // Search in global scope at last
     if (Singleton::getInstance().symbolTable["global"].count(varName) == 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Variable " << varName << " is used without definition\n";
         exit(1);
     }
@@ -248,7 +272,10 @@ antlrcpp::Any Allocator::visitInteger(MiniDecafParser::IntegerContext *ctx) {
     return type;
 }
 
+//@brief: Get the type
 antlrcpp::Any Allocator::visitIntType(MiniDecafParser::IntTypeContext *ctx) {
+    // Star number means the number of '*' in the typedef
+    // Naturally, we treat int type as 0 star number type
     int starNum = ctx->Multiplication().size();
     std::shared_ptr<Type> type;
     if (starNum == 0) {
