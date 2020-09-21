@@ -1,9 +1,9 @@
 #include "CodeGenVisitor.h"
+#include "utils.h"
 
 // @brief: Start visiting the syntax tree from root node Prog
 // @ret: Generated asm code
-antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx, symTab<int>& symbol_) {
-    varTab = symbol_;
+antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx) {
     labelOrder = 0;
     code_ << ".section .text\n"
         << ".globl main\n";
@@ -29,11 +29,10 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
             << "\taddi fp, sp, -4\n"
             << "\taddi sp, fp, ";
 
-        // Considering "###" variable for function existence
-        int capacity = -1;
-        for (auto& var : varTab) {
+        int capacity = 0;
+        for (auto& var : Singleton::getInstance().symbolTable) {
             if (var.first.substr(0, curFunc.length()) == curFunc) {
-                capacity += varTab[var.first].size();
+                capacity += Singleton::getInstance().symbolTable[var.first].size();
             }
         }
         code_ << -4 * capacity << "\n";
@@ -42,10 +41,10 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
         // When the number of arguments is greater than 7, we use stack to pass them, otherwise we use register a0-a6 instead.
         for (int i = 1; i < ctx->Identifier().size(); ++i) {
             if (ctx->Identifier().size() > 8) {
-                code_ << "\tlw t0, " << 8 + 4 * varTab[curFunc][ctx->Identifier(i)->getText()] << "(fp)\n";
-                code_ << "\tsw t0, " << -4 - 4 * varTab[curFunc][ctx->Identifier(i)->getText()] << "(fp)\n";
+                code_ << "\tlw t0, " << 8 + 4 * Singleton::getInstance().symbolTable[curFunc][ctx->Identifier(i)->getText()].get()->getOffset() << "(fp)\n";
+                code_ << "\tsw t0, " << -4 - 4 * Singleton::getInstance().symbolTable[curFunc][ctx->Identifier(i)->getText()].get()->getOffset() << "(fp)\n";
             } else {
-                code_ << "\tsw a" << i-1 << ", " << -4 - 4 * varTab[curFunc][ctx->Identifier(i)->getText()] << "(fp)\n";
+                code_ << "\tsw a" << i-1 << ", " << -4 - 4 * Singleton::getInstance().symbolTable[curFunc][ctx->Identifier(i)->getText()].get()->getOffset() << "(fp)\n";
             }
         } 
         visitChildren(ctx);
@@ -59,7 +58,7 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
                 << "\tret\n";
         }
     }
-    return retType::INT;
+    return retType::UNDEF;
 }
 
 //@brief: Visit FuncCall node
@@ -67,18 +66,27 @@ antlrcpp::Any CodeGenVisitor::visitFuncCall(MiniDecafParser::FuncCallContext *ct
     // Before calling a function, we should compute the arguments and pass them using stack or register
     if (ctx->expr().size() > 7) { 
         for (int i = ctx->expr().size()-1; i >= 0; --i) {
-            visit(ctx->expr(i));
+            retType type = visit(ctx->expr(i));
+            if (type == retType::LEFT) {
+                code_ << popReg("t0")
+                      << "\tlw t0, (t0)\n"
+                      << pushReg("t0");
+            }
         }
     } else {
         for (int i = ctx->expr().size()-1; i >= 0; --i) {
-            visit(ctx->expr(i));
+            retType type = visit(ctx->expr(i));
+            if (type == retType::LEFT) {
+                code_ << popReg("a0")
+                      << "\tlw a0, (a0)\n";
+            }
             code_ << "\tmv a" << i << ", a0\n";
         }
     }
     code_ << "\tcall " << ctx->Identifier()->getText() << "\n"
         << "\taddi sp, sp, " << 4 + 4 * ctx->expr().size() << "\n"
-        << push;
-    return retType::UNDEF;
+        << pushReg("a0");
+    return retType::RIGHT;
 }
 
 //@brief: Visit BlockStmt node, update the scope information
@@ -100,7 +108,11 @@ antlrcpp::Any CodeGenVisitor::visitBlock(MiniDecafParser::BlockContext *ctx) {
 
 // @brief: Visit ReturnStmt node, son of Stmt node
 antlrcpp::Any CodeGenVisitor::visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx) {
-    visitChildren(ctx);
+    retType type = visit(ctx->expr());
+    code_ << popReg("a0");
+    if (type == retType::LEFT) {
+        code_ << "\tlw a0, (a0)\n";
+    }
     code_ << "\taddi sp, fp, 4\n"
         << "\tlw ra, (sp)\n" 
         << "\tlw fp, -4(sp)\n"
@@ -113,33 +125,40 @@ antlrcpp::Any CodeGenVisitor::visitReturnStmt(MiniDecafParser::ReturnStmtContext
 // @ret: Expr type: Int
 antlrcpp::Any CodeGenVisitor::visitInteger(MiniDecafParser::IntegerContext *ctx) {
     code_ << "\tli a0, " << ctx->getText() << "\n"
-          << push;
-    return retType::INT;
+          << pushReg("a0");
+    return retType::RIGHT;
 }
 
 // @brief: Visit unaryOp node, like '-1', '~12', '!89' and etc. 
 // @ret: Expr type: Int
 antlrcpp::Any CodeGenVisitor::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
-    visitChildren(ctx);
+    retType factorType = visit(ctx->factor());
+    code_ << popReg("t0");
+    if (factorType == retType::LEFT) {
+        code_ << "\tlw a0, (t0)\n";
+    }
     /* 
         ctx-><token_name>() is a ptr point to the token
         ptr == nullptr indicates that the token is undeclared
     */
     if (ctx->Minus()) {
-        code_ << pop1
-            << "\tsub a0, x0, t0\n"
-            << push;
-        return retType::INT;
+        code_ << "\tsub a0, x0, a0\n"
+            << pushReg("a0");
+        return retType::RIGHT;
     } else if(ctx->Exclamation()) {
-        code_ << pop1
-            << "\tseqz a0, t0\n"
-            << push; 
-        return retType::INT;
+        code_ << "\tseqz a0, a0\n"
+            << pushReg("a0"); 
+        return retType::RIGHT;
     } else if(ctx->Tilde()) {
-        code_ << pop1
-            << "\tnot a0, t0\n"
-            << push;
-        return retType::INT;
+        code_ << "\tnot a0, a0\n"
+            << pushReg("a0");
+        return retType::RIGHT;
+    } else if(ctx->Multiplication()) {
+        code_ << pushReg("t0");
+        return retType::LEFT;
+    } else if(ctx->AND()) {
+        code_ << pushReg("t0");
+        return retType::RIGHT;
     }
     return retType::UNDEF;
 }
@@ -165,15 +184,21 @@ antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
         In this step, stack machine first pops the 2 operators at the top of stack,
         then computes the result, finally pushes the result to the stack.
     */
-    code_ << pop2;
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
     if (ctx->Addition()) {
         code_ << "\tadd a0, t0, t1\n"
-              << push;
-        return retType::INT;
+              << pushReg("a0");
+        return retType::RIGHT;
     } else if (ctx->Minus()) {
         code_ << "\tsub a0, t0, t1\n"
-              << push;
-        return retType::INT;
+              << pushReg("a0");
+        return retType::RIGHT;
     }
     return retType::UNDEF;
 }
@@ -186,19 +211,25 @@ antlrcpp::Any CodeGenVisitor::visitMulDiv(MiniDecafParser::MulDivContext *ctx) {
     /*
         Totally the same as FUNC<visitAddSub>.
     */
-    code_ << pop2;
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
     if (ctx->Multiplication()) {
         code_ << "\tmul a0, t0, t1\n"
-              << push;
-        return retType::INT;
+              << pushReg("a0");
+        return retType::RIGHT;
     } else if (ctx->Division()) {
         code_ << "\tdiv a0, t0, t1\n"
-              << push;
-        return retType::INT;
+              << pushReg("a0");
+        return retType::RIGHT;
     } else if (ctx->Modulo()) {
         code_ << "\trem a0, t0, t1\n"
-              << push;
-        return retType::INT;
+              << pushReg("a0");
+        return retType::RIGHT;
     }
     return retType::UNDEF;
 }
@@ -211,15 +242,21 @@ antlrcpp::Any CodeGenVisitor::visitEqual(MiniDecafParser::EqualContext *ctx) {
     /*
         Nearly the same as FUNC<visitAddSub>
     */
-   code_ << pop2
-         << "\tsub t0, t0, t1\n";
-   if (ctx->EQ()) {
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
+    code_ << "\tsub t0, t0, t1\n";
+    if (ctx->EQ()) {
         code_ << "\tseqz a0, t0\n";
-   } else if (ctx->NEQ()) {
+    } else if (ctx->NEQ()) {
         code_ << "\tsnez a0, t0\n";
-   }
-   code_ << push;
-   return retType::INT;
+    }
+    code_ << pushReg("a0");
+    return retType::RIGHT;
 }
 
 //@brief: visit LessGreat node, including '<=', '<', '>' & '>=' between expressions
@@ -230,7 +267,13 @@ antlrcpp::Any CodeGenVisitor::visitLessGreat(MiniDecafParser::LessGreatContext *
     /*
         Nearly the same as FUNC<visitAddSub>
     */
-    code_ << pop2;
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
     if (ctx->LE()) {
         code_ << "\tsgt a0, t0, t1\n"
               << "\txori a0, a0, 1\n";
@@ -242,8 +285,8 @@ antlrcpp::Any CodeGenVisitor::visitLessGreat(MiniDecafParser::LessGreatContext *
     } else if (ctx->GT()) {
         code_ << "\tsgt a0, t0, t1\n";
     }
-    code_ << push;
-    return retType::INT;
+    code_ << pushReg("a0");
+    return retType::RIGHT;
 }
 
 //@brief: visit Land node, including '&&' between expressions
@@ -254,11 +297,17 @@ antlrcpp::Any CodeGenVisitor::visitLand(MiniDecafParser::LandContext *ctx) {
     /*
         Nearly the same as FUNC<visitAddSub>
     */
-    code_ << pop2
-          << "\tmul a0, t0, t1\n"
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
+    code_ << "\tmul a0, t0, t1\n"
           << "\tsnez a0, a0\n"
-          << push;
-    return retType::INT;
+          << pushReg("a0");
+    return retType::RIGHT;
 }
 
 //@brief: visit Lor node, including '||' between expressions
@@ -269,10 +318,16 @@ antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
     /*
         Nearly the same as FUNC<visitAddSub>
     */
-    code_ << pop2
-          << "\tor a0, t0, t1\n"
-          << push;
-    return retType::INT;
+    code_ << popReg("t0", "t1");
+    if (lExpr == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (rExpr == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
+    code_ << "\tor a0, t0, t1\n"
+          << pushReg("a0");
+    return retType::RIGHT;
 }
 
 //@brief: visit GlobalVar node
@@ -290,7 +345,7 @@ antlrcpp::Any CodeGenVisitor::visitGlobalVar(MiniDecafParser::GlobalVarContext *
         bss_ << ".globl " << varName << "\n"
              << varName << ":\n" << ".space 4\n";
     }
-    return retType::INT;
+    return retType::UNDEF;
 }
 
 //@brief: visit VarDef node, using rvalue to initialize the defined variable 
@@ -298,11 +353,15 @@ antlrcpp::Any CodeGenVisitor::visitGlobalVar(MiniDecafParser::GlobalVarContext *
 antlrcpp::Any CodeGenVisitor::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
     std::string varName = ctx->Identifier()->getText();
     if (ctx->expr()) {
-        visit(ctx->expr());
+        retType type = visit(ctx->expr());
         // Store the rvalue to the address of current variable
-        code_ << "\tsw a0, " << -4 - 4 * varTab[curFunc][varName] << "(fp)\n";
+        code_ << popReg("a0");
+        if (type == retType::LEFT) {
+            code_ << "\tlw a0, (a0)\n";
+        }
+        code_ << "\tsw a0, " << -4 - 4 * Singleton::getInstance().symbolTable[curFunc][varName].get()->getOffset() << "(fp)\n";
     }
-    return retType::INT;
+    return retType::UNDEF;
 }
 
 //@brief: visit Identifier node, we read the value of variable from stack 
@@ -311,70 +370,50 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
     std::string varName = ctx->Identifier()->getText();
     std::string tmpFunc = curFunc;
     int tmpDep = blockDep;
-    if (varTab[curFunc].count(varName+"#") > 0) {
-        if (ctx->start->getLine() < varTab[curFunc][varName+"#"]) {
-            int pos = tmpFunc.find_last_of('@');
-            tmpFunc = tmpFunc.substr(0, pos);
-            --tmpDep;
-        }
-    }
+    int line = ctx->start->getLine();
     for (int i = 0; i <= tmpDep; ++i) {
-        if (varTab[tmpFunc].count(varName) == 0) {
+        if (Singleton::getInstance().symbolTable[tmpFunc].count(varName) == 0 || Singleton::getInstance().symbolTable[tmpFunc][varName].get()->getLineNum() > line) {
             int pos = tmpFunc.find_last_of('@');
             tmpFunc = tmpFunc.substr(0, pos);
             continue;
-        }
-        code_ << "\tlw a0, " << -4 - 4 * varTab[tmpFunc][varName] << "(fp)\n"
-              << push;
-        return retType::INT;
+        } 
+        // Load the value from stack
+        code_ << "\taddi a0, fp, " << -4 - 4 * Singleton::getInstance().symbolTable[tmpFunc][varName].get()->getOffset() << "\n"
+              << pushReg("a0");
+        return retType::LEFT;
     }
     // Finally, we retrieve target varible from global scope
     // "la t0, <label>", load the label address to the register
-    if (varTab["global"].count(varName) > 0) {
-        code_ << "\tla t0, " << varName << "\n"
-              << "\tlw a0, (t0)\n"
-              << push;
+    if (Singleton::getInstance().symbolTable["global"].count(varName) > 0) {
+        code_ << "\tla a0, " << varName << "\n"
+              << pushReg("a0");
     }
-    // Load the value from stack
-    return retType::INT;
+    return retType::LEFT;
 }
 
 //@brief: Visit Assign node, eg. for expr "a = 3", we first find a's position in stack,
 // then store 3 into specified memory.
 //@ret: Variable type
 antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
-    std::string varName = ctx->Identifier()->getText();
-    visit(ctx->expr());
-    std::string tmpFunc = curFunc;
-    int tmpDep = blockDep;
-    if (varTab[curFunc].count(varName+"#") > 0) {
-        if (ctx->start->getLine() < varTab[curFunc][varName+"#"]) {
-            int pos = tmpFunc.find_last_of('@');
-            tmpFunc = tmpFunc.substr(0, pos);
-            --tmpDep;
-        }
-    }
-    for (int i = 0; i <= tmpDep; ++i) {
-        if (varTab[tmpFunc].count(varName) == 0) {
-            int pos = tmpFunc.find_last_of('@');
-            tmpFunc = tmpFunc.substr(0, pos);
-            continue;
-        }
-        code_ << "\tsw a0, " << -4 - 4 * varTab[tmpFunc][varName] << "(fp)\n";
-        return retType::INT;
-    }
-    // Finally, we retrieve target varible from global scope
-    // "la t0, <label>", load the label address to the register
-    if (varTab["global"].count(varName) > 0) {
-        code_ << "\tla t0, " << varName << "\n"
-              << "\tsw a0, (t0)\n";
-    }
-    return retType::INT;
+    retType lType = visit(ctx->factor());
+    retType rType = visit(ctx->expr());
+    code_ << popReg("t1");
+    if (rType == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    } 
+    code_ << popReg("t0")
+          << "\tsw t1, (t0)\n"
+          << pushReg("t0");
+    return retType::LEFT;
 }
 
 //@brief: Visit Ifstmt node, generate corresponding branch & jump instructions
 antlrcpp::Any CodeGenVisitor::visitIfStmt(MiniDecafParser::IfStmtContext *ctx) {
-    visit(ctx->expr());
+    retType type = visit(ctx->expr());
+    code_ << popReg("a0");
+    if (type == retType::LEFT) {
+        code_ << "\tlw a0, (a0)\n";
+    }
     // If statement with else branch
     if (ctx->Else()) {
         /* Different branch label, in RV-32 assembly, a branch operaion is like:
@@ -412,16 +451,20 @@ antlrcpp::Any CodeGenVisitor::visitCondExpr(MiniDecafParser::CondExprContext *ct
         if a is true, expression c cannot be reached.
     */
     // Code generation part is nearly the same as <ifStmt>
-    visit(ctx->lor_op());
+    retType type = visit(ctx->lor_op());
     int elseBranch = labelOrder++;
     int endBranch = labelOrder++;
+    code_ << popReg("a0");
+    if (type == retType::LEFT) {
+        code_ << "\tlw a0, (a0)\n";
+    }
     code_ << "\tbeqz a0, label_" << elseBranch << "\n";
     visit(ctx->expr());
     code_ << "\tj label_" << endBranch << "\n";
     code_ << "label_" << elseBranch << ":\n";
     visit(ctx->cond());
     code_ << "label_" << endBranch << ":\n";
-    return retType::UNDEF;
+    return retType::RIGHT;
 }
 
 //@brief: Visit forloop node, generate branch model in RV32
@@ -443,7 +486,11 @@ antlrcpp::Any CodeGenVisitor::visitForLoop(MiniDecafParser::ForLoopContext *ctx)
     }
     code_ << "label_" << startBranch << ":\n";
     if (ctx->expr(exprBase+1)) {
-        visit(ctx->expr(exprBase+1));
+        retType type = visit(ctx->expr(exprBase+1));
+        code_ << popReg("a0");
+        if (type == retType::LEFT) {
+            code_ << "\tlw a0, (a0)\n";
+        }
         code_ << "\tbeqz a0, label_" << endBranch << "\n";
     } 
     visit(ctx->stmt());
@@ -470,7 +517,11 @@ antlrcpp::Any CodeGenVisitor::visitWhileLoop(MiniDecafParser::WhileLoopContext *
     breakTarget.push_back(endBranch);
     continueTarget.push_back(startBranch);
     code_ << "label_" << startBranch << ":\n";
-    visit(ctx->expr());
+    retType type = visit(ctx->expr());
+    code_ << popReg("a0");
+    if (type == retType::LEFT) {
+        code_ << "\tlw a0, (a0)\n";
+    }
     code_ << "\tbeqz a0, label_" << endBranch << "\n";
     visit(ctx->stmt());
     code_ << "\tj label_" << startBranch << "\n"
@@ -497,7 +548,11 @@ antlrcpp::Any CodeGenVisitor::visitDoWhile(MiniDecafParser::DoWhileContext *ctx)
 
     code_ << "label_" << startBranch << ":\n";
     visit(ctx->stmt());
-    visit(ctx->expr());
+    retType type = visit(ctx->expr());
+    code_ << popReg("a0");
+    if (type == retType::LEFT) {
+        code_ << "\tlw a0, (a0)\n";
+    }
     code_ << "\tbnez a0, label_" << startBranch << "\n";
     code_ << "label_" << endBranch << ":\n";
 
@@ -517,4 +572,29 @@ antlrcpp::Any CodeGenVisitor::visitBreak(MiniDecafParser::BreakContext *ctx) {
 antlrcpp::Any CodeGenVisitor::visitContinue(MiniDecafParser::ContinueContext *ctx) {
     code_ << "\tj label_" << continueTarget.back() << "\n";
     return retType::UNDEF; 
+}
+
+antlrcpp::Any CodeGenVisitor::visitSingleExpr(MiniDecafParser::SingleExprContext *ctx) {
+    if (ctx->expr()) {
+        visit(ctx->expr());
+        code_ << popReg("t0");
+    }
+    return retType::UNDEF;
+}
+
+antlrcpp::Any CodeGenVisitor::visitCast(MiniDecafParser::CastContext *ctx) {
+    visit(ctx->factor());
+    return retType::RIGHT;
+}
+
+std::string CodeGenVisitor::pushReg(std::string reg) {
+    return "\taddi sp, sp, -4\n\tsw " + reg + ", (sp)\n";
+}
+
+std::string CodeGenVisitor::popReg(std::string reg) {
+    return "\tlw " + reg + ", (sp)\n\taddi sp, sp, 4\n";
+}
+
+std::string CodeGenVisitor::popReg(std::string reg0, std::string reg1) {
+    return "\tlw " + reg0 + ", 4(sp)\n\tlw " + reg1 + ", (sp)\n\taddi sp, sp, 8\n";
 }

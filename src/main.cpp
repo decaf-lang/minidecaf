@@ -2,9 +2,9 @@
 
 #include "MiniDecafLexer.h"
 #include "MiniDecafParser.h"
-#include "Typer.h"
 #include "Allocator.h"
 #include "CodeGenVisitor.h"
+#include "utils.h"
 
 using namespace antlr4;
 using namespace std;
@@ -16,7 +16,7 @@ int main(int argc, const char* argv[]) {
     }
     ifstream sourceFile;
     sourceFile.open(argv[1]);
-
+    
     // lexer & parser part of antlr4
     ANTLRInputStream input(sourceFile);
     MiniDecafLexer lexer(&input);
@@ -25,11 +25,9 @@ int main(int argc, const char* argv[]) {
     MiniDecafParser::ProgContext* treeNode = parser.prog();
 
     // customized pass: allocator, typer, codegen and etc.
-    Typer typeVisitor;
     Allocator allocatorVisitor;
     CodeGenVisitor codeGenVisitor;
-
-    typeVisitor.visitProg(treeNode); 
+    
     allocatorVisitor.visitProg(treeNode);
     string asmCode = codeGenVisitor.visitProg(treeNode);
 

@@ -25,7 +25,7 @@ decl
     
 stmt
     : 'return' expr ';'                                             # returnStmt
-    | expr ';'                                                      # singleExpr
+    | expr? ';'                                                      # singleExpr
     | 'if' '(' expr ')' stmt ('else' stmt)?                         # ifStmt
     | '{' blockItem* '}'                                            # block
     | 'while' '(' expr ')' stmt                                     # whileLoop
@@ -33,7 +33,6 @@ stmt
     | 'for' '(' (decl | expr)? ';' (expr)? ';' (expr)? ')' stmt     # forLoop
     | 'break' ';'                                                   # break
     | 'continue' ';'                                                # continue
-    | ';'                                                           # nop
     ;
 
 expr
@@ -78,6 +77,7 @@ mul
 
 factor
     : ('!' | '~' | '-' | '*' | '&') factor                          # unaryOp
+    | '(' type ')' factor                                           # cast
     | Identifier '(' (expr ',')* (expr)? ')'                        # funcCall
     | '(' expr ')'                                                  # atomParen
     | Identifier                                                    # Identifier
@@ -85,5 +85,5 @@ factor
     ;
 
 type
-    : 'int' '*'*                                                    # visitInt
+    : 'int' '*'*                                                    # intType
     ;

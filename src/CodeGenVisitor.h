@@ -1,7 +1,6 @@
 #pragma once
 
 #include "MiniDecafBaseVisitor.h"
-#include "utils.h"
 
 // Code generation pass
 class CodeGenVisitor : public MiniDecafBaseVisitor {
@@ -13,6 +12,7 @@ public:
     antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
     antlrcpp::Any visitIfStmt(MiniDecafParser::IfStmtContext *ctx);
     antlrcpp::Any visitCondExpr(MiniDecafParser::CondExprContext *ctx);
+    antlrcpp::Any visitSingleExpr(MiniDecafParser::SingleExprContext *ctx);
 
     antlrcpp::Any visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx);
     antlrcpp::Any visitAtomParen(MiniDecafParser::AtomParenContext *ctx);
@@ -28,12 +28,20 @@ public:
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
     antlrcpp::Any visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx);
+    antlrcpp::Any visitCast(MiniDecafParser::CastContext *ctx);
 
     antlrcpp::Any visitForLoop(MiniDecafParser::ForLoopContext *ctx);
     antlrcpp::Any visitWhileLoop(MiniDecafParser::WhileLoopContext *ctx);
     antlrcpp::Any visitDoWhile(MiniDecafParser::DoWhileContext *ctx);
     antlrcpp::Any visitBreak(MiniDecafParser::BreakContext *ctx);
     antlrcpp::Any visitContinue(MiniDecafParser::ContinueContext *ctx);
+    /* 
+        A simple stack machine model 
+        Support basic push & pop operations
+    */
+    std::string pushReg(std::string reg);
+    std::string popReg(std::string reg);
+    std::string popReg(std::string reg0, std::string);
 private:
     /*
         Stringstream used to store generated codes
@@ -48,23 +56,13 @@ private:
     std::vector<int> breakTarget, continueTarget;
 
     std::string curFunc;
-    symTab<int> varTab;
     bool retState;
     int labelOrder;
     int blockDep, blockOrder;
-    /* 
-        A simple stack machine model 
-        Support basic push, pop1 & pop2 operations
-    */
-    const char* push = "\taddi sp, sp, -4\n"
-                       "\tsw a0, (sp)\n";
-    const char* pop2 = "\tlw t0, 4(sp)\n"
-                       "\tlw t1, (sp)\n"
-                       "\taddi sp, sp, 8\n";
-    const char* pop1 = "\tlw t0, (sp)\n"
-                       "\taddi sp, sp, 4\n";
+
+
     /*
-        Specify return type of each operation
+        Specify return type of each operation (left value or right value)
     */
-    enum retType {UNDEF, INT};
+    enum retType {LEFT, RIGHT, UNDEF};
 };
