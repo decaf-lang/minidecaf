@@ -125,10 +125,10 @@ class Namer(MiniDecafVisitor):
         self.nameInfo = NameInfo()
         self._curFuncNameInfo = None # == self.nameInfo[curFunc]
 
-    def defVar(self, ctx, term, nQuads=1):
-        self.curNSlots += nQuads
+    def defVar(self, ctx, term, numInts=1):
+        self.curNSlots += numInts
         var = self._v[text(term)] = Variable(text(term),
-                -INT_BYTES * self.curNSlots, INT_BYTES * nQuads)
+                -INT_BYTES * self.curNSlots, INT_BYTES * numInts)
         pos = (ctx.start.line, ctx.start.column)
         self._curFuncNameInfo.bind(term, var, pos)
 
