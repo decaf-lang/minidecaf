@@ -74,15 +74,14 @@ NDPtr new_node(TKPtr tok, NodeKind kind) {
 // 相当于 unary 的构造函数
 NDPtr new_unary(TKPtr tok, NodeKind kind, NDPtr expr) {
     NDPtr node = new_node(tok, kind);
-    if(kind == ND_BITNOT || kind == ND_NEG)
-        assert(is_integer(expr->type));
+    assert(is_integer(expr->type));
     node->lexpr = expr;
     node->type = int_type();
     return node;
 }
 
 NDPtr new_unary_ptr(TKPtr tok, NodeKind kind, NDPtr expr) {
-    assert(expr->type);
+    assert(!is_arr(expr->type));
     NDPtr node = new_node(tok, kind);
     node->lexpr = expr;
     if(kind == ND_DEREF) {
@@ -118,7 +117,7 @@ NDPtr new_sub(TKPtr tok, NDPtr lexpr, NDPtr rexpr) {
         return new_binary_ptr(tok, ND_SUB, lexpr, rexpr, int_type());
     if (is_ptr(lexpr->type) && is_integer(rexpr->type))
         return new_binary_ptr(tok, ND_PTR_SUB, lexpr, rexpr, lexpr->type);
-    if (is_ptr(lexpr->type) && is_ptr(rexpr->type))
+    if (is_ptr(lexpr->type) && type_equal(lexpr->type, rexpr->type))
         return new_binary_ptr(tok, ND_PTR_DIFF, lexpr, rexpr, int_type());
     assert(false);
     return NULL;
@@ -141,6 +140,7 @@ NDPtr new_stmt(TKPtr tok, NodeKind kind, NDPtr expr) {
 // 为了方便，特殊处理 assign/equal
 NDPtr new_binary(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr) {
     NDPtr node = new_node(tok, kind);
+    assert(is_integer(lexpr->type) && is_integer(rexpr->type));
     node->lexpr = lexpr;
     node->rexpr = rexpr;
     node->type = int_type();
@@ -148,6 +148,7 @@ NDPtr new_binary(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr) {
 }
 
 NDPtr new_assgin(TKPtr tok, NDPtr lexpr, NDPtr rexpr) {
+    assert(!is_arr(lexpr->type));
     NDPtr node = new_node(tok, ND_ASSIGN);
     if(is_integer(lexpr->type))
         assert(is_integer(rexpr->type));
@@ -160,8 +161,9 @@ NDPtr new_assgin(TKPtr tok, NDPtr lexpr, NDPtr rexpr) {
 }
 
 NDPtr new_equal(TKPtr tok, NodeKind kind, NDPtr lexpr, NDPtr rexpr) {
-    NDPtr node = new_node(tok, kind);
+    assert(!is_arr(lexpr->type));
     assert(type_equal(lexpr->type, rexpr->type));
+    NDPtr node = new_node(tok, kind);
     node->lexpr = lexpr;
     node->rexpr = rexpr;
     node->type = int_type();
@@ -234,6 +236,16 @@ VarPtr search_varlist(char* name, std::list<VarPtr> &list) {
     return NULL;
 }   
 
+FNPtr search_fnlist(char* name, std::list<FNPtr> &list) {
+    int len = strnlen(name, 1000);
+    for(auto f = list.begin(); f != list.end(); ++f) {
+        FNPtr fn = *f;
+        if(strnlen(fn->name, 1000) == len && !strncmp(fn->name, name, len))
+            return fn;
+    }
+    return NULL;
+}   
+
 VarPtr find_local_var(char* name) {
     VarPtr var;
     if(var = search_varlist(name, lvar_stack)) {
@@ -254,14 +266,7 @@ VarPtr find_var(char* name) {
 }
 
 FNPtr find_func(char* name) {
-    int len = strnlen(name, 1000);
-    // 其实查找顺序无所谓，目前不支持局部函数
-    for(auto f = funcs.rbegin(); f != funcs.rend(); ++f) {
-        FNPtr func = *f;
-        if(strnlen(func->name, 1000) == len && !strncmp(func->name, name, len))
-            return func;
-    }
-    return NULL;
+    return search_fnlist(name, funcs);
 }
 
 NDPtr expr();
@@ -347,12 +352,14 @@ NDPtr primary() {
 // 对应同名非终结符
 NDPtr postfix() {
     NDPtr node = primary();
-    if(node && (node->type->kind == TY_ARR || node->type->kind == TY_PTR) && expect_reserved("[")) {
+    if(node && (is_arr(node->type) || node->type->kind == TY_PTR) && expect_reserved("[")) {
         TKPtr tok = node->tok;
-        NDPtr postfix = node->type->kind == TY_ARR ? new_node(tok, ND_ARR_INDEX) : new_node(tok, ND_PTR_INDEX);
+        NDPtr postfix = is_arr(node->type) ? new_node(tok, ND_ARR_INDEX) : new_node(tok, ND_PTR_INDEX);
         postfix->lexpr = node;
         while(parse_reserved("[")) {
-            postfix->arr_index.push_back(expr());
+            NDPtr index = expr();
+            assert(is_integer(index->type));
+            postfix->arr_index.push_back(index);
             parse_reserved("]");
         }
         TYPtr ty = node->type;
@@ -410,7 +417,6 @@ NDPtr multiplicative() {
     return node;
 }
 
-// 还不能指针加减，这就把好多任务推到 lab1d2 了
 // 对应同名非终结符
 NDPtr additive() {
     TKPtr tok;
@@ -472,6 +478,7 @@ NDPtr logor() {
     return node;
 }
 
+// 对应同名非终结符
 NDPtr conditional() {
     TKPtr tok;
     NDPtr node = logor();
@@ -479,9 +486,11 @@ NDPtr conditional() {
         return node;
     NDPtr tern = new_node(tok, ND_TERNARY);
     tern->cond = node;
+    assert(is_integer(tern->cond->type));
     tern->then = expr();
     assert(parse_reserved(":"));
     tern->els = conditional();
+    assert(type_equal(tern->then->type, tern->els->type));
     tern->type = tern->cond->type;
     return tern;
 }
@@ -504,7 +513,9 @@ NDPtr expr() {
 void add_local(VarPtr var, TKPtr tok) {
     VarPtr v;
     // 注意更改变量重定义的条件
-    if((v = find_local_var(var->name)) && v->scope_depth == scope_depth) {
+    // 同作用域内有同名变量或者最外层局部变量与函数参数同名
+    if((v = find_local_var(var->name)) && 
+        (v->scope_depth == scope_depth || scope_depth == 1 && v->is_arg)) {
         error_tok(tok, "variable redefined\n");
     }
     var->offset = stack_size;
@@ -520,6 +531,7 @@ TYPtr suffix(TYPtr base) {
         int len;
         assert(parse_int_literal(len));
         assert(parse_reserved("]"));
+        assert(len > 0);
         TYPtr ty = suffix(base);
         return arr_of(ty, len);
     }
@@ -540,6 +552,7 @@ NDPtr declaration(TYPtr ty) {
     add_local(var, tok);
     if (tok = parse_reserved("=")) {
         var->init = expr();
+        assert(type_equal(var->type, var->init->type));
     }
     assert(parse_reserved(";"));
     NDPtr node = new_stmt(tok, ND_DECL, NULL);
@@ -559,6 +572,7 @@ NDPtr stmt() {
     if (tok = parse_reserved("return")) {   
         node = new_stmt(tok, ND_RETURN, expr());
         assert(node->lexpr);
+        assert(type_equal(hot_func->ret_type, node->lexpr->type));
         assert(parse_reserved(";"));
         return node;
     }
@@ -567,6 +581,7 @@ NDPtr stmt() {
         assert(parse_reserved("("));
         node = new_node(tok, ND_IF);
         node->cond = expr();
+        assert(is_integer(node->cond->type));
         assert(parse_reserved(")"));
         node->then = stmt();
         if(parse_reserved("else"))
@@ -590,6 +605,7 @@ NDPtr stmt() {
         }
         if (!parse_reserved(";")) {
             node->cond = expr();
+            assert(is_integer(node->cond->type));
             assert(parse_reserved(";"));
         }
         if (!parse_reserved(")")) {
@@ -611,6 +627,7 @@ NDPtr stmt() {
         assert(parse_reserved("while"));
         assert(parse_reserved("("));
         node->cond = expr();
+        assert(is_integer(node->cond->type));
         assert(parse_reserved(")"));
         assert(parse_reserved(";"));
         return node;
@@ -620,6 +637,7 @@ NDPtr stmt() {
         NDPtr node = new_node(tok, ND_WHILEDO);
         assert(parse_reserved("("));
         node->cond = expr();
+        assert(is_integer(node->cond->type));
         assert(parse_reserved(")"));
         node->then = stmt();
         return node;
@@ -677,6 +695,9 @@ void decl_func_arg(std::list<VarPtr> &args) {
     var->is_arg = true;
     var->type = ty;
     parse_ident(var->name);
+    if(var->name) {
+        assert(search_varlist(var->name, args) == NULL);
+    }
     // assert(var->name);           //声明中参数可能没有名称
     var->offset = args.size();
     args.push_back(var);
@@ -723,8 +744,14 @@ FNPtr function(char* name, TYPtr ty, TKPtr tok) {
             assert(parse_reserved(";"));
             return NULL;
         }
-        // 仅有声明，必须有相同的参数（目前只要求数量相同）
-        assert(f->args.size() == fn->args.size());
+        // 仅有声明，必须有相同的参数和返回类型
+        assert(type_equal(fn->ret_type, f->ret_type));
+        assert(fn->args.size() == f->args.size());
+        auto arg = fn->args.begin();
+        auto arg2 = f->args.begin();
+        for(; arg != fn->args.end(); ++arg, ++arg2) {
+            assert(type_equal((*arg)->type, (*arg2)->type));
+        }
         // 可能有参数重命名，以现有函数参数为准
         f->args.clear();
         f->args = std::move(fn->args);
@@ -775,6 +802,8 @@ Program* parsing(std::list<TKPtr>* tokens) {
         char *name;
         assert(tok = parse_ident(name));
         if(is_func()) {
+            // 函数不允许与全局变量同名
+            assert(find_global_var(name) == NULL);
             FNPtr fn = function(name, ty, tok);
             // 遇到声明先不加入函数列表
             if(!fn)
@@ -787,6 +816,8 @@ Program* parsing(std::list<TKPtr>* tokens) {
             stack_size = 0;
             hot_func = NULL;
         } else {
+            // 不允许与函数同名
+            assert(find_func(name) == NULL);
             VarPtr gvar = global_var(name, ty, tok);
             global_vars.push_back(gvar);
         }

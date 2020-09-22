@@ -38,6 +38,14 @@ inline TYPtr int_type() {
 TYPtr pointer_to(TYPtr base);
 TYPtr arr_of(TYPtr base, int arr_len);
 
+inline bool is_arr(TYPtr ty) {
+    assert(ty);
+    bool rst = ty->kind == TY_ARR;
+    if(rst) 
+        assert(ty->base);
+    return rst;
+}
+
 inline bool is_integer(TYPtr ty) {
     assert(ty);
     return ty->kind == TY_INT;
