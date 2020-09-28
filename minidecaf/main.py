@@ -57,6 +57,10 @@ def AsmGen(ir, outfile):
 
 def Lexer(inputStream):
     lexer = MiniDecafLexer(inputStream)
+    class BailErrorListener:
+        def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+            raise MiniDecafError(f"lexer error at {line},{column}")
+    lexer.addErrorListener(BailErrorListener())
     if args.lex:
         dumpLexerTokens(lexer)
         exit(0)
