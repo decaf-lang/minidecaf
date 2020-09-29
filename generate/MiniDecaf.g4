@@ -17,15 +17,17 @@ blockItem
 
 decl_global
     : type Identifier ('=' Interger)?                               # globalVar
+    | type Identifier ('[' Interger ']')+                           # globalArrDef
     ;
 
 decl
     : type Identifier ('=' expr)?                                   # varDef
+    | type Identifier ('[' Interger ']')+                           # localArrDef
     ; 
     
 stmt
     : 'return' expr ';'                                             # returnStmt
-    | expr? ';'                                                      # singleExpr
+    | expr? ';'                                                     # singleExpr
     | 'if' '(' expr ')' stmt ('else' stmt)?                         # ifStmt
     | '{' blockItem* '}'                                            # block
     | 'while' '(' expr ')' stmt                                     # whileLoop
@@ -36,7 +38,7 @@ stmt
     ;
 
 expr
-    : factor '=' expr                                               # assign
+    : unary '=' expr                                                # assign
     | cond                                                          # cond_nop
     ;
 
@@ -72,15 +74,24 @@ add
 
 mul
     : mul ('*' | '/' | '%') mul                                     # mulDiv
-    | factor                                                        # factor_nop
+    | unary                                                         # factor_nop
     ;
 
-factor
-    : ('!' | '~' | '-' | '*' | '&') factor                          # unaryOp
-    | '(' type ')' factor                                           # cast
-    | Identifier '(' (expr ',')* (expr)? ')'                        # funcCall
-    | '(' expr ')'                                                  # atomParen
-    | Identifier                                                    # Identifier
+unary
+    : ('!' | '~' | '-' | '*' | '&') unary                           # unaryOp
+    | '(' type ')' unary                                            # cast
+    | postfix                                                       # postfix_nop
+    ;
+
+postfix
+    : Identifier '(' (expr ',')* (expr)? ')'                        # funcCall
+    | postfix '[' expr ']'                                          # arrayIndex
+    | primary                                                       # primary_nop
+    ;
+
+primary
+    : '(' expr ')'                                                  # atomParen
+    | Identifier                                                    # identifier
     | Interger                                                      # integer
     ;
 

@@ -24,6 +24,8 @@ public:
     // variable level
     antlrcpp::Any visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx);
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
+    antlrcpp::Any visitGlobalArrDef(MiniDecafParser::GlobalArrDefContext *ctx);
+    antlrcpp::Any visitLocalArrDef(MiniDecafParser::LocalArrDefContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
 
     // concrete expr level
@@ -32,13 +34,14 @@ public:
     // antlrcpp::Any visitLand(MiniDecafParser::LandContext *ctx);
     antlrcpp::Any visitEqual(MiniDecafParser::EqualContext *ctx);
     // antlrcpp::Any visitLessGreat(MiniDecafParser::LessGreatContext *ctx);
-    // antlrcpp::Any visitAddSub(MiniDecafParser::AddSubContext *ctx);
+    antlrcpp::Any visitAddSub(MiniDecafParser::AddSubContext *ctx);
     // antlrcpp::Any visitMulDiv(MiniDecafParser::MulDivContext *ctx);
 
-    // factor level
+    // unary level
     antlrcpp::Any visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx);
     antlrcpp::Any visitCast(MiniDecafParser::CastContext *ctx);
     antlrcpp::Any visitFuncCall(MiniDecafParser::FuncCallContext *ctx);
+    antlrcpp::Any visitArrayIndex(MiniDecafParser::ArrayIndexContext *ctx);
     antlrcpp::Any visitAtomParen(MiniDecafParser::AtomParenContext *ctx);
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
     antlrcpp::Any visitInteger(MiniDecafParser::IntegerContext *ctx);

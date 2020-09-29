@@ -4,7 +4,7 @@
 // @brief: Start visiting the syntax tree from root node Prog
 // @ret: Generated asm code
 antlrcpp::Any CodeGenVisitor::visitProg(MiniDecafParser::ProgContext *ctx) {
-    labelOrder = 0;
+    labelOrder = 0; 
     code_ << ".section .text\n"
         << ".globl main\n";
     data_ << ".section .data\n";
@@ -30,9 +30,11 @@ antlrcpp::Any CodeGenVisitor::visitFunc(MiniDecafParser::FuncContext *ctx) {
             << "\taddi sp, fp, ";
 
         int capacity = 0;
-        for (auto& var : Singleton::getInstance().symbolTable) {
-            if (var.first.substr(0, curFunc.length()) == curFunc) {
-                capacity += Singleton::getInstance().symbolTable[var.first].size();
+        for (auto& func : Singleton::getInstance().symbolTable) {
+            if (func.first.substr(0, curFunc.length()) == curFunc) {
+                for (auto& var : func.second) {
+                    capacity += var.second.get()->getVolume();
+                }
             }
         }
         code_ << -4 * capacity << "\n";
@@ -76,11 +78,13 @@ antlrcpp::Any CodeGenVisitor::visitFuncCall(MiniDecafParser::FuncCallContext *ct
     } else {
         for (int i = ctx->expr().size()-1; i >= 0; --i) {
             retType type = visit(ctx->expr(i));
+            code_ << popReg("t0");
             if (type == retType::LEFT) {
-                code_ << popReg("a0")
-                      << "\tlw a0, (a0)\n";
+                code_ << "\tlw t0, (t0)\n"
+                      << pushReg("t0");
             }
-            code_ << "\tmv a" << i << ", a0\n";
+            code_ << "\tmv a" << i << ", t0\n"
+                  << pushReg("t0");
         }
     }
     code_ << "\tcall " << ctx->Identifier()->getText() << "\n"
@@ -108,6 +112,7 @@ antlrcpp::Any CodeGenVisitor::visitBlock(MiniDecafParser::BlockContext *ctx) {
 
 // @brief: Visit ReturnStmt node, son of Stmt node
 antlrcpp::Any CodeGenVisitor::visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx) {
+    code_ << "\t#return\n";
     retType type = visit(ctx->expr());
     code_ << popReg("a0");
     if (type == retType::LEFT) {
@@ -126,19 +131,19 @@ antlrcpp::Any CodeGenVisitor::visitReturnStmt(MiniDecafParser::ReturnStmtContext
 antlrcpp::Any CodeGenVisitor::visitInteger(MiniDecafParser::IntegerContext *ctx) {
     code_ << "\tli a0, " << ctx->getText() << "\n"
           << pushReg("a0");
-    return retType::RIGHT;
+    return retType::RIGHT; 
 }
 
 // @brief: Visit unaryOp node, like '-1', '~12', '!89' and etc. 
 // @ret: Expr type: Int
 antlrcpp::Any CodeGenVisitor::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
-    retType factorType = visit(ctx->factor());
+    retType unaryType = visit(ctx->unary());
     code_ << popReg("t0");
     if (ctx->AND()) {
         code_ << pushReg("t0");
         return retType::RIGHT;
     }
-    if (factorType == retType::LEFT) {
+    if (unaryType == retType::LEFT) {
         code_ << "\tlw t0, (t0)\n";
     }
     /* 
@@ -180,6 +185,10 @@ antlrcpp::Any CodeGenVisitor::visitAtomParen(MiniDecafParser::AtomParenContext *
 antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
     // Get the type of left & right expressions
     retType lExpr = visit(ctx->add(0)), rExpr = visit(ctx->add(1));
+    std::shared_ptr<Type> lType = Singleton::getInstance().typeQueue.front();
+    Singleton::getInstance().typeQueue.pop();
+    std::shared_ptr<Type> rType = Singleton::getInstance().typeQueue.front();
+    Singleton::getInstance().typeQueue.pop();
     /*
         The use of token ptr is the same as FUNC<visitUnaryOp>.
         In this step, stack machine first pops the 2 operators at the top of stack,
@@ -192,13 +201,21 @@ antlrcpp::Any CodeGenVisitor::visitAddSub(MiniDecafParser::AddSubContext *ctx) {
     if (rExpr == retType::LEFT) {
         code_ << "\tlw t1, (t1)\n";
     }
+    if (lType.get()->getType() == "Intptr" && rType.get()->getType() == "Int") {
+        code_ << "\tslli t1, t1, 2\n";
+    } else if (rType.get()->getType() == "Intptr" && lType.get()->getType() == "Int") {
+        code_ << "\tslli t0, t0, 2\n";
+    }
     if (ctx->Addition()) {
         code_ << "\tadd a0, t0, t1\n"
               << pushReg("a0");
         return retType::RIGHT;
     } else if (ctx->Minus()) {
-        code_ << "\tsub a0, t0, t1\n"
-              << pushReg("a0");
+        code_ << "\tsub a0, t0, t1\n";
+        if (lType.get()->getType() == "Intptr" && rType.get()->getType() == "Intptr") {
+            code_ << "\tsrli a0, a0, 2\n";
+        }
+        code_ << pushReg("a0");
         return retType::RIGHT;
     }
     return retType::UNDEF;
@@ -331,6 +348,20 @@ antlrcpp::Any CodeGenVisitor::visitLor(MiniDecafParser::LorContext *ctx) {
     return retType::RIGHT;
 }
 
+//@brief: visit GlobalArrDef node, global array is stored in .bss segment
+antlrcpp::Any CodeGenVisitor::visitGlobalArrDef(MiniDecafParser::GlobalArrDefContext *ctx) {
+    std::string varName = ctx->Identifier()->getText();
+    std::shared_ptr<Symbol> arr = Singleton::getInstance().symbolTable["global"][varName];
+    bss_ << ".global " << varName << "\n"
+         << varName << ":\n"
+         << "\t.space " << 4 * arr.get()->getVolume() << "\n";
+    return retType::UNDEF;
+}
+
+antlrcpp::Any CodeGenVisitor::visitLocalArrDef(MiniDecafParser::LocalArrDefContext *ctx) {
+    return retType::UNDEF;
+}
+
 //@brief: visit GlobalVar node
 antlrcpp::Any CodeGenVisitor::visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx) {
     /*
@@ -365,6 +396,36 @@ antlrcpp::Any CodeGenVisitor::visitVarDef(MiniDecafParser::VarDefContext *ctx) {
     return retType::UNDEF;
 }
 
+//@brief: visit ArrayIndex node, the returned subscripted array is left value
+antlrcpp::Any CodeGenVisitor::visitArrayIndex(MiniDecafParser::ArrayIndexContext *ctx) {
+    retType lType = visit(ctx->postfix());
+    retType indexType = visit(ctx->expr());
+    std::shared_ptr<Type> postType = Singleton::getInstance().typeQueue.front();
+    std::shared_ptr<Type> baseType = postType.get()->getBaseType();
+    Singleton::getInstance().typeQueue.pop();
+    code_ << popReg("t1");
+    code_ << popReg("t0");
+    if (indexType == retType::LEFT) {
+        code_ << "\tlw t1, (t1)\n";
+    }
+    if (lType == retType::LEFT) {
+        code_ << "\tlw t0, (t0)\n";
+    }
+    if (postType.get()->getType() == "Array") {
+        code_ << "\tli t2, " + std::to_string(baseType.get()->getSize()) << "\n"
+              << "\tmul t1, t1, t2\n"
+              << "\tadd t0, t0, t1\n";
+    } else if (postType.get()->getType() == "Intptr") {
+        code_ << "\tslli t1, t1, 2\n"
+              << "\tadd t0, t0, t1\n";
+    }
+    code_ << pushReg("t0");
+    if (postType.get()->getBaseType()->getType() == "Array") {
+        return retType::RIGHT;
+    }
+    return retType::LEFT;
+}
+
 //@brief: visit Identifier node, we read the value of variable from stack 
 //@ret: Variable type
 antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext *ctx) {
@@ -381,6 +442,9 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
         // Load the value from stack
         code_ << "\taddi a0, fp, " << -4 - 4 * Singleton::getInstance().symbolTable[tmpFunc][varName].get()->getOffset() << "\n"
               << pushReg("a0");
+        if (Singleton::getInstance().symbolTable[tmpFunc][varName].get()->getType()->getType() == "Array") {
+            return retType::RIGHT;
+        }
         return retType::LEFT;
     }
     // Finally, we retrieve target varible from global scope
@@ -389,6 +453,9 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
         code_ << "\tla a0, " << varName << "\n"
               << pushReg("a0");
     }
+    if (Singleton::getInstance().symbolTable["global"][varName].get()->getType()->getType() == "Array") {
+        return retType::RIGHT;
+    }
     return retType::LEFT;
 }
 
@@ -396,7 +463,8 @@ antlrcpp::Any CodeGenVisitor::visitIdentifier(MiniDecafParser::IdentifierContext
 // then store 3 into specified memory.
 //@ret: Variable type
 antlrcpp::Any CodeGenVisitor::visitAssign(MiniDecafParser::AssignContext *ctx) {
-    retType lType = visit(ctx->factor());
+    code_ << "\t#assign\n";
+    retType lType = visit(ctx->unary());
     retType rType = visit(ctx->expr());
     code_ << popReg("t1");
     if (rType == retType::LEFT) {
@@ -498,6 +566,7 @@ antlrcpp::Any CodeGenVisitor::visitForLoop(MiniDecafParser::ForLoopContext *ctx)
     code_ << "label_" << continueBranch << ":\n";
     if (ctx->expr(exprBase+2)) {
         visit(ctx->expr(exprBase+2));
+        code_ << popReg("t0");
     }
     code_ << "\tj label_" << startBranch << "\n"
                 << "label_" << endBranch << ":\n";
@@ -586,18 +655,18 @@ antlrcpp::Any CodeGenVisitor::visitSingleExpr(MiniDecafParser::SingleExprContext
 
 //@brief: Deal with cast operation
 antlrcpp::Any CodeGenVisitor::visitCast(MiniDecafParser::CastContext *ctx) {
-    retType type = visit(ctx->factor());
+    retType type = visit(ctx->unary());
     return type;
 }
 
 std::string CodeGenVisitor::pushReg(std::string reg) {
-    return "\taddi sp, sp, -4\n\tsw " + reg + ", (sp)\n";
+    return "\t#push\n\taddi sp, sp, -4\n\tsw " + reg + ", (sp)\n";
 }
 
 std::string CodeGenVisitor::popReg(std::string reg) {
-    return "\tlw " + reg + ", (sp)\n\taddi sp, sp, 4\n";
+    return "\t#pop\n\tlw " + reg + ", (sp)\n\taddi sp, sp, 4\n";
 }
 
 std::string CodeGenVisitor::popReg(std::string reg0, std::string reg1) {
-    return "\tlw " + reg0 + ", 4(sp)\n\tlw " + reg1 + ", (sp)\n\taddi sp, sp, 8\n";
+    return "\t#pop2\n\tlw " + reg0 + ", 4(sp)\n\tlw " + reg1 + ", (sp)\n\taddi sp, sp, 8\n";
 }

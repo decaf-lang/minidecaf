@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <tuple>
 #include <iostream>
+#include <queue>
 
 template<typename T>
 using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
@@ -20,6 +21,8 @@ public:
     virtual std::shared_ptr<Type> typeCast(int _valueType) = 0;
     // Distinguish different pointer type by counting thier number of "*"
     virtual int getStarNum() { return starNum; }
+    virtual int getSize() { return size; }
+    virtual std::shared_ptr<Type> getBaseType() { return baseType; }
     void setValueType(int _valueType) { valueType = _valueType; }
     int getValueType() { return valueType; }
     // When we define or assign to a varible, we need to check the src & dst type
@@ -39,7 +42,9 @@ public:
 protected:
     int valueType;
     int starNum;
+    int size;
     std::string typeLiteral;
+    std::shared_ptr<Type> baseType;
 };
 
 /*
@@ -48,10 +53,10 @@ protected:
 class IntType : public Type {
 public:
     IntType() {
-        valueType = 0; typeLiteral = "Int"; starNum = 0;
+        valueType = 0; typeLiteral = "Int"; starNum = 0; size = 4;
     }
     IntType(int _valueType) {
-        valueType = _valueType; typeLiteral = "Int", starNum = 0;
+        valueType = _valueType; typeLiteral = "Int", starNum = 0; size = 4;
     }
     std::shared_ptr<Type> typeCast(int _valueType) {
         std::shared_ptr<Type> type = std::make_shared<IntType>(_valueType);
@@ -66,14 +71,23 @@ public:
 class IntptrType : public Type {
 public:
     IntptrType(int _starNum) {
-        starNum = _starNum; typeLiteral = "Intptr"; valueType = 0;
+        starNum = _starNum; typeLiteral = "Intptr"; valueType = 0; size = 4;
     }
     IntptrType(int _starNum, int _valueType) {
-        starNum = _starNum; typeLiteral = "Intptr"; valueType = _valueType;
+        starNum = _starNum; typeLiteral = "Intptr"; valueType = _valueType; size = 4;
     }
     std::shared_ptr<Type> typeCast(int _valueType) {
         std::shared_ptr<Type> type = std::make_shared<IntptrType>(starNum, _valueType);
         return type;
+    }
+    std::shared_ptr<Type> getBaseType() {
+        std::shared_ptr<Type> returnType;
+        if (starNum == 1) {
+            returnType = std::make_shared<IntType>(1);
+        } else if (starNum > 1) {
+            returnType = std::make_shared<IntptrType>(starNum-1, 1);
+        }
+        return returnType;
     }
     std::string getType() { return typeLiteral; }
 };
@@ -93,25 +107,39 @@ public:
     std::string getType() { return typeLiteral; }
 };
 
+class ArrayType : public Type {
+public:
+    ArrayType(std::shared_ptr<Type> _baseType, int _arrLength) {
+        baseType = _baseType; size = baseType.get()->getSize() * _arrLength; 
+        typeLiteral = "Array"; valueType = 0;
+    }
+    std::string getType() { return typeLiteral; }
+    std::shared_ptr<Type> typeCast(int _valueType=0) {
+        std::shared_ptr<Type> type = std::make_shared<ArrayType>(baseType, size);
+        return type;
+    }
+};
+
 /*
     A symbol in the symbol table.
     Symbol stores a variable's name, offset in stack (if local), defined in which line and typeinfo.
 */
 class Symbol {
 public:
-    Symbol(std::string _literal, int _offset, std::shared_ptr<Type> _type, int _line=-1) {
-        literal = _literal; offset = _offset; type = _type; line = _line; 
+    Symbol(std::string _literal, int _offset, std::shared_ptr<Type> _type, int _line=-1, int _volume=1) {
+        literal = _literal; offset = _offset; type = _type; line = _line; volume = _volume;
     }
     std::string getLiteral() { return literal; }
     int getOffset() { return offset; }
     std::shared_ptr<Type> getType() { return type; }
     int getLineNum() { return line; }
+    int getVolume() { return volume; }
 
     void setLineNum(int _line) { line = _line; }
 
 protected:
     std::string literal;
-    int offset, line;
+    int offset, line, volume;
     std::shared_ptr<Type> type;
 };
 
@@ -156,6 +184,7 @@ class Singleton {
 public:
     symTab<std::shared_ptr<Symbol> > symbolTable;
     std::unordered_map<std::string, std::shared_ptr<FuncSymbol> > funcTable;
+    std::queue<std::shared_ptr<Type> > typeQueue;
     static Singleton& getInstance() {
         static Singleton pInstance;
         return pInstance;

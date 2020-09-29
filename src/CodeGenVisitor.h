@@ -25,8 +25,11 @@ public:
 
     antlrcpp::Any visitInteger(MiniDecafParser::IntegerContext *ctx);
     antlrcpp::Any visitIdentifier(MiniDecafParser::IdentifierContext *ctx);
+    antlrcpp::Any visitArrayIndex(MiniDecafParser::ArrayIndexContext *ctx);
     antlrcpp::Any visitVarDef(MiniDecafParser::VarDefContext *ctx);
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
+    antlrcpp::Any visitGlobalArrDef(MiniDecafParser::GlobalArrDefContext *ctx);
+    antlrcpp::Any visitLocalArrDef(MiniDecafParser::LocalArrDefContext *ctx);
     antlrcpp::Any visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx);
     antlrcpp::Any visitCast(MiniDecafParser::CastContext *ctx);
 
@@ -54,8 +57,8 @@ private:
         Deal with nested break & continue statements
     */
     std::vector<int> breakTarget, continueTarget;
-
     std::string curFunc;
+
     bool retState;
     int labelOrder;
     int blockDep, blockOrder;
@@ -69,5 +72,5 @@ private:
         the variable as left value (That means we are interested in the value of varible
         rather than the address), we should load the varible from memory. 
     */
-    enum retType {LEFT, RIGHT, UNDEF};
+    enum retType {LEFT, RIGHT, PTR, ARR, UNDEF};
 };
