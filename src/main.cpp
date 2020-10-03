@@ -20,8 +20,14 @@ int main(int argc, const char* argv[]) {
     // lexer & parser part of antlr4
     ANTLRInputStream input(sourceFile);
     MiniDecafLexer lexer(&input);
+    lexer.addErrorListener(new BaseErrorListener());
+
     CommonTokenStream tokens(&lexer);
     MiniDecafParser parser(&tokens);
+    
+    
+    shared_ptr<antlr4::ANTLRErrorStrategy> handler = make_shared<BailErrorStrategy>();
+    parser.setErrorHandler(handler);
     MiniDecafParser::ProgContext* treeNode = parser.prog();
 
     // customized pass: allocator, typer, codegen and etc.

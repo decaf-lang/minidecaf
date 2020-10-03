@@ -6,10 +6,15 @@ antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
     // Update the function scope
     curFunc = ctx->Identifier(0)->getText();
     blockDep = 0; blockOrder = 0; offset = 0;
+    if (Singleton::getInstance().symbolTable["global"].count(curFunc) > 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Conflits of function " << curFunc << "with variable defined in line " + std::to_string(Singleton::getInstance().symbolTable["global"][curFunc].get()->getLineNum()) + "\n";
+        exit(1);
+    }
     // Detect redefinition error
     if (!ctx->Semicolon()) {
-        if (Singleton::getInstance().Singleton::getInstance().funcTable.count(curFunc) > 0) {
-            if (Singleton::getInstance().Singleton::getInstance().funcTable[curFunc].get()->initialized()) {
+        if (Singleton::getInstance().funcTable.count(curFunc) > 0) {
+            if (Singleton::getInstance().funcTable[curFunc].get()->initialized()) {
                 std::cerr << "line " << ctx->start->getLine() << ": ";
                 std::cerr << "[ERROR] Redefinition of function " << curFunc << "\n";
                 exit(1);
@@ -20,10 +25,15 @@ antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
                     definition (for detailed information, please read our tutorial),
                     so in function symbol table, we mark the existence of current function, 
                 */
-                Singleton::getInstance().Singleton::getInstance().funcTable[curFunc].get()->initialize();
+                Singleton::getInstance().funcTable[curFunc].get()->initialize();
                 // Initialize the parameter list & the return value 
                 for (auto i = 1; i < ctx->Identifier().size(); ++i) {
                     std::string varName = ctx->Identifier(i)->getText();
+                    if (Singleton::getInstance().symbolTable[curFunc].count(varName) > 0) {
+                        std::cerr << "line " << ctx->start->getLine() << ": ";
+                        std::cerr << "[ERROR] Function " << curFunc << "parameter " << varName << " redefined\n";
+                        exit(1);
+                    }
                     Singleton::getInstance().symbolTable[curFunc][varName] = std::make_shared<Symbol>(varName, offset++, Singleton::getInstance().funcTable[curFunc].get()->getArgType(i-1));
                 }
                 for (auto item : ctx->blockItem()) {
@@ -35,6 +45,11 @@ antlrcpp::Any Allocator::visitFunc(MiniDecafParser::FuncContext *ctx) {
             // Initialize the parameter list & the return value 
             for (auto i = 1; i < ctx->Identifier().size(); ++i) {
                 std::string varName = ctx->Identifier(i)->getText();
+                if (Singleton::getInstance().symbolTable[curFunc].count(varName) > 0) {
+                    std::cerr << "line " << ctx->start->getLine() << ": ";
+                    std::cerr << "[ERROR] Function " << curFunc << "parameter " << varName << " redefined\n";
+                    exit(1);
+                }
                 argType.push_back(visit(ctx->type(i)));
                 Singleton::getInstance().symbolTable[curFunc][varName] = std::make_shared<Symbol>(varName, offset++, argType[i-1]);
             }
@@ -97,6 +112,11 @@ antlrcpp::Any Allocator::visitBlock(MiniDecafParser::BlockContext *ctx) {
 
 antlrcpp::Any Allocator::visitGlobalArrDef(MiniDecafParser::GlobalArrDefContext *ctx) {
     std::string varName = ctx->Identifier()->getText();
+    if (Singleton::getInstance().funcTable.count(varName) > 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Conflits of array " << varName << "with function\n"; 
+        exit(1);
+    }
     if (Singleton::getInstance().symbolTable["global"].count(varName) > 0) {
         std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Redefinition of global variable " << varName << "\n";
@@ -151,6 +171,11 @@ antlrcpp::Any Allocator::visitLocalArrDef(MiniDecafParser::LocalArrDefContext *c
 antlrcpp::Any Allocator::visitGlobalVar(MiniDecafParser::GlobalVarContext *ctx) {
     // Global varibles are stored in global scope, the outermost scope 
     std::string varName = ctx->Identifier()->getText();
+    if (Singleton::getInstance().funcTable.count(varName) > 0) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Conflits of variable " << varName << "with function\n"; 
+        exit(1);
+    }
     if (Singleton::getInstance().symbolTable["global"].count(varName) > 0) {
         std::cerr << "line " << ctx->start->getLine() << ": ";
         std::cerr << "[ERROR] Redefinition of global variable " << varName << "\n";
@@ -312,6 +337,12 @@ antlrcpp::Any Allocator::visitUnaryOp(MiniDecafParser::UnaryOpContext *ctx) {
         } else {
             type = std::make_shared<IntptrType>(starNum+1);
         }
+    } else {
+        if (!(src.get()->getType() == "Int")) {
+            std::cerr << "line " << ctx->start->getLine() << ": ";
+            std::cerr << "[ERROR] Bad type in basic unary operation\n";
+            exit(1);
+        }
     }
     return type;
 }
@@ -353,6 +384,11 @@ antlrcpp::Any Allocator::visitFuncCall(MiniDecafParser::FuncCallContext *ctx) {
         std::cerr << "[ERROR] Use of undeclared function " << funcName << "\n";
         exit(1);
     }
+    if (ctx->expr().size() != Singleton::getInstance().funcTable[funcName].get()->getArgSize()) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Incompatible parameter number for function " << funcName << "\n";
+        exit(1);
+    }
     for (int i = ctx->expr().size()-1; i >= 0; --i) {
         if (!Singleton::getInstance().funcTable[funcName].get()->getArgType(i).get()->typeCheck(visit(ctx->expr(i)))) {
             std::cerr << "line " << ctx->start->getLine() << ": ";
@@ -390,6 +426,14 @@ antlrcpp::Any Allocator::visitIdentifier(MiniDecafParser::IdentifierContext *ctx
 }
 
 antlrcpp::Any Allocator::visitInteger(MiniDecafParser::IntegerContext *ctx) {
+    std::string strLiteral = ctx->Interger()->getText();
+    long long numLiteral = std::stoll(strLiteral);
+    // Solve the badint error
+    if (numLiteral > INT32_MAX) {
+        std::cerr << "line " << ctx->start->getLine() << ": "
+                  << "[ERROR] Constant out of INT range.\n";
+        exit(1);
+    }
     std::shared_ptr<Type> type = std::make_shared<IntType>(); 
     return type;
 }
@@ -408,4 +452,54 @@ antlrcpp::Any Allocator::visitIntType(MiniDecafParser::IntTypeContext *ctx) {
         type = std::make_shared<NoneType>();
     }
     return type;
+}
+
+antlrcpp::Any Allocator::visitCondExpr(MiniDecafParser::CondExprContext *ctx) {
+    std::shared_ptr<Type> pairType = std::make_shared<IntType>();
+    std::shared_ptr<Type> lorType = visit(ctx->lor_op()), exprType = visit(ctx->expr()), 
+    condType = visit(ctx->cond());
+    if(!pairType.get()->typeCheck(visit(ctx->lor_op()))) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Bad conditional type\n";
+        exit(1);
+    }
+    if(!exprType.get()->typeCheck(condType)) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Incompatible conditional branches\n";
+        exit(1);
+    }
+    return lorType;
+}
+
+antlrcpp::Any Allocator::visitLessGreat(MiniDecafParser::LessGreatContext *ctx) {
+    std::shared_ptr<Type> lType = visit(ctx->rel(0)), rType = visit(ctx->rel(1));
+    if (!(lType.get()->getType() == "Int") || !(rType.get()->getType() == "Int")) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Bad great or less type\n";
+        exit(1);
+    }
+    std::shared_ptr<Type> retType = std::make_shared<IntType>();
+    return retType;
+}
+
+antlrcpp::Any Allocator::visitLor(MiniDecafParser::LorContext *ctx) {
+    std::shared_ptr<Type> lType = visit(ctx->lor_op(0)), rType = visit(ctx->lor_op(1));
+    if (!(lType.get()->getType() == "Int") || !(rType.get()->getType() == "Int")) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Bad great or less type\n";
+        exit(1);
+    }
+    std::shared_ptr<Type> retType = std::make_shared<IntType>();
+    return retType;
+}
+
+antlrcpp::Any Allocator::visitLand(MiniDecafParser::LandContext *ctx) {
+    std::shared_ptr<Type> lType = visit(ctx->land_op(0)), rType = visit(ctx->land_op(1));
+    if (!(lType.get()->getType() == "Int") || !(rType.get()->getType() == "Int")) {
+        std::cerr << "line " << ctx->start->getLine() << ": ";
+        std::cerr << "[ERROR] Bad great or less type\n";
+        exit(1);
+    }
+    std::shared_ptr<Type> retType = std::make_shared<IntType>();
+    return retType;
 }

@@ -71,5 +71,6 @@ a.out
 pk
 run.sh
 testcases
+failcases
 out
 minidecaf-tests

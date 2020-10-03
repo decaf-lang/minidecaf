@@ -29,11 +29,11 @@ public:
     antlrcpp::Any visitAssign(MiniDecafParser::AssignContext *ctx);
 
     // concrete expr level
-    // antlrcpp::Any visitCondExpr(MiniDecafParser::CondExprContext *ctx);
-    // antlrcpp::Any visitLor(MiniDecafParser::LorContext *ctx);
-    // antlrcpp::Any visitLand(MiniDecafParser::LandContext *ctx);
+    antlrcpp::Any visitCondExpr(MiniDecafParser::CondExprContext *ctx);
+    antlrcpp::Any visitLor(MiniDecafParser::LorContext *ctx);
+    antlrcpp::Any visitLand(MiniDecafParser::LandContext *ctx);
     antlrcpp::Any visitEqual(MiniDecafParser::EqualContext *ctx);
-    // antlrcpp::Any visitLessGreat(MiniDecafParser::LessGreatContext *ctx);
+    antlrcpp::Any visitLessGreat(MiniDecafParser::LessGreatContext *ctx);
     antlrcpp::Any visitAddSub(MiniDecafParser::AddSubContext *ctx);
     // antlrcpp::Any visitMulDiv(MiniDecafParser::MulDivContext *ctx);
 
@@ -48,6 +48,7 @@ public:
 
     // type level
     antlrcpp::Any visitIntType(MiniDecafParser::IntTypeContext *ctx);
+    // antlrcpp::Any visitReturnStmt(MiniDecafParser::ReturnStmtContext *ctx);
 
 private:
 

@@ -6,6 +6,7 @@
 #include <tuple>
 #include <iostream>
 #include <queue>
+#include <climits>
 
 template<typename T>
 using symTab = std::unordered_map<std::string, std::unordered_map<std::string, T> >;
@@ -156,6 +157,7 @@ public:
     std::string getLiteral() { return literal; }
     std::shared_ptr<Type> getRetType() { return retType; }
     std::shared_ptr<Type> getArgType(int i) { return argType[i]; }
+    int getArgSize() { return argType.size(); }
     bool initialized() { return init; }
     void initialize() { init = true; }
 
