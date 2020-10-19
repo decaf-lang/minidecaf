@@ -154,9 +154,10 @@ class StackIRGen(MiniDecafVisitor):
         self._E([Binary(text(op))])
 
     def _addExpr(self, ctx, op, lhs, rhs):
-        if isinstance(self.ti[lhs], PtrType):
+        # Do not use isinstance due to ZeroType's.
+        if type(self.ti[lhs]) is PtrType:
             sz = self.ti[lhs].sizeof()
-            if isinstance(self.ti[rhs], PtrType): # ptr - ptr
+            if type(self.ti[rhs]) is PtrType: # ptr - ptr
                 lhs.accept(self)
                 rhs.accept(self)
                 self._E([Binary(op)])
@@ -168,7 +169,7 @@ class StackIRGen(MiniDecafVisitor):
                 self._E([Binary(op)])
         else:
             sz = self.ti[rhs].sizeof()
-            if isinstance(self.ti[rhs], PtrType): # int +- ptr
+            if type(self.ti[rhs]) is PtrType: # int +- ptr
                 lhs.accept(self)
                 self._E([Const(sz), Binary('*')])
                 rhs.accept(self)
